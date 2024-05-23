@@ -60,7 +60,7 @@ def _run_simulation(args: argparse.Namespace) -> None:
 
     """
     import demes
-    from gita.simulate import lr_simulate
+    from gaia.simulate import lr_simulate
 
     demog = demes.load(args.demes)
     pops = [ d.name for d in demog.demes ]
@@ -127,7 +127,7 @@ def _run_preprocess(args: argparse.Namespace) -> None:
     None.
 
     """
-    from gita.preprocess import lr_preprocess
+    from gaia.preprocess import lr_preprocess
     lr_preprocess(
         vcf_file=args.vcf,
         chr_name=args.chr_name,
@@ -166,7 +166,7 @@ def _run_training(args: argparse.Namespace) -> None:
     None.
 
     """
-    from gita.train import lr_train
+    from gaia.train import lr_train
     lr_train(
         training_data=args.training_data,
         model_file=args.model_file,
@@ -197,7 +197,7 @@ def _run_inference(args: argparse.Namespace) -> None:
     None.
 
     """
-    from gita.infer import lr_infer
+    from gaia.infer import lr_infer
     lr_infer(
         inference_data=args.inference_data, 
         model_file=args.model_file,
@@ -237,7 +237,7 @@ def add_lr_parsers(subparsers: argparse.ArgumentParser) -> None:
     parser.add_argument('--phased', action='store_true', help="enable to use phased genotypes; default: False")
     parser.add_argument('--mut-rate', type=positive_number, default=1e-8, help="mutation rate per base pair per generation for the simulation; default: 1e-8", dest='mut_rate')
     parser.add_argument('--rec-rate', type=positive_number, default=1e-8, help="recombination rate per base pair per generation for the simulation; default: 1e-8", dest='rec_rate')
-    parser.add_argument('--replicate', type=positive_int, default=1, help="number of replications for the simulation; default: 1")
+    parser.add_argument('--replicate', type=positive_int, default=1, help="number of replications per batch for the simulation, which will continue until the number of feature vectors specified by the --nfeature argument is obtained; default: 1")
     parser.add_argument('--output-prefix', type=str, required=True, help="prefix of the output file name", dest='output_prefix')
     parser.add_argument('--output-dir', type=str, required=True, help="directory of the output files", dest='output_dir')
     parser.add_argument('--feature-config', type=existed_file, required=True, help='name of the YAML file specifying what features should be used', dest='feature_config')
