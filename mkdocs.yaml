@@ -4,10 +4,10 @@ repo_url: "https://github.com/xin-huang/gaia"
 edit_uri: ""
 docs_dir: 'docs'
 theme:
-        name: "material"
-        palette:
-                primary: lime
-                accent: lime
+  name: material
+  palette:
+    primary: teal
+    accent: indigo
 plugins:
   - search
   - mkdocstrings:
@@ -28,3 +28,7 @@ extra_javascript:
   - 'https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML'
 nav:
 - Home: 'index.md'
+- User Guide:
+  - Logistic Regression: 'userguide/lr.md'
+  - U-Net: 'userguide/unet.md'
+  - Performance: 'userguide/eval.md'

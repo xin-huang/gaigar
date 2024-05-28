@@ -1,0 +1,16 @@
+Features:
+    Ref distances:
+        Minimum: true
+    Tgt distances:
+        All: true
+        Mean: true
+        Variance: true
+        Skew: true
+        Kurtosis: true
+    Spectrum: true
+    Private variant number: true
+    Sstar:
+        Genotype distance: 'ArchIE'
+        Match bonus: 5000
+        Max mismatch: 5
+        Mismatch penalty: -10000

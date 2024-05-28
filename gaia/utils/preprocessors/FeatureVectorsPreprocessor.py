@@ -113,15 +113,15 @@ class FeatureVectorsPreprocessor(DataPreprocessor):
         items['chr_name'] = chr_name
         items['start'] = start
         items['end'] = end
-        if self.features.get('Total SNP num', False):
-            items['Total_SNP_num'] = cal_mut_num(ref_gts, tgt_gts, mut_type='total')
+        if self.features.get('Total variant number', False):
+            items['Total_var_num'] = cal_mut_num(ref_gts, tgt_gts, mut_type='total')
 
-        if self.features.get('Private SNP num', False):
-            items['Private_SNP_num'] = cal_mut_num(sub_ref_gts, sub_tgt_gts, mut_type='private')
+        if self.features.get('Private variant number', False):
+            items['Private_var_num'] = cal_mut_num(sub_ref_gts, sub_tgt_gts, mut_type='private')
 
-        if self.features.get('Spectra', False):
+        if self.features.get('Spectrum', False):
             spectra = cal_n_ton(tgt_gts, is_phased=is_phased, ploidy=ploidy)
-            items['Spectra'] = spectra
+            items['Spectrum'] = spectra
 
         if ('Ref distances' in self.features) and (self.features['Ref distances']):
             ref_dists = cal_dist(ref_gts, tgt_gts)
@@ -226,13 +226,13 @@ class FeatureVectorsPreprocessor(DataPreprocessor):
 
             if ('Sstar' in features) and (features['Sstar']): 
                 sample_dict['Sstar'] = res['Sstar'][i]
-            if features.get('Total SNP num', False): 
-                sample_dict['Total_SNP_num'] = res['Total_SNP_num'][i]
-            if features.get('Private SNP num', False): 
-                sample_dict['Private_SNP_num'] = res['Private_SNP_num'][i]
-            if features.get('Spectra', False):
+            if features.get('Total variant number', False): 
+                sample_dict['Total_var_num'] = res['Total_var_num'][i]
+            if features.get('Private variant number', False): 
+                sample_dict['Private_var_num'] = res['Private_var_num'][i]
+            if features.get('Spectrum', False):
                 for j in range(num_samples+1):
-                    sample_dict[f'{j}_ton'] = res['Spectra'][i][j]
+                    sample_dict[f'{j}_ton'] = res['Spectrum'][i][j]
 
             for pop in ['Ref', 'Tgt']:
                 if (f'{pop} distances' in features) and (features[f'{pop} distances']):

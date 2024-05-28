@@ -7,11 +7,10 @@ Features:
         Variance: true
         Skew: true
         Kurtosis: true
-    Spectra: true
-    Private SNP num: true
+    Spectrum: true
+    Private variant number: true
     Sstar:
-        # Use 'ArchIE' method for computing genotype distance in sstar calculations
         Genotype distance: 'ArchIE'
-        Match bonus: 5000  # Bonus for matching genotypes
-        Max mismatch: 5    # Maximum allowed mismatches
-        Mismatch penalty: -10000  # Penalty for mismatches
+        Match bonus: 5000
+        Max mismatch: 5
+        Mismatch penalty: -10000

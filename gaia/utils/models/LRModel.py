@@ -64,6 +64,8 @@ class LRModel(MLModel):
 
         """
         features = pd.read_csv(training_data, sep="\t")
+        output_dir = os.path.dirname(model_file)
+        os.makedirs(output_dir, exist_ok=True)
 
         labels = features['Label']
         data = features.drop(
@@ -115,6 +117,8 @@ class LRModel(MLModel):
 
         """
         features = pd.read_csv(inference_data, sep="\t")
+        output_dir = os.path.dirname(output_file)
+        os.makedirs(output_dir, exist_ok=True)
 
         data = features.drop(
             columns=[
