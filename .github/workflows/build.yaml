@@ -17,10 +17,9 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Add micromamba to system path
-      uses: mamba-org/provision-with-micromamba@main
+      uses: mamba-org/setup-micromamba@v1
       with:
         environment-name: gaia-build
-        activate-environment: gaia-build
         environment-file: build-env.yaml
     - name: Test with pytest
       run: |
