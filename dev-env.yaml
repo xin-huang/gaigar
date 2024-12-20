@@ -1,4 +1,4 @@
-name: gaia-beta
+name: gaia-dev
 channels:
         - conda-forge
         - bioconda
