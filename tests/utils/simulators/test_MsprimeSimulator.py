@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +18,9 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import os, pytest, shutil
+import os
+import pytest
+import shutil
 from gaia.utils.multiprocessing import mp_manager
 from gaia.utils.simulators import MsprimeSimulator
 from gaia.utils.generators import RandomNumberGenerator
@@ -48,11 +51,11 @@ def cleanup_output_dir(request, sim_params):
     # Setup (nothing to do before the test)
     yield  # Hand over control to the test
     # Teardown
-    shutil.rmtree(sim_params['output_dir'], ignore_errors=True)
+    shutil.rmtree(sim_params["output_dir"], ignore_errors=True)
 
 
 def compare_files(file1, file2):
-    with open(file1, 'r') as f1, open(file2, 'r') as f2:
+    with open(file1, "r") as f1, open(file2, "r") as f2:
         file1_content = f1.read()
         file2_content = f2.read()
         assert file1_content == file2_content, "Files do not match."
@@ -61,25 +64,53 @@ def compare_files(file1, file2):
 def test_MsprimeSimulator(sim_params, cleanup_output_dir):
     nprocess = 2
     nrep = 2
-    
+
     simulator = MsprimeSimulator(**sim_params)
     generator = RandomNumberGenerator(nrep=nrep, seed=12345)
 
-    results = mp_manager(job=simulator, data_generator=generator, nprocess=nprocess) 
+    mp_manager(job=simulator, data_generator=generator, nprocess=nprocess)
     for i in range(nrep):
-        ref_ind_file = os.path.join(sim_params['output_dir'], f"{i}", f"{sim_params['output_prefix']}.{i}.ref.ind.list")
-        tgt_ind_file = os.path.join(sim_params['output_dir'], f"{i}", f"{sim_params['output_prefix']}.{i}.tgt.ind.list")
-        seed_file = os.path.join(sim_params['output_dir'], f"{i}", f"{sim_params['output_prefix']}.{i}.seedmsprime")
-        bed_file = os.path.join(sim_params['output_dir'], f"{i}", f"{sim_params['output_prefix']}.{i}.true.tracts.bed")
-        vcf_file = os.path.join(sim_params['output_dir'], f"{i}", f"{sim_params['output_prefix']}.{i}.vcf")
+        ref_ind_file = os.path.join(
+            sim_params["output_dir"],
+            f"{i}",
+            f"{sim_params['output_prefix']}.{i}.ref.ind.list",
+        )
+        tgt_ind_file = os.path.join(
+            sim_params["output_dir"],
+            f"{i}",
+            f"{sim_params['output_prefix']}.{i}.tgt.ind.list",
+        )
+        seed_file = os.path.join(
+            sim_params["output_dir"],
+            f"{i}",
+            f"{sim_params['output_prefix']}.{i}.seedmsprime",
+        )
+        bed_file = os.path.join(
+            sim_params["output_dir"],
+            f"{i}",
+            f"{sim_params['output_prefix']}.{i}.true.tracts.bed",
+        )
+        vcf_file = os.path.join(
+            sim_params["output_dir"], f"{i}", f"{sim_params['output_prefix']}.{i}.vcf"
+        )
 
         expected_dir = "tests/expected_results/simulators/MsprimeSimulator"
 
-        expected_ref_ind_file = os.path.join(expected_dir, f"{i}", f"{sim_params['output_prefix']}.{i}.ref.ind.list")
-        expected_tgt_ind_file = os.path.join(expected_dir, f"{i}", f"{sim_params['output_prefix']}.{i}.tgt.ind.list")
-        expected_seed_file = os.path.join(expected_dir, f"{i}", f"{sim_params['output_prefix']}.{i}.seedmsprime")
-        expected_bed_file = os.path.join(expected_dir, f"{i}", f"{sim_params['output_prefix']}.{i}.true.tracts.bed")
-        expected_vcf_file = os.path.join(expected_dir, f"{i}", f"{sim_params['output_prefix']}.{i}.vcf")
+        expected_ref_ind_file = os.path.join(
+            expected_dir, f"{i}", f"{sim_params['output_prefix']}.{i}.ref.ind.list"
+        )
+        expected_tgt_ind_file = os.path.join(
+            expected_dir, f"{i}", f"{sim_params['output_prefix']}.{i}.tgt.ind.list"
+        )
+        expected_seed_file = os.path.join(
+            expected_dir, f"{i}", f"{sim_params['output_prefix']}.{i}.seedmsprime"
+        )
+        expected_bed_file = os.path.join(
+            expected_dir, f"{i}", f"{sim_params['output_prefix']}.{i}.true.tracts.bed"
+        )
+        expected_vcf_file = os.path.join(
+            expected_dir, f"{i}", f"{sim_params['output_prefix']}.{i}.vcf"
+        )
 
         compare_files(ref_ind_file, expected_ref_ind_file)
         compare_files(tgt_ind_file, expected_tgt_ind_file)

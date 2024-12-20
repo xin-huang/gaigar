@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,10 +30,22 @@ class DataSimulator(ABC):
     work based on the initialized parameters.
 
     """
-    def __init__(self, demo_model_file: str, nref: int, ntgt: int, 
-                 ref_id: str, tgt_id: str, src_id: str, ploidy: int,
-                 seq_len: int, mut_rate: float, rec_rate: float, 
-                 output_prefix: str, output_dir: str):
+
+    def __init__(
+        self,
+        demo_model_file: str,
+        nref: int,
+        ntgt: int,
+        ref_id: str,
+        tgt_id: str,
+        src_id: str,
+        ploidy: int,
+        seq_len: int,
+        mut_rate: float,
+        rec_rate: float,
+        output_prefix: str,
+        output_dir: str,
+    ):
         """
         Initializes a new instance of the DataSimulator class with specified parameters for data simulation.
 
@@ -76,7 +89,6 @@ class DataSimulator(ABC):
         self.rec_rate = rec_rate
         self.output_prefix = output_prefix
         self.output_dir = output_dir
-
 
     @abstractmethod
     def run(self, **kwargs):

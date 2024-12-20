@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,18 +18,30 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import os, yaml
+import os
 import pandas as pd
-from gaia.utils import parse_ind_file
 from gaia.utils.multiprocessing import mp_manager
-from gaia.utils.generators import GenomicDataGenerator
+from gaia.utils.generators import WindowDataGenerator
+from gaia.utils.generators import PolymorphismDataGenerator
 from gaia.utils.preprocessors import FeatureVectorsPreprocessor
+from gaia.utils.preprocessors import GenotypeMatricesPreprocessor
 
 
-def lr_preprocess(vcf_file: str, chr_name: str, ref_ind_file: str, tgt_ind_file: str, 
-                  win_len: int, win_step: int, feature_config: str, 
-                  output_dir: str, output_prefix: str = 'lr', nprocess: int = 1, 
-                  ploidy: int = 2, is_phased: bool = True, anc_allele_file: str = None) -> None:
+def lr_preprocess(
+    vcf_file: str,
+    chr_name: str,
+    ref_ind_file: str,
+    tgt_ind_file: str,
+    win_len: int,
+    win_step: int,
+    feature_config: str,
+    output_dir: str,
+    output_prefix: str = "lr",
+    nprocess: int = 1,
+    ploidy: int = 2,
+    is_phased: bool = True,
+    anc_allele_file: str = None,
+) -> None:
     """
     Preprocess genomic data to generate feature vectors for machine learning models.
 
@@ -74,7 +87,7 @@ def lr_preprocess(vcf_file: str, chr_name: str, ref_ind_file: str, tgt_ind_file:
     if nprocess <= 0:
         raise ValueError("Number of processes must be greater than 0.")
 
-    generator = GenomicDataGenerator(
+    generator = WindowDataGenerator(
         vcf_file=vcf_file,
         ref_ind_file=ref_ind_file,
         tgt_ind_file=tgt_ind_file,
@@ -93,11 +106,15 @@ def lr_preprocess(vcf_file: str, chr_name: str, ref_ind_file: str, tgt_ind_file:
     )
     res = mp_manager(job=preprocessor, data_generator=generator, nprocess=nprocess)
 
-    if res == 'error': 
-        raise SystemExit('Some errors occurred, stopping the program ...')
+    if res == "error":
+        raise SystemExit("Some errors occurred, stopping the program ...")
 
-    res.sort(key=lambda x: (x['Chromosome'], x['Start'], x['End']))
+    res.sort(key=lambda x: (x["Chromosome"], x["Start"], x["End"]))
 
     os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f'{output_prefix}.features')
+    output_file = os.path.join(output_dir, f"{output_prefix}.features")
     pd.DataFrame(res).to_csv(output_file, sep="\t", index=False)
+
+
+def unet_preprocess() -> None:
+    pass

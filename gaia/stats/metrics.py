@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,10 +18,20 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
+import numpy as np
+
+
 def cal_pr(ntruth_tracts, ninferred_tracts, ntrue_positives):
-    """
-    """
-    precision = np.nan if float(ninferred_tracts) == 0 else ntrue_positives / float(ninferred_tracts) * 100
-    recall = np.nan if float(ntruth_tracts) == 0 else ntrue_positives / float(ntruth_tracts) * 100
+    """ """
+    precision = (
+        np.nan
+        if float(ninferred_tracts) == 0
+        else ntrue_positives / float(ninferred_tracts) * 100
+    )
+    recall = (
+        np.nan
+        if float(ntruth_tracts) == 0
+        else ntrue_positives / float(ntruth_tracts) * 100
+    )
 
     return precision, recall

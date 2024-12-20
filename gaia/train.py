@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,19 +19,34 @@
 
 
 from gaia.utils.models import LRModel
+from gaia.utils.models.UNets import UNetModel
 
 
-def lr_train(training_data: str, model_file: str, 
-             solver: str, penalty: str, max_iter: int,
-             seed: int, is_scaled: bool) -> None:
-    """
-    """
+def lr_train(
+    training_data: str,
+    model_file: str,
+    solver: str,
+    penalty: str,
+    max_iter: int,
+    seed: int,
+    is_scaled: bool,
+) -> None:
+    """ """
     LRModel.train(
-        training_data=training_data, 
+        training_data=training_data,
         model_file=model_file,
         solver=solver,
-        penalty=penalty, 
-        max_iter=max_iter, 
+        penalty=penalty,
+        max_iter=max_iter,
         seed=seed,
         is_scaled=is_scaled,
+    )
+
+
+def unet_train(training_data: str, model_dir: str, trained_model_file: str) -> None:
+    """ """
+    UNetModel.train(
+        ifile=training_data,
+        odir=model_dir,
+        weights=trained_model_file,
     )

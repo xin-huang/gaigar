@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,9 +18,7 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import pytest, queue, time
 import numpy as np
-from multiprocessing import current_process, Queue
 from gaia.utils.multiprocessing import mp_manager
 from gaia.utils.generators import RandomNumberGenerator
 
@@ -37,7 +36,7 @@ class FailureJob:
         self.item = item
 
     def run(self, rep, seed):
-        raise Exception(f"Simulating failure by stopping.")
+        raise Exception("Simulating failure by stopping.")
 
 
 def test_mp_manager():
@@ -51,27 +50,37 @@ def test_mp_manager():
 
     results = mp_manager(job=job, data_generator=generator, nprocess=nprocess)
     expected_results = [(i, None, "Hello") for i in range(nrep)]
-    assert sorted(results) == sorted(expected_results), "mp_manager did not return the expected results"
+    assert sorted(results) == sorted(
+        expected_results
+    ), "mp_manager did not return the expected results"
 
     generator = RandomNumberGenerator(nrep=nrep, seed=seed)
     results = mp_manager(job=job, data_generator=generator, nprocess=nprocess)
     np.random.seed(seed)
-    seed_list = np.random.randint(1,2**31,nrep)
+    seed_list = np.random.randint(1, 2**31, nrep)
     expected_results = [(i, seed_list[i], "Hello") for i in range(nrep)]
-    assert sorted(results) == sorted(expected_results), "mp_manager did not return the expected results"
+    assert sorted(results) == sorted(
+        expected_results
+    ), "mp_manager did not return the expected results"
 
     start_rep = 10
     generator = RandomNumberGenerator(start_rep=start_rep, nrep=nrep, seed=seed)
     results = mp_manager(job=job, data_generator=generator, nprocess=nprocess)
     np.random.seed(seed)
-    seed_list = np.random.randint(1,2**31,start_rep+nrep)
-    expected_results = [(i, seed_list[i], "Hello") for i in range(start_rep, start_rep+nrep)]
-    assert sorted(results) == sorted(expected_results), "mp_manager did not return the expected results"
+    seed_list = np.random.randint(1, 2**31, start_rep + nrep)
+    expected_results = [
+        (i, seed_list[i], "Hello") for i in range(start_rep, start_rep + nrep)
+    ]
+    assert sorted(results) == sorted(
+        expected_results
+    ), "mp_manager did not return the expected results"
 
     generator = RandomNumberGenerator(nrep=1, seed=seed)
     results = mp_manager(job=job, data_generator=generator, nprocess=nprocess)
     expected_results = [(0, 2, "Hello")]
-    assert sorted(results) == sorted(expected_results), "mp_manager did not return the expected results"
+    assert sorted(results) == sorted(
+        expected_results
+    ), "mp_manager did not return the expected results"
 
 
 def test_mp_manager_failure(capfd):
@@ -79,8 +88,8 @@ def test_mp_manager_failure(capfd):
     generator = RandomNumberGenerator(nrep=5)
 
     job = FailureJob("Hello")
-    results = mp_manager(job=job, data_generator=generator, nprocess=nprocess)
-    
+    mp_manager(job=job, data_generator=generator, nprocess=nprocess)
+
     # Use capfd to capture stdout and stderr
     captured = capfd.readouterr()
 

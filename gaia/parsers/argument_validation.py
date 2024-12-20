@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +18,8 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import argparse, os
+import argparse
+import os
 
 
 def positive_int(value: str) -> int:
@@ -42,12 +44,12 @@ def positive_int(value: str) -> int:
     """
     if value is not None:
         try:
-            ivalue = int(value)
+            value = int(value)
         except ValueError:
             raise argparse.ArgumentTypeError(f"{value} is not a valid integer")
-        if ivalue <= 0:
+        if value <= 0:
             raise argparse.ArgumentTypeError(f"{value} is not a positive integer")
-    return ivalue
+    return value
 
 
 def positive_number(value: str) -> float:
@@ -72,12 +74,12 @@ def positive_number(value: str) -> float:
     """
     if value is not None:
         try:
-            fvalue = float(value)
+            value = float(value)
         except ValueError:
             raise argparse.ArgumentTypeError(f"{value} is not a valid number")
-        if fvalue <= 0:
+        if value <= 0:
             raise argparse.ArgumentTypeError(f"{value} is not a positive number")
-    return fvalue
+    return value
 
 
 def existed_file(value: str) -> str:

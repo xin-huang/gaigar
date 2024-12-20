@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +18,9 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import os, pytest, shutil
+import os
+import pytest
+import shutil
 import numpy as np
 import pandas as pd
 from gaia.utils.models import LRModel
@@ -39,23 +42,29 @@ def cleanup_output_dir(request, file_paths):
     # Setup (nothing to do before the test)
     yield  # Hand over control to the test
     # Teardown
-    shutil.rmtree(file_paths['output_dir'], ignore_errors=True)
+    shutil.rmtree(file_paths["output_dir"], ignore_errors=True)
 
 
 def test_LRModel_infer(file_paths, cleanup_output_dir):
-    os.makedirs(file_paths['output_dir'], exist_ok=True)
+    os.makedirs(file_paths["output_dir"], exist_ok=True)
 
     LRModel.infer(
-        inference_data=file_paths['inference_data'],
-        model_file=file_paths['model_file'],
-        output_file=file_paths['output_file'],
+        inference_data=file_paths["inference_data"],
+        model_file=file_paths["model_file"],
+        output_file=file_paths["output_file"],
     )
 
-    df = pd.read_csv(file_paths['output_file'], sep="\t")
-    expected_df = pd.read_csv("tests/expected_results/infer/test.lr.predictions", sep="\t")
+    df = pd.read_csv(file_paths["output_file"], sep="\t")
+    expected_df = pd.read_csv(
+        "tests/expected_results/infer/test.lr.predictions", sep="\t"
+    )
 
     for column in df.columns:
-        if df[column].dtype.kind in 'ifc':  # Float, int, complex numbers
-            assert np.isclose(df[column], expected_df[column], atol=1e-5, rtol=1e-5).all(), f"Mismatch in column {column}"
+        if df[column].dtype.kind in "ifc":  # Float, int, complex numbers
+            assert np.isclose(
+                df[column], expected_df[column], atol=1e-5, rtol=1e-5
+            ).all(), f"Mismatch in column {column}"
         else:
-            assert (df[column] == expected_df[column]).all(), f"Mismatch in column {column}"
+            assert (
+                df[column] == expected_df[column]
+            ).all(), f"Mismatch in column {column}"

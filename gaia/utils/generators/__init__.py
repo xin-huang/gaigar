@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,4 +20,6 @@
 
 from .DataGenerator import DataGenerator
 from .RandomNumberGenerator import RandomNumberGenerator
-from .GenomicDataGenerator import GenomicDataGenerator
+from .WindowDataGenerator import WindowDataGenerator
+from .PolymorphismDataGenerator import PolymorphismDataGenerator
+from .H5UDataGenerator import H5UDataGenerator

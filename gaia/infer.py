@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,10 +21,10 @@
 from gaia.utils.models import LRModel
 
 
-def lr_infer(inference_data: str, model_file: str, 
-             output_file: str, is_scaled: bool) -> None:
-    """
-    """
+def lr_infer(
+    inference_data: str, model_file: str, output_file: str, is_scaled: bool
+) -> None:
+    """ """
     LRModel.infer(
         inference_data=inference_data,
         model_file=model_file,

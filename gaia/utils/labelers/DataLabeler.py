@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,6 +29,7 @@ class DataLabeler(ABC):
     given a set of initial parameters defined during instantiation.
 
     """
+
     def __init__(self, ploidy: int, is_phased: bool):
         """
         Initializes a new DataLabeler instance with the given configuration.

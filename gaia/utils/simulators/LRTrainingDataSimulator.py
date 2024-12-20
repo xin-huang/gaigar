@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,11 +18,10 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import os
 from typing import Any
 from gaia.utils.simulators import DataSimulator
 from gaia.utils.simulators import MsprimeSimulator
-from gaia.utils.generators import GenomicDataGenerator
+from gaia.utils.generators import WindowDataGenerator
 from gaia.utils.labelers import BinaryWindowLabeler
 from gaia.utils.preprocessors import FeatureVectorsPreprocessor
 
@@ -36,11 +36,26 @@ class LRTrainingDataSimulator(DataSimulator):
     create a comprehensive dataset ready for machine learning model training.
 
     """
-    def __init__(self, demo_model_file: str, nref: int, ntgt: int, 
-                 ref_id: str, tgt_id: str, src_id: str, ploidy: int,
-                 seq_len: int, mut_rate: float, rec_rate: float,
-                 output_prefix: str, output_dir: str, is_phased: bool,
-                 intro_prop: float, non_intro_prop: float, feature_config: str):
+
+    def __init__(
+        self,
+        demo_model_file: str,
+        nref: int,
+        ntgt: int,
+        ref_id: str,
+        tgt_id: str,
+        src_id: str,
+        ploidy: int,
+        seq_len: int,
+        mut_rate: float,
+        rec_rate: float,
+        output_prefix: str,
+        output_dir: str,
+        is_phased: bool,
+        intro_prop: float,
+        non_intro_prop: float,
+        feature_config: str,
+    ):
         """
         Initializes a new instance of LRTrainingDataSimulator with specific parameters.
 
@@ -118,7 +133,6 @@ class LRTrainingDataSimulator(DataSimulator):
         self.is_phased = is_phased
         self.feature_config = feature_config
 
-
     def run(self, rep: int = None, seed: int = None) -> list[dict[str, Any]]:
         """
         Executes the simulation, labeling, and feature vector generation workflow for a given replicate.
@@ -145,16 +159,16 @@ class LRTrainingDataSimulator(DataSimulator):
         file_paths = self.simulator.run(rep=rep, seed=seed)[0]
 
         labels = self.labeler.run(
-            tgt_ind_file=file_paths['tgt_ind_file'],
-            true_tract_file=file_paths['bed_file'],
+            tgt_ind_file=file_paths["tgt_ind_file"],
+            true_tract_file=file_paths["bed_file"],
             rep=rep,
         )
 
-        genomic_data_generator = GenomicDataGenerator(
-            vcf_file=file_paths['vcf_file'],
-            ref_ind_file=file_paths['ref_ind_file'],
-            tgt_ind_file=file_paths['tgt_ind_file'],
-            chr_name='1',
+        window_data_generator = WindowDataGenerator(
+            vcf_file=file_paths["vcf_file"],
+            ref_ind_file=file_paths["ref_ind_file"],
+            tgt_ind_file=file_paths["tgt_ind_file"],
+            chr_name="1",
             win_len=self.win_len,
             win_step=self.win_len,
             ploidy=self.ploidy,
@@ -162,16 +176,14 @@ class LRTrainingDataSimulator(DataSimulator):
         )
 
         preprocessor = FeatureVectorsPreprocessor(
-            ref_ind_file=file_paths['ref_ind_file'],
-            tgt_ind_file=file_paths['tgt_ind_file'],
+            ref_ind_file=file_paths["ref_ind_file"],
+            tgt_ind_file=file_paths["tgt_ind_file"],
             feature_config=self.feature_config,
         )
 
-        features = preprocessor.run(
-            **list(genomic_data_generator.get())[0]        
-        )
+        features = preprocessor.run(**list(window_data_generator.get())[0])
 
-        lookup = {item['Sample']: item for item in labels}
-        merged_list = [{**item, **lookup[item['Sample']]} for item in features]
+        lookup = {item["Sample"]: item for item in labels}
+        merged_list = [{**item, **lookup[item["Sample"]]} for item in features]
 
         return merged_list

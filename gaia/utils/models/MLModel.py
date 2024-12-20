@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,12 +18,7 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import numpy as np
-import pandas as pd
 from abc import ABC, abstractmethod
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression as LR
-from sklearn.ensemble import ExtraTreesClassifier
 
 
 class MLModel(ABC):
@@ -34,6 +30,7 @@ class MLModel(ABC):
     the `train` and `infer` methods.
 
     """
+
     @abstractmethod
     def train(self):
         """
@@ -41,7 +38,6 @@ class MLModel(ABC):
 
         """
         pass
-
 
     @abstractmethod
     def infer(self):

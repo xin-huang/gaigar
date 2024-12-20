@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +18,8 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import os, pytest, shutil
+import pytest
+import shutil
 import numpy as np
 import pandas as pd
 from gaia.utils.multiprocessing import mp_manager
@@ -44,7 +46,7 @@ def init_params():
         "is_phased": True,
         "intro_prop": 0.7,
         "non_intro_prop": 0.3,
-        'feature_config': 'tests/data/ArchIE.features.yaml',
+        "feature_config": "tests/data/ArchIE.features.yaml",
     }
 
 
@@ -53,26 +55,33 @@ def cleanup_output_dir(request, init_params):
     # Setup (nothing to do before the test)
     yield  # Hand over control to the test
     # Teardown
-    shutil.rmtree(init_params['output_dir'], ignore_errors=True)
+    shutil.rmtree(init_params["output_dir"], ignore_errors=True)
 
 
 def test_LRTrainingDataSimulator(init_params, cleanup_output_dir):
     simulator = LRTrainingDataSimulator(**init_params)
     generator = RandomNumberGenerator(nrep=2, seed=12345)
     res = mp_manager(job=simulator, data_generator=generator, nprocess=2)
-    res.sort(key=lambda x: (x['Replicate']))
+    res.sort(key=lambda x: (x["Replicate"]))
 
     df = pd.DataFrame(res)
-    expected_df = pd.read_csv("tests/expected_results/simulators/LRTrainingDataSimulator/test.features", sep="\t")
+    expected_df = pd.read_csv(
+        "tests/expected_results/simulators/LRTrainingDataSimulator/test.features",
+        sep="\t",
+    )
 
     for column in df.columns:
-        if df[column].dtype.kind in 'ifc':  # Float, int, complex numbers
-            assert np.isclose(df[column], expected_df[column], atol=1e-5, rtol=1e-5).all(), f"Mismatch in column {column}"
+        if df[column].dtype.kind in "ifc":  # Float, int, complex numbers
+            assert np.isclose(
+                df[column], expected_df[column], atol=1e-5, rtol=1e-5
+            ).all(), f"Mismatch in column {column}"
         else:
-            assert (df[column] == expected_df[column]).all(), f"Mismatch in column {column}"
+            assert (
+                df[column] == expected_df[column]
+            ).all(), f"Mismatch in column {column}"
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from cProfile import Profile
     from pstats import SortKey, Stats
 

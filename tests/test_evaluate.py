@@ -1,5 +1,6 @@
-# GNU General Public License v3.0
 # Copyright 2024 Xin Huang
+#
+# GNU General Public License v3.0
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,11 +26,11 @@ from gaia.evaluate import window_evaluate
 def tract_files():
     return {
         "true_tract_file": "tests/data/test.lr.true.tracts.bed",
-        "inferred_tract_file" : "tests/data/test.lr.inferred.tracts.bed",
+        "inferred_tract_file": "tests/data/test.lr.inferred.tracts.bed",
     }
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     window_evaluate(
         true_tract_file="tests/data/test.lr.true.tracts.bed",
         inferred_tract_file="tests/data/test.lr.inferred.tracts.bed",
