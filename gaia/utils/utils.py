@@ -21,7 +21,7 @@
 import allel
 import numpy as np
 from typing import Optional, Union
-from sai.utils.genomic_dataclasses import ChromosomeData
+from gaia.utils.genomic_dataclasses import ChromosomeData
 
 
 def parse_ind_file(filename: str) -> dict[str, list[str]]:
