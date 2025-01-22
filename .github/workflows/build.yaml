@@ -23,6 +23,7 @@ jobs:
         environment-file: build-env.yaml
     - name: Test with pytest
       run: |
+        micromamba run -n gaia-build pip install -e .
         micromamba run -n gaia-build pytest --cov=. --cov-report term-missing -vv
         micromamba run -n gaia-build coverage xml
     - name: upload coverage report to codecov
