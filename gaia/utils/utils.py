@@ -20,355 +20,584 @@
 
 import allel
 import numpy as np
+from typing import Optional, Union
+from sai.utils.genomic_dataclasses import ChromosomeData
 
 
-def parse_ind_file(filename):
+def parse_ind_file(filename: str) -> dict[str, list[str]]:
     """
-    Description:
-        Helper function to read sample information from files.
+    Read sample information from a file and organize it by categories.
 
-    Arguments:
-        filename str: Name of the file containing sample information.
+    Parameters
+    ----------
+    filename : str
+        The name of the file containing sample information.
 
-    Returns:
-        samples list: Sample information.
+    Returns
+    -------
+    samples : dict of str to list of str
+        A dictionary where the keys represent categories, and the values are lists of samples
+        associated with those categories.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the specified file does not exist.
+    ValueError
+        If no samples are found in the file.
     """
+    try:
+        samples = {}
 
-    f = open(filename, "r")
-    samples = [line.rstrip() for line in f.readlines()]
-    f.close()
+        with open(filename, "r") as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) != 2:
+                    continue
 
-    if len(samples) == 0:
-        raise Exception(f"No sample is found in {filename}! Please check your data.")
+                category, sample = parts
+                if category not in samples:
+                    samples[category] = []
+                samples[category].append(sample)
+
+        if not samples:
+            raise ValueError(f"No samples found in {filename}. Please check your data.")
+
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"File '{filename}' not found. Please check the file path."
+        )
 
     return samples
 
 
-def read_geno_data(vcf, ind, anc_allele_file, filter_missing):
+def read_geno_data(
+    vcf: str,
+    ind_samples: dict[str, list[str]],
+    chr_name: str,
+    anc_allele_file: Optional[str] = None,
+    filter_missing: bool = True,
+) -> dict[str, Union[ChromosomeData, list[str]]]:
     """
-    Description:
-        Helper function to read genotype data from VCF files.
+    Read genotype data from a VCF file efficiently for a specified chromosome.
 
-    Arguments:
-        vcf str: Name of the VCF file containing genotype data.
-        ind list: List containing names of samples.
-        anc_allele_file str: Name of the BED file containing ancestral allele information.
-        filter_missing bool: Indicating whether filtering missing data or not.
+    Parameters
+    ----------
+    vcf : str
+        The name of the VCF file containing genotype data.
+    ind_samples : dict of str to list of str
+        A dictionary where keys are categories (e.g., different sample groups), and values are lists of sample names.
+    chr_name : str
+        The name of the chromosome to read.
+    anc_allele_file : str or None
+        The name of the BED file containing ancestral allele information, or None if not provided.
+    filter_missing : bool
+        Indicates whether to filter out variants that are missing across all samples (default is True).
 
-    Returns:
-        data dict: Genotype data.
+    Returns
+    -------
+    chrom_data: ChromosomeData
+        A ChromosomeData instance for the specified chromosome in the VCF.
     """
+    try:
+        # Load all samples from the VCF file
+        all_samples = [sample for samples in ind_samples.values() for sample in samples]
 
-    vcf = allel.read_vcf(vcf, alt_number=1, samples=ind)
-    gt = vcf["calldata/GT"]
-    chr_names = np.unique(vcf["variants/CHROM"])
-    samples = vcf["samples"]
-    pos = vcf["variants/POS"]
-    ref = vcf["variants/REF"]
-    alt = vcf["variants/ALT"]
+        # Use region parameter to restrict to the specified chromosome
+        region = f"{chr_name}"
+        vcf_data = allel.read_vcf(
+            vcf,
+            fields=[
+                "calldata/GT",
+                "variants/CHROM",
+                "variants/POS",
+                "variants/REF",
+                "variants/ALT",
+                "samples",
+            ],
+            alt_number=1,
+            samples=all_samples,
+            region=region,  # Specify the chromosome region
+            tabix=None,
+        )
+    except Exception as e:
+        raise ValueError(f"Failed to read VCF file {vcf}: {e}")
 
-    if anc_allele_file is not None:
-        anc_allele = read_anc_allele(anc_allele_file)
-    data = dict()
-    for c in chr_names:
-        if c not in data.keys():
-            data[c] = dict()
-            data[c]["POS"] = pos
-            data[c]["REF"] = ref
-            data[c]["ALT"] = alt
-            data[c]["GT"] = gt
-        index = np.where(vcf["variants/CHROM"] == c)
-        data = filter_data(data, c, index)
-        # Remove missing data
-        if filter_missing:
-            index = data[c]["GT"].count_missing(axis=1) == len(samples)
-            data = filter_data(data, c, ~index)
-        if anc_allele_file is not None:
-            data = check_anc_allele(data, anc_allele, c)
+    # Convert genotype data to a more efficient GenotypeArray
+    gt = allel.GenotypeArray(vcf_data.get("calldata/GT"))
+    pos = vcf_data.get("variants/POS")
+    ref = vcf_data.get("variants/REF")
+    alt = vcf_data.get("variants/ALT")
 
-    return data
+    if gt is None or pos is None or ref is None or alt is None:
+        raise ValueError("Invalid VCF file: Missing essential genotype data fields.")
+
+    # Load ancestral allele data if provided
+    anc_allele = read_anc_allele(anc_allele_file) if anc_allele_file else None
+
+    # Initialize the ChromosomeData object directly without separating by chromosome
+    sample_indices = [all_samples.index(s) for s in all_samples]
+
+    chrom_data = ChromosomeData(
+        POS=pos, REF=ref, ALT=alt, GT=gt.take(sample_indices, axis=1)
+    )
+
+    # Remove missing data if specified
+    if filter_missing:
+        non_missing_index = chrom_data.GT.count_missing(axis=1) == 0
+        num_missing = len(non_missing_index) - np.sum(non_missing_index)
+        if num_missing != 0:
+            print(
+                f"Found {num_missing} variants with missing genotypes, removing them ..."
+            )
+        chrom_data = filter_geno_data(chrom_data, non_missing_index)
+
+    # Check and incorporate ancestral alleles if the file is provided
+    if anc_allele:
+        chrom_data = check_anc_allele(chrom_data, anc_allele, chr_name)
+
+    # Return data as a dictionary without chromosome keys
+    return chrom_data, vcf_data.get("samples")
 
 
-def filter_data(data, c, index):
+def filter_geno_data(
+    data: ChromosomeData, index: Union[np.ndarray, list[bool]]
+) -> ChromosomeData:
     """
-    Description:
-        Helper function to filter genotype data.
+    Filter the genotype data based on the provided index.
 
-    Arguments:
-        data dict: Genotype data for filtering.
-            c str: Names of chromosomes.
-        index numpy.ndarray: A boolean array determines variants to be removed.
+    Parameters
+    ----------
+    data : ChromosomeData
+        An instance of ChromosomeData containing genotype data, where each attribute corresponds to an array (e.g., POS, REF, ALT, GT).
+    index : np.ndarray or list of bool
+        A boolean or integer array indicating which rows to keep.
 
-    Returns:
-        data dict: Genotype data after filtering.
+    Returns
+    -------
+    ChromosomeData
+        A new ChromosomeData instance with filtered data, containing only the rows specified by the index.
     """
+    return ChromosomeData(
+        POS=data.POS[index],
+        REF=data.REF[index],
+        ALT=data.ALT[index],
+        GT=data.GT.compress(index, axis=0),
+    )
 
-    data[c]["POS"] = data[c]["POS"][index]
-    data[c]["REF"] = data[c]["REF"][index]
-    data[c]["ALT"] = data[c]["ALT"][index]
-    data[c]["GT"] = allel.GenotypeArray(data[c]["GT"][index])
 
-    return data
-
-
-def read_data(vcf_file, ref_ind_file, tgt_ind_file, anc_allele_file, is_phased):
+def read_data(
+    vcf_file: str,
+    chr_name: str,
+    ref_ind_file: Optional[str],
+    tgt_ind_file: Optional[str],
+    src_ind_file: Optional[str],
+    anc_allele_file: Optional[str],
+    is_phased: bool = True,
+    filter_ref: bool = True,
+    filter_tgt: bool = True,
+    filter_src: bool = False,
+    filter_missing: bool = True,
+) -> tuple[
+    Optional[dict[str, dict[str, ChromosomeData]]],
+    Optional[dict[str, list[str]]],
+    Optional[dict[str, dict[str, ChromosomeData]]],
+    Optional[dict[str, list[str]]],
+    Optional[dict[str, dict[str, ChromosomeData]]],
+    Optional[dict[str, list[str]]],
+]:
     """
-    Description:
-        Helper function for reading data from reference and target populations.
+    Helper function for reading data from reference, target, and source populations.
 
-    Arguments:
-        vcf str: Name of the VCF file containing genotype data from reference, target, and source populations.
-        ref_ind_file str: Name of the file containing sample information from reference populations.
-        tgt_ind_file str: Name of the file containing sample information from target populations.
-        anc_allele_file str: Name of the file containing ancestral allele information.
-        phased bool: If True, use phased genotypes; otherwise, use unphased genotypes.
+    Parameters
+    ----------
+    vcf_file : str
+        Name of the VCF file containing genotype data.
+    chr_name: str
+        Name of the chromosome to read.
+    ref_ind_file : str or None
+        File with reference population sample information. None if not provided.
+    tgt_ind_file : str or None
+        File with target population sample information. None if not provided.
+    src_ind_file : str or None
+        File with source population sample information. None if not provided.
+    anc_allele_file : str or None
+        File with ancestral allele information. None if not provided.
+    is_phased : bool, optional
+        Whether to use phased genotypes (default is True).
+    filter_ref : bool, optional
+        Whether to filter fixed variants for reference data (default is True).
+    filter_tgt : bool, optional
+        Whether to filter fixed variants for target data (default is True).
+    filter_src : bool, optional
+        Whether to filter fixed variants for source data (default is False).
+    filter_missing : bool, optional
+        Whether to filter out missing data (default is True).
 
-    Returns:
-        ref_data dict: Genotype data from reference populations.
-        ref_samples list: Sample information from reference populations.
-        tgt_data dict: Genotype data from target populations.
-        tgt_samples list: Sample information from target populations.
+    Returns
+    -------
+    ref_data : dict or None
+        Genotype data from reference populations, organized by category and chromosome.
+    ref_samples : dict or None
+        Sample information from reference populations.
+    tgt_data : dict or None
+        Genotype data from target populations, organized by category and chromosome.
+    tgt_samples : dict or None
+        Sample information from target populations.
+    src_data : dict or None
+        Genotype data from source populations, organized by category and chromosome.
+    src_samples : dict or None
+        Sample information from source populations.
+
+    Notes
+    -----
+    The `ref_data`, `tgt_data`, and `src_data` are organized as nested dictionaries where:
+
+        - The outermost keys represent different populations or sample categories.
+        - The second-level keys represent different chromosomes.
+        - The innermost value is a ChromosomeData instance containing:
+            - "POS": numpy array of variant positions.
+            - "REF": numpy array of reference alleles.
+            - "ALT": numpy array of alternative alleles.
+            - "GT": allel.GenotypeArray containing genotype data.
+
+    This organization allows easy access and manipulation of genotype data by category and chromosome,
+    enabling flexible processing across different populations and chromosomal regions.
     """
+    ref_data = ref_samples = tgt_data = tgt_samples = src_data = src_samples = None
 
-    ref_data = ref_samples = tgt_data = tgt_samples = None
-    if ref_ind_file is not None:
+    # Parse sample information
+    if ref_ind_file:
         ref_samples = parse_ind_file(ref_ind_file)
-        ref_data = read_geno_data(vcf_file, ref_samples, anc_allele_file, True)
 
-    if tgt_ind_file is not None:
+    if tgt_ind_file:
         tgt_samples = parse_ind_file(tgt_ind_file)
-        tgt_data = read_geno_data(vcf_file, tgt_samples, anc_allele_file, True)
 
-    if (ref_ind_file is not None) and (tgt_ind_file is not None):
-        chr_names = tgt_data.keys()
-        for c in chr_names:
-            # Remove variants fixed in both the reference and target individuals
-            ref_fixed_variants = np.sum(ref_data[c]["GT"].is_hom_alt(), axis=1) == len(
-                ref_samples
-            )
-            tgt_fixed_variants = np.sum(tgt_data[c]["GT"].is_hom_alt(), axis=1) == len(
-                tgt_samples
-            )
-            fixed_index = np.logical_and(ref_fixed_variants, tgt_fixed_variants)
-            index = np.logical_not(fixed_index)
-            # fixed_pos = ref_data[c]["POS"][fixed_index]
-            ref_data = filter_data(ref_data, c, index)
-            tgt_data = filter_data(tgt_data, c, index)
+    if src_ind_file:
+        src_samples = parse_ind_file(src_ind_file)
 
-    if is_phased:
-        for c in chr_names:
-            mut_num, ind_num, ploidy = ref_data[c]["GT"].shape
-            ref_data[c]["GT"] = np.reshape(
-                ref_data[c]["GT"].values, (mut_num, ind_num * ploidy)
-            )
-            mut_num, ind_num, ploidy = tgt_data[c]["GT"].shape
-            tgt_data[c]["GT"] = np.reshape(
-                tgt_data[c]["GT"].values, (mut_num, ind_num * ploidy)
-            )
-    else:
-        for c in chr_names:
-            ref_data[c]["GT"] = np.sum(ref_data[c]["GT"], axis=2)
-            tgt_data[c]["GT"] = np.sum(tgt_data[c]["GT"], axis=2)
+    # Combine all samples for a single VCF read
+    all_samples = {}
+    if ref_samples:
+        all_samples.update(ref_samples)
+    if tgt_samples:
+        all_samples.update(tgt_samples)
+    if src_samples:
+        all_samples.update(src_samples)
 
-    return ref_data, ref_samples, tgt_data, tgt_samples
+    try:
+        # Read VCF data
+        geno_data, all_samples = read_geno_data(
+            vcf_file, all_samples, chr_name, anc_allele_file, filter_missing
+        )
+    except Exception as e:
+        raise ValueError(f"Failed to read VCF data: {e}")
+
+    # Separate reference, target, and source data
+    ref_data = extract_group_data(geno_data, all_samples, ref_samples)
+    tgt_data = extract_group_data(geno_data, all_samples, tgt_samples)
+    src_data = extract_group_data(geno_data, all_samples, src_samples)
+
+    # Apply fixed variant filtering conditionally
+    if filter_ref and ref_data and ref_samples:
+        ref_data = filter_fixed_variants(ref_data, ref_samples)
+    if filter_tgt and tgt_data and tgt_samples:
+        tgt_data = filter_fixed_variants(tgt_data, tgt_samples)
+    if filter_src and src_data and src_samples:
+        src_data = filter_fixed_variants(src_data, src_samples)
+
+    # Adjust genotypes based on phased/unphased requirement
+    reshape_genotypes(ref_data, is_phased)
+    reshape_genotypes(tgt_data, is_phased)
+    reshape_genotypes(src_data, is_phased)
+
+    return ref_data, ref_samples, tgt_data, tgt_samples, src_data, src_samples
 
 
-def get_ref_alt_allele(ref, alt, pos):
+def extract_group_data(
+    geno_data: dict[str, ChromosomeData],
+    all_samples: list[str],
+    sample_groups: Optional[dict[str, list[str]]] = None,
+) -> Optional[dict[str, ChromosomeData]]:
     """
-    Description:
-        Helper function to index REF and ALT alleles with genomic positions.
+    Extract genotype data from geno_data based on the sample groups.
 
-    Arguments:
-        ref list: REF alleles.
-        alt list: ALT alleles.
-        pos list: Genomic positions.
+    Parameters
+    ----------
+    geno_data : dict of str to ChromosomeData
+        Contains genotype data, where each value is a ChromosomeData instance.
+    all_samples: list
+        A list of all sample names in the dataset.
+    sample_groups : dict of str to list of str, optional
+        Contains sample group information, where each key is a group name and the value is a list of samples.
+        If None, the function returns None.
 
-    Returns:
-        ref_allele dict: REF alleles.
-        alt_allele dict: ALT alleles.
+    Returns
+    -------
+    extracted_data : dict or None
+        Genotype data organized by sample group, or None if no sample groups are provided.
+        The structure is as follows:
+
+        - Keys represent sample group names.
+        - Values are ChromosomeData instances, filtered to include only the samples in the specified group.
     """
+    if sample_groups is None:
+        return None
 
-    ref_allele = dict()
-    alt_allele = dict()
+    sample_indices = {sample: idx for idx, sample in enumerate(all_samples)}
 
-    for i in range(len(pos)):
-        r = ref[i]
-        a = alt[i]
-        p = pos[i]
-        ref_allele[p] = r
-        alt_allele[p] = a
+    extracted_data = {}
 
-    return ref_allele, alt_allele
+    for group, samples in sample_groups.items():
+        indices = [sample_indices[s] for s in samples if s in sample_indices]
+
+        # Extract ChromosomeData for the selected samples in each group
+        extracted_data[group] = ChromosomeData(
+            GT=geno_data.GT[:, indices, :],
+            POS=geno_data.POS,
+            REF=geno_data.REF,
+            ALT=geno_data.ALT,
+        )
+
+    return extracted_data
 
 
-def read_anc_allele(anc_allele_file):
+def filter_fixed_variants(
+    data: dict[str, ChromosomeData], samples: dict[str, list[str]]
+) -> dict[str, ChromosomeData]:
     """
-    Description:
-        Helper function to read ancestral allele information from files.
+    Filter out fixed variants for each population in the given data.
 
-    Arguments:
-        anc_allele_file str: Name of the BED file containing ancestral allele information.
+    Parameters
+    ----------
+    data : dict of str to ChromosomeData
+        Genotype data organized by category, where each category is represented by a ChromosomeData instance.
+    samples : dict of str to list of str
+        Sample information corresponding to each category, with each list containing
+        sample names for a specific population category.
 
-    Returns:
-        anc_allele dict: Ancestral allele information.
+    Returns
+    -------
+    filtered_data : dict of str to ChromosomeData
+        Genotype data with fixed variants filtered out for each category.
     """
+    filtered_data = {}
+    for cat, geno in data.items():
+        ref_fixed_variants = np.sum(geno.GT.is_hom_ref(), axis=1) == len(samples[cat])
+        alt_fixed_variants = np.sum(geno.GT.is_hom_alt(), axis=1) == len(samples[cat])
+        fixed_variants = np.logical_or(ref_fixed_variants, alt_fixed_variants)
+        index = np.logical_not(fixed_variants)
+        filtered_data[cat] = filter_geno_data(geno, index)
 
-    anc_allele = dict()
-    with open(anc_allele_file, "r") as f:
-        for line in f.readlines():
-            e = line.rstrip().split()
-            if e[0] not in anc_allele:
-                anc_allele[e[0]] = dict()
-            anc_allele[e[0]][int(e[2])] = e[3]
+    return filtered_data
+
+
+def reshape_genotypes(
+    data: Optional[dict[str, ChromosomeData]], is_phased: bool
+) -> None:
+    """
+    Reshape genotypes based on whether they are phased or unphased.
+
+    Parameters
+    ----------
+    data : dict of str to ChromosomeData or None
+        Genotype data organized by sample group. If None, the function does nothing.
+    is_phased : bool
+        If True, reshape phased genotypes. Otherwise, sum over ploidy for unphased genotypes.
+    """
+    if data is None:
+        return
+
+    for category, chrom_data in data.items():
+        mut_num, ind_num, ploidy = chrom_data.GT.shape
+        if is_phased:
+            chrom_data.GT = np.reshape(chrom_data.GT, (mut_num, ind_num * ploidy))
+        else:
+            chrom_data.GT = np.sum(chrom_data.GT, axis=2)
+
+
+def get_ref_alt_allele(
+    ref: list[str], alt: list[str], pos: list[int]
+) -> tuple[dict[int, str], dict[int, str]]:
+    """
+    Indexes REF and ALT alleles with genomic positions.
+
+    Parameters
+    ----------
+    ref : list of str
+        REF alleles.
+    alt : list of str
+        ALT alleles.
+    pos : list of int
+        Genomic positions.
+
+    Returns
+    -------
+    Dictionaries mapping genomic positions to REF and ALT alleles, respectively.
+    """
+    return {p: r for p, r in zip(pos, ref)}, {p: a for p, a in zip(pos, alt)}
+
+
+def read_anc_allele(anc_allele_file: str) -> dict[str, dict[int, str]]:
+    """
+    Reads ancestral allele information from a BED file.
+
+    Parameters
+    ----------
+    anc_allele_file : str
+        Path to the BED file containing ancestral allele information.
+
+    Returns
+    -------
+    dict of {str: dict of {int: str}}
+        Chromosome-level dictionary mapping genomic positions to ancestral alleles.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the ancestral allele file is not found.
+    ValueError
+        If no ancestral allele information is found in the file.
+    """
+    anc_allele = {}
+    try:
+        with open(anc_allele_file, "r") as f:
+            for line in f:
+                e = line.rstrip().split()
+                chrom, pos, allele = e[0], int(e[2]), e[3]
+                anc_allele.setdefault(chrom, {})[pos] = allele
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File {anc_allele_file} not found.")
 
     if not anc_allele:
-        raise Exception("No ancestral allele is found! Please check your data.")
+        raise ValueError("No ancestral allele is found! Please check your data.")
 
     return anc_allele
 
 
-def check_anc_allele(data, anc_allele, c):
+def check_anc_allele(
+    data: dict[str, ChromosomeData], anc_allele: dict[str, dict[int, str]], c: str
+) -> dict[str, ChromosomeData]:
     """
-    Description:
-        Helper function to check whether the REF or ALT allele is the ancestral allele.
-        If the ALT allele is the ancestral allele, then the genotypes in this position will be flipped.
-        If neither the REF nor ALT allele is the ancestral allele, then this position will be removed.
-        If a position has no the ancestral allele information, the this position will be removed.
+    Checks whether the REF or ALT allele is the ancestral allele and updates genotype data.
 
-    Arguments:
-        data dict: Genotype data for checking ancestral allele information.
-        anc_allele dict: Ancestral allele information for checking.
-        c str: Name of the chromosome.
+    Parameters
+    ----------
+    data : dict
+        Genotype data for checking ancestral allele information.
+    anc_allele : dict of {str: dict of {int: str}}
+        Dictionary with ancestral allele information.
+    c : str
+        Chromosome name.
 
-    Returns:
-        data dict: Genotype data after checking.
+    Returns
+    -------
+    dict
+        Genotype data with updated alleles after ancestral allele checking.
     """
+    ref_allele, alt_allele = get_ref_alt_allele(data.REF, data.ALT, data.POS)
 
-    ref_allele, alt_allele = get_ref_alt_allele(
-        data[c]["REF"], data[c]["ALT"], data[c]["POS"]
+    # Determine variants to remove or flip
+    intersect_snps = np.intersect1d(
+        list(ref_allele.keys()), list(anc_allele.get(c, {}).keys())
     )
-    # Remove variants not in the ancestral allele file
-    intersect_snps = np.intersect1d(list(ref_allele.keys()), list(anc_allele[c].keys()))
-    # Remove variants that neither the ref allele nor the alt allele is the ancestral allele
-    removed_snps = []
-    # Flip variants that the alt allele is the ancestral allele
-    flipped_snps = []
+    removed_snps, flipped_snps = [], []
 
     for v in intersect_snps:
-        if (anc_allele[c][v] != ref_allele[v]) and (anc_allele[c][v] != alt_allele[v]):
+        if anc_allele[c][v] not in {ref_allele[v], alt_allele[v]}:
             removed_snps.append(v)
         elif anc_allele[c][v] == alt_allele[v]:
             flipped_snps.append(v)
 
-    intersect_snps = np.in1d(data[c]["POS"], intersect_snps)
-    data = filter_data(data, c, intersect_snps)
+    # Filter data by intersecting SNPs and remove any that should be removed
+    intersect_filter = np.in1d(data.POS, intersect_snps)
+    data = filter_geno_data(data, intersect_filter)
 
-    if len(removed_snps) != 0:
-        remained_snps = np.logical_not(np.in1d(data[c]["POS"], removed_snps))
-        data = filter_data(data, c, remained_snps)
+    if removed_snps:
+        remain_filter = np.logical_not(np.in1d(data.POS, removed_snps))
+        data = filter_geno_data(data, remain_filter)
 
-    is_flipped_snps = np.in1d(data[c]["POS"], flipped_snps)
-    # Assume no missing data
-    for i in range(len(data[c]["POS"])):
-        if is_flipped_snps[i]:
-            data[c]["GT"][i] = allel.GenotypeVector(abs(data[c]["GT"][i] - 1))
+    # Flip alleles in SNPs where ALT allele is ancestral
+    flip_snps(data, flipped_snps)
 
     return data
 
 
+def flip_snps(data: dict[str, ChromosomeData], flipped_snps: list[int]) -> None:
+    """
+    Flips the genotypes for SNPs where the ALT allele is the ancestral allele.
+
+    Parameters
+    ----------
+    data : dict
+        Genotype data.
+    flipped_snps : list of int
+        List of positions where the ALT allele is ancestral.
+    """
+    # Create a boolean mask for positions that need to be flipped
+    is_flipped = np.isin(data.POS, flipped_snps)
+
+    # Flip all genotypes at once where the mask is True
+    data.GT[is_flipped] = allel.GenotypeArray(abs(data.GT[is_flipped] - 1))
+
+
 def split_genome(
     pos: np.ndarray,
-    chr_name: str,
-    polymorphism_size: int,
-    step_size: int = None,
-    window_based: bool = True,
-    random_polymorphisms: bool = False,
-    seed: int = None,
+    window_size: int,
+    step_size: int,
 ) -> list[tuple]:
     """
-    Creates sliding windows along the genome.
+    Creates sliding windows along the genome based on variant positions.
 
     Parameters
     ----------
     pos : np.ndarray
-        Positions for the variants.
-    chr_name : str
-        Name of the chromosome.
-    polymorphism_size : int
-        Length of sliding windows or number of random positions.
-    step_size : int, optional
-        Step size of sliding windows. Default: None.
-    window_based : bool, optional
-        Whether to create sliding windows containing the start and end positions (True)
-        or positions of each polymorphism within the window (False). Default: True.
-    random_polymorphisms : bool, optional
-        Whether to randomly select polymorphism positions (only used if window_based is False). Default: False.
-    seed : int, optional
-        Seed for the random number generator (only used if random_polymorphisms is True). Default: None.
+        Array of positions for the variants.
+    window_size : int
+        Length of each sliding window.
+    step_size : int
+        Step size of the sliding windows.
 
     Returns
     -------
     list of tuple
-        List of sliding windows along the genome if window_based is True,
-        or list of position arrays if window_based is False. Each entry is either
-        a tuple of (chr_name, start_position, end_position) for window_based, or
-        (chr_name, numpy.ndarray of positions) for non-window_based.
+        List of sliding windows, where each entry is a tuple (start_position, end_position)
+        representing the start and end positions of each window.
 
     Raises
     ------
     ValueError
-        If `step_size` or `polymorphism_size` are non-positive, or if the `pos` array is empty,
-        or if no windows could be created with the given parameters.
-
+        - If `step_size` or `window_size` are non-positive
+        - If `step_size` is greater than `window_size`
+        - If the `pos` array is empty
     """
-    if (step_size is not None and step_size <= 0) or polymorphism_size <= 0:
-        raise ValueError(
-            "`step_size` and `polymorphism_size` must be positive integers."
-        )
+    # Validate inputs
+    if step_size <= 0 or window_size <= 0:
+        raise ValueError("`step_size` and `window_size` must be positive integers.")
+    if step_size > window_size:
+        raise ValueError("`step_size` cannot be greater than `window_size`.")
     if len(pos) == 0:
         raise ValueError("`pos` array must not be empty.")
 
     window_positions = []
+    win_start = (pos[0] + step_size) // step_size * step_size - window_size
+    if win_start < 0:
+        win_start = 0
 
-    if window_based:
-        win_start = max(
-            0, (pos[0] + step_size) // step_size * step_size - polymorphism_size
+    # Create windows based on step size and window size
+    while win_start + window_size <= pos[-1]:
+        win_end = win_start + window_size
+        window_positions.append((win_start, win_end))
+        win_start += step_size
+
+    # Check if any windows were created; if not, raise an error or handle appropriately
+    if not window_positions:
+        raise ValueError(
+            "No windows could be created with the given window size and step size."
         )
-        last_pos = pos[-1]
 
-        while last_pos > win_start:
-            win_end = win_start + polymorphism_size
-            window_positions.append((chr_name, [win_start, win_end]))
-            win_start += step_size
-    else:
-        if random_polymorphisms:
-            if seed is not None:
-                np.random.seed(seed)
-            if len(pos) < polymorphism_size:
-                raise ValueError(
-                    "No windows could be created with the given number of polymorphisms."
-                )
-            polymorphism_indexes = np.random.choice(
-                len(pos), size=polymorphism_size, replace=False
-            )
-            polymorphism_indexes = np.sort(polymorphism_indexes).tolist()
-            window_positions.append((chr_name, polymorphism_indexes))
-        else:
-            i = 0
-            while i + polymorphism_size <= len(pos):
-                window_positions.append(
-                    (chr_name, list(range(i, i + polymorphism_size)))
-                )
-                i += step_size
-
-            if len(window_positions) == 0:
-                raise ValueError(
-                    "No windows could be created with the given number of polymorphisms and step size."
-                )
-
-            if window_positions[-1][1][1] != len(pos) - 1:
-                window_positions.append(
-                    (chr_name, list(range(len(pos) - polymorphism_size, len(pos))))
-                )
+    # Handle remaining positions if the last window doesn't reach the end of `pos`
+    if window_positions[-1][1] < pos[-1]:
+        window_positions.append((pos[-1] - window_size, pos[-1]))
 
     return window_positions
