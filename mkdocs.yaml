@@ -1,6 +1,6 @@
-site_name: gaia
-site_url: "https://xin-huang.github.io/gaia"
-repo_url: "https://github.com/xin-huang/gaia"
+site_name: gaigar
+site_url: "https://xin-huang.github.io/gaigar"
+repo_url: "https://github.com/xin-huang/gaigar"
 edit_uri: ""
 docs_dir: 'docs'
 theme:
@@ -17,7 +17,7 @@ plugins:
           rendering:
             show_source: true
       watch:
-        - gaia
+        - gaigar
 markdown_extensions:
   - extra
   - tables
