@@ -1,17 +1,17 @@
-# GAIA
+# GAIGAR
 
-`gaia` is a Python package for **G**enomic **A**nalysis of **I**ntrogressed **A**lleles using machine learning. 
+`gaigar` is a Python package for **G**enomic **A**nalysis of **I**ntrogression at **G**enic and **A**llelic **R**esolution using machine learning. 
 Currently, it supports two types of models:
 
 - Logistic regression models
 - U-Net models
 
-`gaia` uses established population genetic simulators like `msprime` for generating training and test data. 
+`gaigar` uses established population genetic simulators like `msprime` for generating training and test data. 
 It can be applied to detect introgressed fragments or alleles in genomes from various species.
 
 ## Requirements
 
-`gaia` works on UNIX/LINUX operating systems and tested with the following:
+`gaigar` works on UNIX/LINUX operating systems and tested with the following:
 
 - Python 3.9
 - Python packages:
@@ -35,13 +35,13 @@ It can be applied to detect introgressed fragments or alleles in genomes from va
 
 ## Installation
 
-Users can install `gaia` by using the following commands:
+Users can install `gaigar` by using the following commands:
 
 ```
-git clone https://github.com/xin-huang/gaia
-cd gaia
+git clone https://github.com/xin-huang/gaigar
+cd gaigar
 mamba env create -f env.yaml
-mamba activate gaia
+mamba activate gaigar
 pip install .
 ```
 
@@ -52,7 +52,7 @@ Users first need to install [mamba](https://mamba.readthedocs.io/en/latest/insta
 To get help information, users can use:
 
 ```         
-gaia -h
+gaigar -h
 ```
 
 This will display information for three commands:
@@ -63,4 +63,4 @@ This will display information for three commands:
 | unet | Use U-Net models |
 | eval | Evaluate model performance |
 
-If you need further help, such as such as reporting a bug or suggesting a feature, please open an [issue](https://github.com/xin-huang/gaia/issues).
+If you need further help, such as reporting a bug or suggesting a feature, please open an [issue](https://github.com/xin-huang/gaigar/issues).
