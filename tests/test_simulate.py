@@ -20,7 +20,7 @@
 import os, pytest, shutil
 import numpy as np
 import pandas as pd
-from gaia.simulate import lr_simulate
+from gaigar.simulate import lr_simulate
 
 
 @pytest.fixture

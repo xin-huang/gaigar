@@ -20,7 +20,7 @@
 import pandas as pd
 import pyranges as pr
 import numpy as np
-from gaia.stats.metrics import cal_pr
+from gaigar.stats.metrics import cal_pr
 
 
 def window_evaluate(

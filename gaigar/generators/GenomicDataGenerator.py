@@ -18,8 +18,8 @@
 
 
 import numpy as np
-from gaia.utils import read_data, create_windows
-from gaia.utils.generators import DataGenerator
+from gaigar.utils import read_data, create_windows
+from gaigar.generators import DataGenerator
 
 
 class GenomicDataGenerator(DataGenerator):

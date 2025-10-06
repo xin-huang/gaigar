@@ -20,9 +20,9 @@
 import scipy, yaml
 import numpy as np
 from typing import Any
-from gaia.stats.features import *
-from gaia.utils import parse_ind_file
-from gaia.utils.preprocessors import DataPreprocessor
+from gaigar.stats.features import *
+from gaigar.utils import parse_ind_file
+from gaigar.preprocessors import DataPreprocessor
 
 
 class FeatureVectorsPreprocessor(DataPreprocessor):

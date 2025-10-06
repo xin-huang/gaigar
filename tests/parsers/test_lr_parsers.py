@@ -18,7 +18,7 @@
 
 
 import pytest, argparse
-from gaia.parsers.lr_parsers import add_lr_parsers
+from gaigar.parsers.lr_parsers import add_lr_parsers
 
 
 @pytest.fixture

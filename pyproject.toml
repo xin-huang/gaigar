@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gaigar"
+version = "1.0.0"
+description = "Genomic Analysis of Introgression at Genic and Allelic Resolution"
+readme = "README.md"
+requires-python = "==3.9.19"
+license = {text = "GPLv3"}
+authors = [{name = "Xin Huang", email = "xinhuang.res@gmail.com"}]
+urls = {Homepage = "https://github.com/xin-huang/gaigar"}
+
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9"
+]
+
+dependencies = [
+]
+
+[project.scripts]
+gaigar = "gaigar.__main__:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]

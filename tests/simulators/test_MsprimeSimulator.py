@@ -18,9 +18,9 @@
 
 
 import os, pytest, shutil
-from gaia.utils.multiprocessing import mp_manager
-from gaia.utils.simulators import MsprimeSimulator
-from gaia.utils.generators import RandomNumberGenerator
+from gaigar.multiprocessing import mp_manager
+from gaigar.simulators import MsprimeSimulator
+from gaigar.generators import RandomNumberGenerator
 
 
 @pytest.fixture

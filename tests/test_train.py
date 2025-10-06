@@ -18,7 +18,7 @@
 
 
 import joblib, os, pytest, shutil
-from gaia.utils.models import LRModel
+from gaigar.models import LRModel
 
 
 @pytest.fixture

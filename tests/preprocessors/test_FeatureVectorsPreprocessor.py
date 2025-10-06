@@ -18,9 +18,9 @@
 
 
 import os, pytest, yaml
-from gaia.utils import parse_ind_file
-from gaia.utils.generators import GenomicDataGenerator
-from gaia.utils.preprocessors import FeatureVectorsPreprocessor
+from gaigar.utils import parse_ind_file
+from gaigar.generators import GenomicDataGenerator
+from gaigar.preprocessors import FeatureVectorsPreprocessor
 
 
 @pytest.fixture

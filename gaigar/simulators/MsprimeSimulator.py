@@ -19,7 +19,7 @@
 
 import demes, msprime, os, tskit
 import pyranges as pr
-from gaia.utils.simulators import DataSimulator
+from gaigar.simulators import DataSimulator
 
 
 class MsprimeSimulator(DataSimulator):

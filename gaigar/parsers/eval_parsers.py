@@ -18,7 +18,7 @@
 
 
 import argparse
-from gaia.parsers.argument_validation import positive_int, existed_file
+from gaigar.parsers.argument_validation import positive_int, existed_file
 
 
 def _run_evaluate(args: argparse.Namespace) -> None:
@@ -38,7 +38,7 @@ def _run_evaluate(args: argparse.Namespace) -> None:
         - output : Path where the evaluation results will be saved.
 
     """
-    from gaia.evaluate import window_evaluate
+    from gaigar.evaluate import window_evaluate
     window_evaluate(
         true_tract_file=args.true_tracts, 
         inferred_tract_file=args.inferred_tracts, 

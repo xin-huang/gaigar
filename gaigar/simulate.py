@@ -19,9 +19,9 @@
 
 import os, random, shutil
 import pandas as pd
-from gaia.utils.multiprocessing import mp_manager
-from gaia.utils.generators import RandomNumberGenerator
-from gaia.utils.simulators import LRTrainingDataSimulator
+from gaigar.multiprocessing import mp_manager
+from gaigar.generators import RandomNumberGenerator
+from gaigar.simulators import LRTrainingDataSimulator
 
 
 def lr_simulate(demo_model_file: str, nrep: int, nref: int, ntgt: int,

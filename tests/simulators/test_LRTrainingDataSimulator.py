@@ -20,9 +20,9 @@
 import os, pytest, shutil
 import numpy as np
 import pandas as pd
-from gaia.utils.multiprocessing import mp_manager
-from gaia.utils.generators import RandomNumberGenerator
-from gaia.utils.simulators import LRTrainingDataSimulator
+from gaigar.multiprocessing import mp_manager
+from gaigar.generators import RandomNumberGenerator
+from gaigar.simulators import LRTrainingDataSimulator
 
 
 @pytest.fixture

@@ -17,7 +17,7 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from gaia.utils.preprocessors import DataPreprocessor
+from gaigar.preprocessors import DataPreprocessor
 
 
 class GenotypeMatricesPreprocessor(DataPreprocessor):

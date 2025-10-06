@@ -19,10 +19,10 @@
 
 import os, yaml
 import pandas as pd
-from gaia.utils import parse_ind_file
-from gaia.utils.multiprocessing import mp_manager
-from gaia.utils.generators import GenomicDataGenerator
-from gaia.utils.preprocessors import FeatureVectorsPreprocessor
+from gaigar.utils import parse_ind_file
+from gaigar.multiprocessing import mp_manager
+from gaigar.generators import GenomicDataGenerator
+from gaigar.preprocessors import FeatureVectorsPreprocessor
 
 
 def lr_preprocess(vcf_file: str, chr_name: str, ref_ind_file: str, tgt_ind_file: str, 

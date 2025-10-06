@@ -20,8 +20,8 @@
 import pytest, queue, time
 import numpy as np
 from multiprocessing import current_process, Queue
-from gaia.utils.multiprocessing import mp_manager
-from gaia.utils.generators import RandomNumberGenerator
+from gaigar.multiprocessing import mp_manager
+from gaigar.generators import RandomNumberGenerator
 
 
 class SimpleJob:

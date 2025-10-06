@@ -21,7 +21,7 @@ import joblib, os
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from gaia.utils.models import MLModel
+from gaigar.models import MLModel
 
 pd.options.mode.chained_assignment = None
 

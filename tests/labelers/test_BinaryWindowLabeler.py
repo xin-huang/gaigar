@@ -20,7 +20,7 @@
 import os, pytest, shutil
 import numpy as np
 import pandas as pd
-from gaia.utils.labelers import BinaryWindowLabeler
+from gaigar.labelers import BinaryWindowLabeler
 
 
 @pytest.fixture

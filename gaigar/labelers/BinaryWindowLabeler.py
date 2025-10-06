@@ -21,7 +21,7 @@ import os
 import numpy as np
 import pandas as pd
 from typing import Any
-from gaia.utils.labelers import DataLabeler
+from gaigar.labelers import DataLabeler
 
 
 class BinaryWindowLabeler(DataLabeler):
