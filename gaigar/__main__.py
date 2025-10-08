@@ -18,9 +18,9 @@
 
 
 import argparse
-from gaia.parsers.lr_parsers import add_lr_parsers
-from gaia.parsers.unet_parsers import add_unet_parsers
-from gaia.parsers.eval_parsers import add_eval_parsers
+from gaigar.parsers.lr_parsers import add_lr_parsers
+from gaigar.parsers.unet_parsers import add_unet_parsers
+from gaigar.parsers.eval_parsers import add_eval_parsers
 
 
 def _set_sigpipe_handler() -> None:
@@ -34,10 +34,10 @@ def _set_sigpipe_handler() -> None:
         signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 
-def _gaia_cli_parser() -> argparse.ArgumentParser:
+def _gaigar_cli_parser() -> argparse.ArgumentParser:
     """
     Initializes and configures the command-line interface parser
-    for gaia.
+    for gaigar.
 
     Returns
     -------
@@ -56,15 +56,15 @@ def _gaia_cli_parser() -> argparse.ArgumentParser:
 
 def main(arg_list: list = None) -> None:
     """
-    Main entry for gaia.
+    Main entry for gaigar.
 
     Parameters
     ----------
     arg_list : list, optional
-        A list containing arguments for gaia. Default: None.
+        A list containing arguments for gaigar. Default: None.
 
     """
     _set_sigpipe_handler()
-    parser = _gaia_cli_parser()
+    parser = _gaigar_cli_parser()
     args = parser.parse_args(arg_list)
     args.runner(args)

@@ -19,7 +19,7 @@
 
 import multiprocessing, queue, time
 import numpy as np
-from gaia.utils.generators import DataGenerator
+from gaigar.generators import DataGenerator
 from multiprocessing import current_process, Manager, Process, Queue
 from threading import Thread
 

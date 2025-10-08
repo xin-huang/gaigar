@@ -18,7 +18,7 @@
 
 
 import pytest
-from gaia.evaluate import window_evaluate
+from gaigar.evaluate import window_evaluate
 
 
 @pytest.fixture

@@ -18,7 +18,7 @@
 
 
 import numpy as np
-from gaia.utils.generators import DataGenerator
+from gaigar.generators import DataGenerator
 
 
 class RandomNumberGenerator(DataGenerator):

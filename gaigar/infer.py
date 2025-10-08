@@ -17,7 +17,7 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from gaia.utils.models import LRModel
+from gaigar.utils.models import LRModel
 
 
 def lr_infer(inference_data: str, model_file: str, 

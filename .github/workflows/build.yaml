@@ -19,12 +19,12 @@ jobs:
     - name: Add micromamba to system path
       uses: mamba-org/setup-micromamba@v1
       with:
-        environment-name: gaia-build
-        environment-file: build-env.yaml
+        environment-name: gaigar-dev
+        environment-file: dev-env.yaml
     - name: Test with pytest
       run: |
-        micromamba run -n gaia-build pytest --cov=. --cov-report term-missing -vv
-        micromamba run -n gaia-build coverage xml
+        micromamba run -n gaigar-dev pytest --cov=. --cov-report term-missing -vv
+        micromamba run -n gaigar-dev coverage xml
     - name: upload coverage report to codecov
       uses: codecov/codecov-action@v4
       with:

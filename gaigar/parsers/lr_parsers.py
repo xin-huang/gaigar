@@ -18,7 +18,7 @@
 
 
 import argparse, os, sys
-from gaia.parsers.argument_validation import positive_int, positive_number, existed_file
+from gaigar.parsers.argument_validation import positive_int, positive_number, existed_file
 
 
 def _run_simulation(args: argparse.Namespace) -> None:
@@ -60,18 +60,18 @@ def _run_simulation(args: argparse.Namespace) -> None:
 
     """
     import demes
-    from gaia.simulate import lr_simulate
+    from gaigar.simulate import lr_simulate
 
     demog = demes.load(args.demes)
     pops = [ d.name for d in demog.demes ]
     if args.ref_id not in pops:
-        print(f'gita lr simulate: error: argument --ref_id: Population {args.ref_id} is not found in the demographic model file {args.demes}')
+        print(f'gaigar lr simulate: error: argument --ref_id: Population {args.ref_id} is not found in the demographic model file {args.demes}')
         sys.exit(1)
     if args.tgt_id not in pops:
-        print(f'gita lr simulate: error: argument --tgt_id: Population {args.tgt_id} is not found in the demographic model file {args.demes}')
+        print(f'gaigar lr simulate: error: argument --tgt_id: Population {args.tgt_id} is not found in the demographic model file {args.demes}')
         sys.exit(1)
     if args.src_id not in pops:
-        print(f'gita lr simulate: error: argument --src_id: Population {args.src_id} is not found in the demographic model file {args.demes}')
+        print(f'gaigar lr simulate: error: argument --src_id: Population {args.src_id} is not found in the demographic model file {args.demes}')
         sys.exit(1)
 
     lr_simulate(
@@ -127,7 +127,7 @@ def _run_preprocess(args: argparse.Namespace) -> None:
     None.
 
     """
-    from gaia.preprocess import lr_preprocess
+    from gaigar.preprocess import lr_preprocess
     lr_preprocess(
         vcf_file=args.vcf,
         chr_name=args.chr_name,
@@ -166,7 +166,7 @@ def _run_training(args: argparse.Namespace) -> None:
     None.
 
     """
-    from gaia.train import lr_train
+    from gaigar.train import lr_train
     lr_train(
         training_data=args.training_data,
         model_file=args.model_file,
@@ -197,7 +197,7 @@ def _run_inference(args: argparse.Namespace) -> None:
     None.
 
     """
-    from gaia.infer import lr_infer
+    from gaigar.infer import lr_infer
     lr_infer(
         inference_data=args.inference_data, 
         model_file=args.model_file,

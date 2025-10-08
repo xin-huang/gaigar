@@ -18,7 +18,7 @@
 
 
 import argparse, os, sys
-from gaia.parsers.argument_validation import positive_int, positive_number, existed_file
+from gaigar.parsers.argument_validation import positive_int, positive_number, existed_file
 
 
 def _run_simulation():
@@ -33,7 +33,7 @@ def _run_training(args: argparse.Namespace) -> None:
     pass
 #    """
 #    """
-#    from gaia.train import unet_train
+#    from gaigar.train import unet_train
 #    unet_train(
 #        training_data=args.training_data,
 #        model_dir=args.model_dir,

@@ -19,7 +19,7 @@
 
 import pytest, os, signal, argparse
 from unittest.mock import patch
-from gaia.__main__ import _set_sigpipe_handler, _gaia_cli_parser
+from gaigar.__main__ import _set_sigpipe_handler, _gaigar_cli_parser
 
 
 @pytest.mark.skipif(os.name != 'posix', reason="Test only applicable on POSIX systems")
@@ -29,8 +29,8 @@ def test_set_sigpipe_handler(mock_signal):
     mock_signal.assert_called_once_with(signal.SIGPIPE, signal.SIG_DFL)
 
 
-def test_gaia_cli_parser():
-    parser = _gaia_cli_parser()
+def test_gaigar_cli_parser():
+    parser = _gaigar_cli_parser()
 
     assert isinstance(parser, argparse.ArgumentParser)
 

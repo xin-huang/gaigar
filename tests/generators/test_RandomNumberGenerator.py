@@ -18,7 +18,7 @@
 
 
 import pytest
-from gaia.utils.generators import RandomNumberGenerator
+from gaigar.generators import RandomNumberGenerator
 
 
 @pytest.fixture

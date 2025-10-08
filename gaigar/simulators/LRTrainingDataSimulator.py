@@ -19,11 +19,11 @@
 
 import os
 from typing import Any
-from gaia.utils.simulators import DataSimulator
-from gaia.utils.simulators import MsprimeSimulator
-from gaia.utils.generators import GenomicDataGenerator
-from gaia.utils.labelers import BinaryWindowLabeler
-from gaia.utils.preprocessors import FeatureVectorsPreprocessor
+from gaigar.simulators import DataSimulator
+from gaigar.simulators import MsprimeSimulator
+from gaigar.generators import GenomicDataGenerator
+from gaigar.labelers import BinaryWindowLabeler
+from gaigar.preprocessors import FeatureVectorsPreprocessor
 
 
 class LRTrainingDataSimulator(DataSimulator):

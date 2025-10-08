@@ -20,7 +20,7 @@
 import os, pytest, shutil
 import numpy as np
 import pandas as pd
-from gaia.preprocess import lr_preprocess
+from gaigar.preprocess import lr_preprocess
 
 
 @pytest.fixture
