@@ -21,10 +21,10 @@ import os
 import numpy as np
 import pandas as pd
 from typing import Any
-from gaigar.labelers import DataLabeler
+from gaigar.labelers import GenericLabeler
 
 
-class BinaryWindowLabeler(DataLabeler):
+class BinaryWindowLabeler(GenericLabeler):
     """
     A labeler for binary classification of genomic windows based on introgression proportions.
 
@@ -33,8 +33,15 @@ class BinaryWindowLabeler(DataLabeler):
     or unphased tracts and considering specified ploidy.
 
     """
-    def __init__(self, ploidy: int, is_phased: bool, win_len: int, 
-                 intro_prop: float, non_intro_prop: float):
+
+    def __init__(
+        self,
+        ploidy: int,
+        is_phased: bool,
+        win_len: int,
+        intro_prop: float,
+        non_intro_prop: float,
+    ):
         """
         Initializes a new instance of BinaryWindowLabeler with specific parameters.
 
@@ -63,13 +70,19 @@ class BinaryWindowLabeler(DataLabeler):
             raise ValueError(f"win_len {win_len} must be greater than 0.")
 
         if not 0 <= intro_prop <= 1:
-            raise ValueError(f"intro_prop {intro_prop} must be within the inclusive range [0, 1].")
-        
+            raise ValueError(
+                f"intro_prop {intro_prop} must be within the inclusive range [0, 1]."
+            )
+
         if not 0 <= non_intro_prop <= 1:
-            raise ValueError(f"not_intro_prop {not_intro_prop} must be within the inclusive range [0, 1].")
+            raise ValueError(
+                f"not_intro_prop {not_intro_prop} must be within the inclusive range [0, 1]."
+            )
 
         if not 0 <= (intro_prop + non_intro_prop) <= 1:
-            raise ValueError(f"the sum of intro_prop {intro_prop} and non_intro_prop {non_intro_prop} must be within the inclusive range [0, 1].")
+            raise ValueError(
+                f"the sum of intro_prop {intro_prop} and non_intro_prop {non_intro_prop} must be within the inclusive range [0, 1]."
+            )
 
         super().__init__(
             ploidy=ploidy,
@@ -80,9 +93,9 @@ class BinaryWindowLabeler(DataLabeler):
         self.intro_prop = intro_prop
         self.non_intro_prop = non_intro_prop
 
-
-    def run(self, tgt_ind_file: str,
-            true_tract_file: str, rep: int = None) -> list[dict[str, Any]]:
+    def run(
+        self, tgt_ind_file: str, true_tract_file: str, rep: int = None
+    ) -> list[dict[str, Any]]:
         """
         Executes the labeling process by analyzing genomic tracts and labeling
         windows as introgressed or not, based on a specified proportion threshold.
@@ -117,45 +130,59 @@ class BinaryWindowLabeler(DataLabeler):
             If `tgt_ind_file` or `true_tract_file` is not found.
 
         """
-        label_df = pd.DataFrame(columns=['Chromosome', 'Start', 'End', 'Sample'])
+        label_df = pd.DataFrame(columns=["Chromosome", "Start", "End", "Sample"])
 
         try:
-            with open(tgt_ind_file, 'r') as f:
+            with open(tgt_ind_file, "r") as f:
                 if self.is_phased is True:
                     for line in f:
                         sample = line.rstrip()
                         for p in range(self.ploidy):
-                            label_df.loc[len(label_df.index)] = [1, 0, self.win_len, f'{sample}_{p+1}']
+                            label_df.loc[len(label_df.index)] = [
+                                1,
+                                0,
+                                self.win_len,
+                                f"{sample}_{p+1}",
+                            ]
                 else:
                     for line in f:
                         sample = line.rstrip()
                         label_df.loc[len(label_df.index)] = [1, 0, self.win_len, sample]
         except FileNotFoundError:
-            raise FileNotFoundError(f'tgt_ind_file {tgt_ind_file} not found.')
+            raise FileNotFoundError(f"tgt_ind_file {tgt_ind_file} not found.")
 
         try:
-            true_tract_df = pd.read_csv(true_tract_file, sep="\t", header=None, names=['Chromosome', 'Start', 'End', 'Sample'])
+            true_tract_df = pd.read_csv(
+                true_tract_file,
+                sep="\t",
+                header=None,
+                names=["Chromosome", "Start", "End", "Sample"],
+            )
         except FileNotFoundError:
-            raise FileNotFoundError(f'true_tract_file {true_tract_file} not found.')
+            raise FileNotFoundError(f"true_tract_file {true_tract_file} not found.")
         except pd.errors.EmptyDataError:
-            label_df['Label'] = 0.0
+            label_df["Label"] = 0.0
         else:
-            true_tract_df['Len'] = true_tract_df['End'] - true_tract_df['Start']
-            true_tract_df = true_tract_df.groupby(by=['Sample'])['Len'].sum().reset_index()
-            true_tract_df['Prop'] = true_tract_df['Len'] / self.win_len
+            true_tract_df["Len"] = true_tract_df["End"] - true_tract_df["Start"]
+            true_tract_df = (
+                true_tract_df.groupby(by=["Sample"])["Len"].sum().reset_index()
+            )
+            true_tract_df["Prop"] = true_tract_df["Len"] / self.win_len
             conditions = [
-                true_tract_df['Prop'] >= self.intro_prop,
-                true_tract_df['Prop'] <= self.non_intro_prop
+                true_tract_df["Prop"] >= self.intro_prop,
+                true_tract_df["Prop"] <= self.non_intro_prop,
             ]
             choices = [1, 0]
-            true_tract_df['Label'] = np.select(conditions, choices, default=-1)
-            label_df = label_df.merge(true_tract_df[['Sample', 'Label']],
-                                      on='Sample', how='left').fillna(0)
+            true_tract_df["Label"] = np.select(conditions, choices, default=-1)
+            label_df = label_df.merge(
+                true_tract_df[["Sample", "Label"]], on="Sample", how="left"
+            ).fillna(0)
 
-            if rep is not None: label_df['Replicate'] = rep
+            if rep is not None:
+                label_df["Replicate"] = rep
 
-        label_df['Label'] = label_df['Label'].astype('int8')
-        
-        labels = label_df.to_dict(orient='records')
+        label_df["Label"] = label_df["Label"].astype("int8")
+
+        labels = label_df.to_dict(orient="records")
 
         return labels

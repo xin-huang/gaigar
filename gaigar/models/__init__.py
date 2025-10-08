@@ -17,5 +17,5 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .MLModel import MLModel
-from .LRModel import LRModel
+from .ml_model import MlModel
+from .lr_model import LrModel

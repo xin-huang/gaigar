@@ -58,30 +58,34 @@ def cleanup_output_dir(request, lr_simulate_params):
     # Setup (nothing to do before the test)
     yield  # Hand over control to the test
     # Teardown
-    shutil.rmtree(lr_simulate_params['output_dir'], ignore_errors=True)
+    shutil.rmtree(lr_simulate_params["output_dir"], ignore_errors=True)
 
 
 def test_lr_simulate(lr_simulate_params, cleanup_output_dir):
     lr_simulate(**lr_simulate_params)
 
     df = pd.read_csv(
-            os.path.join(
-                lr_simulate_params['output_dir'], 
-                f"{lr_simulate_params['output_prefix']}.features"
-            ), 
-            sep="\t",
-         )
+        os.path.join(
+            lr_simulate_params["output_dir"],
+            f"{lr_simulate_params['output_prefix']}.features",
+        ),
+        sep="\t",
+    )
 
     expected_df = pd.read_csv(
-            "tests/expected_results/simulate/test.lr.simulate.features", 
-            sep="\t",
-         )
+        "tests/expected_results/simulate/test.lr.simulate.features",
+        sep="\t",
+    )
 
     for column in df.columns:
-        if df[column].dtype.kind in 'ifc':  # Float, int, complex numbers
-            assert np.isclose(df[column], expected_df[column], atol=1e-5, rtol=1e-5).all(), f"Mismatch in column {column}"
+        if df[column].dtype.kind in "ifc":  # Float, int, complex numbers
+            assert np.isclose(
+                df[column], expected_df[column], atol=1e-5, rtol=1e-5
+            ).all(), f"Mismatch in column {column}"
         else:
-            assert (df[column] == expected_df[column]).all(), f"Mismatch in column {column}"
+            assert (
+                df[column] == expected_df[column]
+            ).all(), f"Mismatch in column {column}"
 
 
 if __name__ == "__main__":

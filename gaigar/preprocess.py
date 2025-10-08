@@ -22,13 +22,24 @@ import pandas as pd
 from gaigar.utils import parse_ind_file
 from gaigar.multiprocessing import mp_manager
 from gaigar.generators import GenomicDataGenerator
-from gaigar.preprocessors import FeatureVectorsPreprocessor
+from gaigar.preprocessors import FeatureVectorPreprocessor
 
 
-def lr_preprocess(vcf_file: str, chr_name: str, ref_ind_file: str, tgt_ind_file: str, 
-                  win_len: int, win_step: int, feature_config: str, 
-                  output_dir: str, output_prefix: str = 'lr', nprocess: int = 1, 
-                  ploidy: int = 2, is_phased: bool = True, anc_allele_file: str = None) -> None:
+def lr_preprocess(
+    vcf_file: str,
+    chr_name: str,
+    ref_ind_file: str,
+    tgt_ind_file: str,
+    win_len: int,
+    win_step: int,
+    feature_config: str,
+    output_dir: str,
+    output_prefix: str = "lr",
+    nprocess: int = 1,
+    ploidy: int = 2,
+    is_phased: bool = True,
+    anc_allele_file: str = None,
+) -> None:
     """
     Preprocess genomic data to generate feature vectors for machine learning models.
 
@@ -86,18 +97,18 @@ def lr_preprocess(vcf_file: str, chr_name: str, ref_ind_file: str, tgt_ind_file:
         win_step=win_step,
     )
 
-    preprocessor = FeatureVectorsPreprocessor(
+    preprocessor = FeatureVectorPreprocessor(
         ref_ind_file=ref_ind_file,
         tgt_ind_file=tgt_ind_file,
         feature_config=feature_config,
     )
     res = mp_manager(job=preprocessor, data_generator=generator, nprocess=nprocess)
 
-    if res == 'error': 
-        raise SystemExit('Some errors occurred, stopping the program ...')
+    if res == "error":
+        raise SystemExit("Some errors occurred, stopping the program ...")
 
-    res.sort(key=lambda x: (x['Chromosome'], x['Start'], x['End']))
+    res.sort(key=lambda x: (x["Chromosome"], x["Start"], x["End"]))
 
     os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f'{output_prefix}.features')
+    output_file = os.path.join(output_dir, f"{output_prefix}.features")
     pd.DataFrame(res).to_csv(output_file, sep="\t", index=False)

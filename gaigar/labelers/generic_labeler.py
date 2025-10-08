@@ -20,7 +20,7 @@
 from abc import ABC, abstractmethod
 
 
-class DataLabeler(ABC):
+class GenericLabeler(ABC):
     """
     Abstract base class for labeling data based on true tracts and target individual files.
 
@@ -28,6 +28,7 @@ class DataLabeler(ABC):
     given a set of initial parameters defined during instantiation.
 
     """
+
     def __init__(self, ploidy: int, is_phased: bool):
         """
         Initializes a new DataLabeler instance with the given configuration.

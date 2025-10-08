@@ -17,5 +17,5 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .DataLabeler import DataLabeler
-from .BinaryWindowLabeler import BinaryWindowLabeler
+from .generic_labeler import GenericLabeler
+from .binary_window_labeler import BinaryWindowLabeler

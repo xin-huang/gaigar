@@ -20,10 +20,10 @@
 from gaigar.utils.models import LRModel
 
 
-def lr_infer(inference_data: str, model_file: str, 
-             output_file: str, is_scaled: bool) -> None:
-    """
-    """
+def lr_infer(
+    inference_data: str, model_file: str, output_file: str, is_scaled: bool
+) -> None:
+    """ """
     LRModel.infer(
         inference_data=inference_data,
         model_file=model_file,

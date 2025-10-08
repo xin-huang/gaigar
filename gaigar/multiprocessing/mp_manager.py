@@ -19,13 +19,12 @@
 
 import multiprocessing, queue, time
 import numpy as np
-from gaigar.generators import DataGenerator
+from gaigar.generators import GenericGenerator
 from multiprocessing import current_process, Manager, Process, Queue
 from threading import Thread
 
 
-def monitor(shared_dict: dict, 
-            workers: list[multiprocessing.Process]) -> None:
+def monitor(shared_dict: dict, workers: list[multiprocessing.Process]) -> None:
     """
     Monitors worker processes to ensure they complete successfully, initiating shutdown if any worker fails.
 
@@ -52,17 +51,19 @@ def monitor(shared_dict: dict,
 
     """
     while True:
-        #alive_workers = [worker.name for worker in workers if worker.is_alive()]
-        #completed_workers = [worker.name for worker in workers if shared_dict.get(worker.name) == 'Completed']
-        #print("Monitoring", "Alive:", alive_workers, "Completed:", completed_workers)
- 
-        if all(shared_dict.get(worker.name) == 'Completed' for worker in workers):
-            #print("All workers completed their tasks successfully.")
+        # alive_workers = [worker.name for worker in workers if worker.is_alive()]
+        # completed_workers = [worker.name for worker in workers if shared_dict.get(worker.name) == 'Completed']
+        # print("Monitoring", "Alive:", alive_workers, "Completed:", completed_workers)
+
+        if all(shared_dict.get(worker.name) == "Completed" for worker in workers):
+            # print("All workers completed their tasks successfully.")
             return
-       
+
         for worker in workers:
-            if not worker.is_alive() and shared_dict.get(worker.name) != 'Completed':
-                print(f"{worker.name} did not complete successfully. Initiating shutdown.")
+            if not worker.is_alive() and shared_dict.get(worker.name) != "Completed":
+                print(
+                    f"{worker.name} did not complete successfully. Initiating shutdown."
+                )
                 terminate_all_workers(workers)
                 print("All workers are terminated.")
                 return
@@ -96,8 +97,9 @@ def terminate_all_workers(workers: list[multiprocessing.Process]) -> None:
         w.join()  # Wait for the process to terminate
 
 
-def mp_manager(job: callable, data_generator: DataGenerator, 
-               nprocess: int, **kwargs) -> list:
+def mp_manager(
+    job: callable, data_generator: GenericGenerator, nprocess: int, **kwargs
+) -> list:
     """
     Manages the distribution of tasks across multiple processes for parallel execution, ensuring
     reproducibility through controlled seed values for each task.
@@ -111,10 +113,10 @@ def mp_manager(job: callable, data_generator: DataGenerator,
     ----------
     job : callable
         The function or callable object to be executed in parallel by each worker.
-    data_generator : DataGenerator
-        An instance of a `DataGenerator` subclass that yields dictionaries with parameters for each task. 
-        The `run` method in the corresponding job instance must be compatible with the parameters returned 
-        by the `get` method in the data_generator. This ensures that each task executed by the job function 
+    data_generator : GenericGenerator
+        An instance of a `GenericGenerator` subclass that yields dictionaries with parameters for each task.
+        The `run` method in the corresponding job instance must be compatible with the parameters returned
+        by the `get` method in the data_generator. This ensures that each task executed by the job function
         receives the correct parameters, facilitating reproducibility and consistency across tasks.
     nprocess : int
         The number of worker processes to use for executing the job in parallel. This determines
@@ -153,26 +155,34 @@ def mp_manager(job: callable, data_generator: DataGenerator,
         res = []
         in_queue, out_queue = manager.Queue(), manager.Queue()
         shared_dict = manager.dict()
-        workers = [Process(target=mp_worker, args=(in_queue, out_queue, shared_dict), kwargs=kwargs) for i in range(nprocess)]
+        workers = [
+            Process(
+                target=mp_worker, args=(in_queue, out_queue, shared_dict), kwargs=kwargs
+            )
+            for i in range(nprocess)
+        ]
 
         for params in data_generator.get():
             in_queue.put((job, params))
 
         try:
-            for w in workers: w.start()
+            for w in workers:
+                w.start()
 
             monitor_thread = Thread(target=monitor, args=(shared_dict, workers))
             monitor_thread.start()
 
             for i in range(len(data_generator)):
                 items = out_queue.get()
-                if items is None: continue
-                if 'error' in items: 
-                    res = 'error'
+                if items is None:
+                    continue
+                if "error" in items:
+                    res = "error"
                     break
                 res.extend(items)
 
-            for w in workers: w.join()
+            for w in workers:
+                w.join()
         finally:
             for w in workers:
                 w.terminate()
@@ -181,8 +191,9 @@ def mp_manager(job: callable, data_generator: DataGenerator,
     return res
 
 
-def mp_worker(in_queue: queue.Queue, out_queue: queue.Queue, 
-              shared_dict: dict, **kwargs) -> None:
+def mp_worker(
+    in_queue: queue.Queue, out_queue: queue.Queue, shared_dict: dict, **kwargs
+) -> None:
     """
     A multiprocessing worker function that processes tasks from an input queue, executes a job,
     and reports the status to an output queue and a shared dictionary.
@@ -223,7 +234,7 @@ def mp_worker(in_queue: queue.Queue, out_queue: queue.Queue,
 
     """
     process_name = current_process().name
-    shared_dict[process_name] = 'Started'
+    shared_dict[process_name] = "Started"
 
     while True:
         try:
@@ -231,10 +242,10 @@ def mp_worker(in_queue: queue.Queue, out_queue: queue.Queue,
                 job, params = in_queue.get(timeout=5)
                 items = job.run(**params)
             except queue.Empty:
-                shared_dict[process_name] = 'Completed'
+                shared_dict[process_name] = "Completed"
                 return  # Exit the loop and end the worker process
             out_queue.put(items)
         except Exception as e:
-            shared_dict[process_name] = 'Failed'
+            shared_dict[process_name] = "Failed"
             out_queue.put(("error", str(e)))
-            raise Exception(f'Worker {process_name} encountered an exception: {e}')
+            raise Exception(f"Worker {process_name} encountered an exception: {e}")

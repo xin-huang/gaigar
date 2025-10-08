@@ -25,11 +25,11 @@ from gaigar.evaluate import window_evaluate
 def tract_files():
     return {
         "true_tract_file": "tests/data/test.lr.true.tracts.bed",
-        "inferred_tract_file" : "tests/data/test.lr.inferred.tracts.bed",
+        "inferred_tract_file": "tests/data/test.lr.inferred.tracts.bed",
     }
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     window_evaluate(
         true_tract_file="tests/data/test.lr.true.tracts.bed",
         inferred_tract_file="tests/data/test.lr.inferred.tracts.bed",

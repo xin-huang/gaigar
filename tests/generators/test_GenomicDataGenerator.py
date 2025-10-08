@@ -25,13 +25,13 @@ from gaigar.generators import GenomicDataGenerator
 
 @pytest.fixture
 def file_paths():
-    expected_dir = 'tests/expected_results/simulators/MsprimeSimulator/0'
+    expected_dir = "tests/expected_results/simulators/MsprimeSimulator/0"
     return {
-        'vcf_file': os.path.join(expected_dir, 'test.0.vcf'),
-        'ref_ind_file': os.path.join(expected_dir, 'test.0.ref.ind.list'),
-        'tgt_ind_file': os.path.join(expected_dir, 'test.0.tgt.ind.list'),
-        'anc_allele_file': None,
-        'is_phased': True,
+        "vcf_file": os.path.join(expected_dir, "test.0.vcf"),
+        "ref_ind_file": os.path.join(expected_dir, "test.0.ref.ind.list"),
+        "tgt_ind_file": os.path.join(expected_dir, "test.0.tgt.ind.list"),
+        "anc_allele_file": None,
+        "is_phased": True,
     }
 
 
@@ -39,40 +39,40 @@ def file_paths():
 def init_params(file_paths):
     return {
         **file_paths,
-        'chr_name': '1',
-        'win_len': 50000,
-        'win_step': 50000,
+        "chr_name": "1",
+        "win_len": 50000,
+        "win_step": 50000,
     }
 
 
 @pytest.fixture
 def expected_params(file_paths):
     expected_data = []
-    chr_name = '1'
+    chr_name = "1"
     win_len = 50000
     win_step = 50000
     ref_data, ref_samples, tgt_data, tgt_samples = read_data(**file_paths)
-    windows = create_windows(tgt_data[chr_name]['POS'], chr_name, win_step, win_len)
+    windows = create_windows(tgt_data[chr_name]["POS"], chr_name, win_step, win_len)
 
     for w in range(len(windows)):
         chr_name, start, end = windows[w]
-        ref_gts = ref_data[chr_name]['GT']
-        tgt_gts = tgt_data[chr_name]['GT']
-        pos = tgt_data[chr_name]['POS']
+        ref_gts = ref_data[chr_name]["GT"]
+        tgt_gts = tgt_data[chr_name]["GT"]
+        pos = tgt_data[chr_name]["POS"]
         idx = (pos > start) * (pos <= end)
         sub_ref_gts = ref_gts[idx]
         sub_tgt_gts = tgt_gts[idx]
         sub_pos = pos[idx]
 
         d = {
-            'chr_name': chr_name,
-            'start': start,
-            'end': end,
-            'ploidy': 2,
-            'is_phased': True,
-            'ref_gts': sub_ref_gts,
-            'tgt_gts': sub_tgt_gts,
-            'pos': sub_pos,
+            "chr_name": chr_name,
+            "start": start,
+            "end": end,
+            "ploidy": 2,
+            "is_phased": True,
+            "ref_gts": sub_ref_gts,
+            "tgt_gts": sub_tgt_gts,
+            "pos": sub_pos,
         }
         expected_data.append(d)
 
@@ -83,11 +83,19 @@ def test_GenomicDataGenerator(init_params, expected_params):
     generator = GenomicDataGenerator(**init_params)
     generated_params_list = list(generator.get())
 
-    assert len(generated_params_list) == len(expected_params), "The number of generated and expected parameters do not match."
+    assert len(generated_params_list) == len(
+        expected_params
+    ), "The number of generated and expected parameters do not match."
 
     for generated, expected in zip(generated_params_list, expected_params):
         for key in generated:
-            if isinstance(generated[key], np.ndarray) and isinstance(expected[key], np.ndarray):
-                assert np.array_equal(generated[key], expected[key]), f"Arrays do not match for key {key}."
+            if isinstance(generated[key], np.ndarray) and isinstance(
+                expected[key], np.ndarray
+            ):
+                assert np.array_equal(
+                    generated[key], expected[key]
+                ), f"Arrays do not match for key {key}."
             else:
-                assert generated[key] == expected[key], f"Values do not match for key {key}."
+                assert (
+                    generated[key] == expected[key]
+                ), f"Values do not match for key {key}."

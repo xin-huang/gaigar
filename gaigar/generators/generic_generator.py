@@ -20,7 +20,7 @@
 from abc import ABC, abstractmethod
 
 
-class DataGenerator(ABC):
+class GenericGenerator(ABC):
     """
     Abstract base class for generating data.
 
@@ -30,7 +30,7 @@ class DataGenerator(ABC):
 
     """
 
-    @abstractmethod    
+    @abstractmethod
     def get(self, **kwargs):
         """
         Generates data based on the provided keyword arguments.

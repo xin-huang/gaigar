@@ -17,6 +17,6 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .DataSimulator import DataSimulator
-from .MsprimeSimulator import MsprimeSimulator
-from .LRTrainingDataSimulator import LRTrainingDataSimulator
+from .generic_simulator import GenericSimulator
+from .msprime_simulator import MsprimeSimulator
+from .lr_simulator import LrSimulator

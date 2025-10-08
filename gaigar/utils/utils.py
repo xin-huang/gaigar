@@ -34,13 +34,13 @@ def parse_ind_file(filename):
     Returns:
         samples list: Sample information.
     """
-  
-    f = open(filename, 'r') 
-    samples = [l.rstrip() for l in f.readlines()] 
+
+    f = open(filename, "r")
+    samples = [l.rstrip() for l in f.readlines()]
     f.close()
 
     if len(samples) == 0:
-        raise Exception(f'No sample is found in {filename}! Please check your data.')
+        raise Exception(f"No sample is found in {filename}! Please check your data.")
 
     return samples
 
@@ -61,29 +61,31 @@ def read_geno_data(vcf, ind, anc_allele_file, filter_missing):
     """
 
     vcf = allel.read_vcf(vcf, alt_number=1, samples=ind)
-    gt = vcf['calldata/GT']
-    chr_names = np.unique(vcf['variants/CHROM'])
-    samples = vcf['samples']
-    pos = vcf['variants/POS']
-    ref = vcf['variants/REF']
-    alt = vcf['variants/ALT']
+    gt = vcf["calldata/GT"]
+    chr_names = np.unique(vcf["variants/CHROM"])
+    samples = vcf["samples"]
+    pos = vcf["variants/POS"]
+    ref = vcf["variants/REF"]
+    alt = vcf["variants/ALT"]
 
-    if anc_allele_file != None: anc_allele = read_anc_allele(anc_allele_file)
+    if anc_allele_file != None:
+        anc_allele = read_anc_allele(anc_allele_file)
     data = dict()
     for c in chr_names:
         if c not in data.keys():
             data[c] = dict()
-            data[c]['POS'] = pos
-            data[c]['REF'] = ref
-            data[c]['ALT'] = alt
-            data[c]['GT'] = gt
-        index = np.where(vcf['variants/CHROM'] == c)
+            data[c]["POS"] = pos
+            data[c]["REF"] = ref
+            data[c]["ALT"] = alt
+            data[c]["GT"] = gt
+        index = np.where(vcf["variants/CHROM"] == c)
         data = filter_data(data, c, index)
         # Remove missing data
         if filter_missing:
-            index = data[c]['GT'].count_missing(axis=1) == len(samples)
+            index = data[c]["GT"].count_missing(axis=1) == len(samples)
             data = filter_data(data, c, ~index)
-        if anc_allele_file != None: data = check_anc_allele(data, anc_allele, c)
+        if anc_allele_file != None:
+            data = check_anc_allele(data, anc_allele, c)
 
     return data
 
@@ -102,10 +104,10 @@ def filter_data(data, c, index):
         data dict: Genotype data after filtering.
     """
 
-    data[c]['POS'] = data[c]['POS'][index]
-    data[c]['REF'] = data[c]['REF'][index]
-    data[c]['ALT'] = data[c]['ALT'][index]
-    data[c]['GT'] = allel.GenotypeArray(data[c]['GT'][index])
+    data[c]["POS"] = data[c]["POS"][index]
+    data[c]["REF"] = data[c]["REF"][index]
+    data[c]["ALT"] = data[c]["ALT"][index]
+    data[c]["GT"] = allel.GenotypeArray(data[c]["GT"][index])
 
     return data
 
@@ -128,13 +130,13 @@ def read_data(vcf_file, ref_ind_file, tgt_ind_file, anc_allele_file, is_phased):
         tgt_data dict: Genotype data from target populations.
         tgt_samples list: Sample information from target populations.
     """
-   
+
     ref_data = ref_samples = tgt_data = tgt_samples = None
-    if ref_ind_file is not None: 
+    if ref_ind_file is not None:
         ref_samples = parse_ind_file(ref_ind_file)
         ref_data = read_geno_data(vcf_file, ref_samples, anc_allele_file, True)
-        
-    if tgt_ind_file is not None: 
+
+    if tgt_ind_file is not None:
         tgt_samples = parse_ind_file(tgt_ind_file)
         tgt_data = read_geno_data(vcf_file, tgt_samples, anc_allele_file, True)
 
@@ -142,24 +144,32 @@ def read_data(vcf_file, ref_ind_file, tgt_ind_file, anc_allele_file, is_phased):
         chr_names = tgt_data.keys()
         for c in chr_names:
             # Remove variants fixed in both the reference and target individuals
-            ref_fixed_variants = np.sum(ref_data[c]['GT'].is_hom_alt(),axis=1) == len(ref_samples)
-            tgt_fixed_variants = np.sum(tgt_data[c]['GT'].is_hom_alt(),axis=1) == len(tgt_samples)
+            ref_fixed_variants = np.sum(ref_data[c]["GT"].is_hom_alt(), axis=1) == len(
+                ref_samples
+            )
+            tgt_fixed_variants = np.sum(tgt_data[c]["GT"].is_hom_alt(), axis=1) == len(
+                tgt_samples
+            )
             fixed_index = np.logical_and(ref_fixed_variants, tgt_fixed_variants)
             index = np.logical_not(fixed_index)
-            fixed_pos =ref_data[c]['POS'][fixed_index]
+            fixed_pos = ref_data[c]["POS"][fixed_index]
             ref_data = filter_data(ref_data, c, index)
             tgt_data = filter_data(tgt_data, c, index)
 
     if is_phased:
         for c in chr_names:
-            mut_num, ind_num, ploidy = ref_data[c]['GT'].shape
-            ref_data[c]['GT'] = np.reshape(ref_data[c]['GT'].values, (mut_num, ind_num * ploidy))
-            mut_num, ind_num, ploidy = tgt_data[c]['GT'].shape
-            tgt_data[c]['GT'] = np.reshape(tgt_data[c]['GT'].values, (mut_num, ind_num * ploidy))
+            mut_num, ind_num, ploidy = ref_data[c]["GT"].shape
+            ref_data[c]["GT"] = np.reshape(
+                ref_data[c]["GT"].values, (mut_num, ind_num * ploidy)
+            )
+            mut_num, ind_num, ploidy = tgt_data[c]["GT"].shape
+            tgt_data[c]["GT"] = np.reshape(
+                tgt_data[c]["GT"].values, (mut_num, ind_num * ploidy)
+            )
     else:
         for c in chr_names:
-            ref_data[c]['GT'] = np.sum(ref_data[c]['GT'], axis=2)
-            tgt_data[c]['GT'] = np.sum(tgt_data[c]['GT'], axis=2)
+            ref_data[c]["GT"] = np.sum(ref_data[c]["GT"], axis=2)
+            tgt_data[c]["GT"] = np.sum(tgt_data[c]["GT"], axis=2)
 
     return ref_data, ref_samples, tgt_data, tgt_samples
 
@@ -178,7 +188,7 @@ def get_ref_alt_allele(ref, alt, pos):
         ref_allele dict: REF alleles.
         alt_allele dict: ALT alleles.
     """
-    
+
     ref_allele = dict()
     alt_allele = dict()
 
@@ -188,7 +198,7 @@ def get_ref_alt_allele(ref, alt, pos):
         p = pos[i]
         ref_allele[p] = r
         alt_allele[p] = a
-   
+
     return ref_allele, alt_allele
 
 
@@ -205,14 +215,16 @@ def read_anc_allele(anc_allele_file):
     """
 
     anc_allele = dict()
-    with open(anc_allele_file, 'r') as f:
+    with open(anc_allele_file, "r") as f:
         for line in f.readlines():
             e = line.rstrip().split()
-            if e[0] not in anc_allele: anc_allele[e[0]] = dict()
+            if e[0] not in anc_allele:
+                anc_allele[e[0]] = dict()
             anc_allele[e[0]][int(e[2])] = e[3]
 
-    if not anc_allele: raise Exception(f'No ancestral allele is found! Please check your data.')
-    
+    if not anc_allele:
+        raise Exception(f"No ancestral allele is found! Please check your data.")
+
     return anc_allele
 
 
@@ -233,7 +245,9 @@ def check_anc_allele(data, anc_allele, c):
         data dict: Genotype data after checking.
     """
 
-    ref_allele, alt_allele = get_ref_alt_allele(data[c]['REF'], data[c]['ALT'], data[c]['POS'])
+    ref_allele, alt_allele = get_ref_alt_allele(
+        data[c]["REF"], data[c]["ALT"], data[c]["POS"]
+    )
     # Remove variants not in the ancestral allele file
     intersect_snps = np.intersect1d(list(ref_allele.keys()), list(anc_allele[c].keys()))
     # Remove variants that neither the ref allele nor the alt allele is the ancestral allele
@@ -242,21 +256,23 @@ def check_anc_allele(data, anc_allele, c):
     flipped_snps = []
 
     for v in intersect_snps:
-        if (anc_allele[c][v] != ref_allele[v]) and (anc_allele[c][v] != alt_allele[v]): removed_snps.append(v)
-        elif (anc_allele[c][v] == alt_allele[v]): flipped_snps.append(v)
+        if (anc_allele[c][v] != ref_allele[v]) and (anc_allele[c][v] != alt_allele[v]):
+            removed_snps.append(v)
+        elif anc_allele[c][v] == alt_allele[v]:
+            flipped_snps.append(v)
 
-    intersect_snps = np.in1d(data[c]['POS'], intersect_snps)
+    intersect_snps = np.in1d(data[c]["POS"], intersect_snps)
     data = filter_data(data, c, intersect_snps)
 
     if len(removed_snps) != 0:
-        remained_snps = np.logical_not(np.in1d(data[c]['POS'], removed_snps))
+        remained_snps = np.logical_not(np.in1d(data[c]["POS"], removed_snps))
         data = filter_data(data, c, remained_snps)
 
-    is_flipped_snps = np.in1d(data[c]['POS'], flipped_snps)
+    is_flipped_snps = np.in1d(data[c]["POS"], flipped_snps)
     # Assume no missing data
-    for i in range(len(data[c]['POS'])):
+    for i in range(len(data[c]["POS"])):
         if is_flipped_snps[i]:
-            data[c]['GT'][i] = allel.GenotypeVector(abs(data[c]['GT'][i]-1))
+            data[c]["GT"][i] = allel.GenotypeVector(abs(data[c]["GT"][i] - 1))
 
     return data
 
@@ -275,8 +291,9 @@ def create_windows(pos, chr_name, win_step, win_len):
     Returns:
         windows list: List of sliding windows along the genome.
     """
-    win_start = (pos[0]+win_step)//win_step*win_step-win_len
-    if win_start < 0: win_start = 0
+    win_start = (pos[0] + win_step) // win_step * win_step - win_len
+    if win_start < 0:
+        win_start = 0
     last_pos = pos[-1]
 
     windows = []
