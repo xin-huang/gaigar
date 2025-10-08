@@ -18,14 +18,15 @@
 
 
 import numpy as np
-from gaigar.generators import DataGenerator
+from gaigar.generators import GenericGenerator
 
 
-class RandomNumberGenerator(DataGenerator):
+class RandomNumberGenerator(GenericGenerator):
     """
     Generates random numbers based on specified parameters.
 
     """
+
     def __init__(self, nrep: int, start_rep: int = 0, seed: int = None):
         """
         Initializes a new instance of RandomNumberGenerator.
@@ -60,11 +61,10 @@ class RandomNumberGenerator(DataGenerator):
             self.seed_list = [None] * len(self.rep_list)
         elif end_rep > 1:
             np.random.seed(seed)
-            self.seed_list = np.random.randint(1,2**31,end_rep).tolist()
+            self.seed_list = np.random.randint(1, 2**31, end_rep).tolist()
             self.seed_list = self.seed_list[start_rep:end_rep]
         else:
             self.seed_list = [seed]
-
 
     def get(self):
         """
@@ -78,9 +78,8 @@ class RandomNumberGenerator(DataGenerator):
             yields a new dictionary for the next replicate until all replicates are exhausted.
 
         """
-        for (rep, seed) in zip(self.rep_list, self.seed_list):
-            yield {'rep': rep, 'seed': seed}
-
+        for rep, seed in zip(self.rep_list, self.seed_list):
+            yield {"rep": rep, "seed": seed}
 
     def __len__(self):
         return len(self.rep_list)

@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 from gaigar.multiprocessing import mp_manager
 from gaigar.generators import RandomNumberGenerator
-from gaigar.simulators import LRTrainingDataSimulator
+from gaigar.simulators import LrSimulator
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ def init_params():
         "is_phased": True,
         "intro_prop": 0.7,
         "non_intro_prop": 0.3,
-        'feature_config': 'tests/data/ArchIE.features.yaml',
+        "feature_config": "tests/data/ArchIE.features.yaml",
     }
 
 
@@ -53,31 +53,38 @@ def cleanup_output_dir(request, init_params):
     # Setup (nothing to do before the test)
     yield  # Hand over control to the test
     # Teardown
-    shutil.rmtree(init_params['output_dir'], ignore_errors=True)
+    shutil.rmtree(init_params["output_dir"], ignore_errors=True)
 
 
-def test_LRTrainingDataSimulator(init_params, cleanup_output_dir):
-    simulator = LRTrainingDataSimulator(**init_params)
+def test_LrSimulator(init_params, cleanup_output_dir):
+    simulator = LrSimulator(**init_params)
     generator = RandomNumberGenerator(nrep=2, seed=12345)
     res = mp_manager(job=simulator, data_generator=generator, nprocess=2)
-    res.sort(key=lambda x: (x['Replicate']))
+    res.sort(key=lambda x: (x["Replicate"]))
 
     df = pd.DataFrame(res)
-    expected_df = pd.read_csv("tests/expected_results/simulators/LRTrainingDataSimulator/test.features", sep="\t")
+    expected_df = pd.read_csv(
+        "tests/expected_results/simulators/LRTrainingDataSimulator/test.features",
+        sep="\t",
+    )
 
     for column in df.columns:
-        if df[column].dtype.kind in 'ifc':  # Float, int, complex numbers
-            assert np.isclose(df[column], expected_df[column], atol=1e-5, rtol=1e-5).all(), f"Mismatch in column {column}"
+        if df[column].dtype.kind in "ifc":  # Float, int, complex numbers
+            assert np.isclose(
+                df[column], expected_df[column], atol=1e-5, rtol=1e-5
+            ).all(), f"Mismatch in column {column}"
         else:
-            assert (df[column] == expected_df[column]).all(), f"Mismatch in column {column}"
+            assert (
+                df[column] == expected_df[column]
+            ).all(), f"Mismatch in column {column}"
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from cProfile import Profile
     from pstats import SortKey, Stats
 
     with Profile() as profile:
-        simulator = LRTrainingDataSimulator(
+        simulator = LrSimulator(
             demo_model_file="tests/data/ArchIE_3D19.yaml",
             nref=50,
             ntgt=50,

@@ -17,6 +17,6 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .DataPreprocessor import DataPreprocessor
-from .FeatureVectorsPreprocessor import FeatureVectorsPreprocessor
-from .GenotypeMatricesPreprocessor import GenotypeMatricesPreprocessor
+from .generic_preprocessor import GenericPreprocessor
+from .feature_vector_preprocessor import FeatureVectorPreprocessor
+from .genotype_matrix_preprocessor import GenotypeMatrixPreprocessor

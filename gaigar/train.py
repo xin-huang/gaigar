@@ -20,17 +20,22 @@
 from gaigar.utils.models import LRModel
 
 
-def lr_train(training_data: str, model_file: str, 
-             solver: str, penalty: str, max_iter: int,
-             seed: int, is_scaled: bool) -> None:
-    """
-    """
+def lr_train(
+    training_data: str,
+    model_file: str,
+    solver: str,
+    penalty: str,
+    max_iter: int,
+    seed: int,
+    is_scaled: bool,
+) -> None:
+    """ """
     LRModel.train(
-        training_data=training_data, 
+        training_data=training_data,
         model_file=model_file,
         solver=solver,
-        penalty=penalty, 
-        max_iter=max_iter, 
+        penalty=penalty,
+        max_iter=max_iter,
         seed=seed,
         is_scaled=is_scaled,
     )

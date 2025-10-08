@@ -19,17 +19,27 @@
 
 import numpy as np
 from gaigar.utils import read_data, create_windows
-from gaigar.generators import DataGenerator
+from gaigar.generators import GenericGenerator
 
 
-class GenomicDataGenerator(DataGenerator):
+class GenomicDataGenerator(GenericGenerator):
     """
     Generates genomic data for each specified window from VCF and other related files.
 
     """
-    def __init__(self, vcf_file: str, chr_name: str, ref_ind_file: str, tgt_ind_file: str,
-                 win_len: int, win_step: int, anc_allele_file: str = None,
-                 ploidy: int = 2, is_phased: bool = True):
+
+    def __init__(
+        self,
+        vcf_file: str,
+        chr_name: str,
+        ref_ind_file: str,
+        tgt_ind_file: str,
+        win_len: int,
+        win_step: int,
+        anc_allele_file: str = None,
+        ploidy: int = 2,
+        is_phased: bool = True,
+    ):
         """
         Initializes a new instance of GenomicDataGenerator.
 
@@ -54,11 +64,11 @@ class GenomicDataGenerator(DataGenerator):
             The ploidy of the genome. Default: 2.
         is_phased : bool, optional
             Specifies whether the genotype data is phased. Default: True.
-    
+
         Raises
         ------
         ValueError
-            If `win_len` is less than or equal to 0, if `win_step` is negative, 
+            If `win_len` is less than or equal to 0, if `win_step` is negative,
             if `ploidy` is less than or equal to 0, or if `chr_name` is not in the VCF file.
 
         """
@@ -74,37 +84,38 @@ class GenomicDataGenerator(DataGenerator):
         self.ploidy = ploidy
         self.is_phased = is_phased
 
-        ref_data, ref_samples, tgt_data, tgt_samples = read_data(vcf_file, ref_ind_file, tgt_ind_file, anc_allele_file, is_phased)
+        ref_data, ref_samples, tgt_data, tgt_samples = read_data(
+            vcf_file, ref_ind_file, tgt_ind_file, anc_allele_file, is_phased
+        )
 
         if chr_name not in tgt_data:
             raise ValueError(f"{chr_name} is not present in the VCF file.")
 
-        windows = create_windows(tgt_data[chr_name]['POS'], chr_name, win_step, win_len)
+        windows = create_windows(tgt_data[chr_name]["POS"], chr_name, win_step, win_len)
 
         self.data = []
         for w in range(len(windows)):
             chr_name, start, end = windows[w]
-            ref_gts = ref_data[chr_name]['GT']
-            tgt_gts = tgt_data[chr_name]['GT']
-            pos = tgt_data[chr_name]['POS']
-            idx = (pos>start)*(pos<=end)
+            ref_gts = ref_data[chr_name]["GT"]
+            tgt_gts = tgt_data[chr_name]["GT"]
+            pos = tgt_data[chr_name]["POS"]
+            idx = (pos > start) * (pos <= end)
             sub_ref_gts = ref_gts[idx]
             sub_tgt_gts = tgt_gts[idx]
             sub_pos = pos[idx]
 
             d = {
-                'chr_name': chr_name,
-                'start': start,
-                'end': end,
-                'ploidy': self.ploidy,
-                'is_phased': self.is_phased,
-                'ref_gts': sub_ref_gts,
-                'tgt_gts': sub_tgt_gts,
-                'pos': sub_pos,
+                "chr_name": chr_name,
+                "start": start,
+                "end": end,
+                "ploidy": self.ploidy,
+                "is_phased": self.is_phased,
+                "ref_gts": sub_ref_gts,
+                "tgt_gts": sub_tgt_gts,
+                "pos": sub_pos,
             }
 
             self.data.append(d)
-
 
     def get(self):
         """
@@ -113,14 +124,13 @@ class GenomicDataGenerator(DataGenerator):
         Yields
         ------
         dict
-            A dictionary containing chromosome name, start and end positions, 
-            ploidy and phase information, reference and target genotypes, 
+            A dictionary containing chromosome name, start and end positions,
+            ploidy and phase information, reference and target genotypes,
             and positions for each window.
 
         """
         for d in self.data:
             yield d
-
 
     def __len__(self):
         return len(self.data)

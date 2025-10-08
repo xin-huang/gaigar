@@ -51,27 +51,37 @@ def test_mp_manager():
 
     results = mp_manager(job=job, data_generator=generator, nprocess=nprocess)
     expected_results = [(i, None, "Hello") for i in range(nrep)]
-    assert sorted(results) == sorted(expected_results), "mp_manager did not return the expected results"
+    assert sorted(results) == sorted(
+        expected_results
+    ), "mp_manager did not return the expected results"
 
     generator = RandomNumberGenerator(nrep=nrep, seed=seed)
     results = mp_manager(job=job, data_generator=generator, nprocess=nprocess)
     np.random.seed(seed)
-    seed_list = np.random.randint(1,2**31,nrep)
+    seed_list = np.random.randint(1, 2**31, nrep)
     expected_results = [(i, seed_list[i], "Hello") for i in range(nrep)]
-    assert sorted(results) == sorted(expected_results), "mp_manager did not return the expected results"
+    assert sorted(results) == sorted(
+        expected_results
+    ), "mp_manager did not return the expected results"
 
     start_rep = 10
     generator = RandomNumberGenerator(start_rep=start_rep, nrep=nrep, seed=seed)
     results = mp_manager(job=job, data_generator=generator, nprocess=nprocess)
     np.random.seed(seed)
-    seed_list = np.random.randint(1,2**31,start_rep+nrep)
-    expected_results = [(i, seed_list[i], "Hello") for i in range(start_rep, start_rep+nrep)]
-    assert sorted(results) == sorted(expected_results), "mp_manager did not return the expected results"
+    seed_list = np.random.randint(1, 2**31, start_rep + nrep)
+    expected_results = [
+        (i, seed_list[i], "Hello") for i in range(start_rep, start_rep + nrep)
+    ]
+    assert sorted(results) == sorted(
+        expected_results
+    ), "mp_manager did not return the expected results"
 
     generator = RandomNumberGenerator(nrep=1, seed=seed)
     results = mp_manager(job=job, data_generator=generator, nprocess=nprocess)
     expected_results = [(0, 2, "Hello")]
-    assert sorted(results) == sorted(expected_results), "mp_manager did not return the expected results"
+    assert sorted(results) == sorted(
+        expected_results
+    ), "mp_manager did not return the expected results"
 
 
 def test_mp_manager_failure(capfd):
@@ -80,7 +90,7 @@ def test_mp_manager_failure(capfd):
 
     job = FailureJob("Hello")
     results = mp_manager(job=job, data_generator=generator, nprocess=nprocess)
-    
+
     # Use capfd to capture stdout and stderr
     captured = capfd.readouterr()
 

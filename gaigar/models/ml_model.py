@@ -17,29 +17,36 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
+import numpy as np
+import pandas as pd
 from abc import ABC, abstractmethod
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression as LR
+from sklearn.ensemble import ExtraTreesClassifier
 
 
-class DataPreprocessor(ABC):
+class MlModel(ABC):
     """
-    Abstract base class for preprocessing genomic data.
+    Abstract base class for machine learning models.
 
-    This class defines a common interface for various data preprocessing operations,
-    such as filtering, normalization, and transformation of genomic data.
+    This class defines a standard interface for training and inferring from
+    machine learning models. It ensures that all derived model classes implement
+    the `train` and `infer` methods.
 
     """
+
     @abstractmethod
-    def run(self, **kwargs):
+    def train(self):
         """
-        Abstract method to run the preprocessing operations.
+        Train the machine learning model.
 
-        Subclasses must implement this method to perform specific preprocessing tasks
-        based on the initialized parameters and any additional keyword arguments.
+        """
+        pass
 
-        Parameters:
-        -----------
-        **kwargs : dict
-            Additional keyword arguments that may be required for specific preprocessing operations.
+    @abstractmethod
+    def infer(self):
+        """
+        Perform inference using the trained model on the provided data.
 
         """
         pass

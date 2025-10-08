@@ -12,7 +12,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, please see 
+# along with this program. If not, please see
 #
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
@@ -29,6 +29,7 @@ def _set_sigpipe_handler() -> None:
 
     """
     import os, signal
+
     if os.name == "posix":
         # Set signal handler for SIGPIPE to quietly kill the program.
         signal.signal(signal.SIGPIPE, signal.SIG_DFL)
@@ -46,7 +47,7 @@ def _gaigar_cli_parser() -> argparse.ArgumentParser:
 
     """
     top_parser = argparse.ArgumentParser()
-    subparsers = top_parser.add_subparsers(dest='subparsers')
+    subparsers = top_parser.add_subparsers(dest="subparsers")
     add_lr_parsers(subparsers)
     add_unet_parsers(subparsers)
     add_eval_parsers(subparsers)

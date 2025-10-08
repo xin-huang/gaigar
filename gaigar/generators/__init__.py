@@ -17,6 +17,6 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .DataGenerator import DataGenerator
-from .RandomNumberGenerator import RandomNumberGenerator
-from .GenomicDataGenerator import GenomicDataGenerator
+from .generic_generator import GenericGenerator
+from .random_number_generator import RandomNumberGenerator
+from .genomic_data_generator import GenomicDataGenerator

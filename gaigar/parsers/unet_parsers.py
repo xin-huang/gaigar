@@ -18,7 +18,11 @@
 
 
 import argparse, os, sys
-from gaigar.parsers.argument_validation import positive_int, positive_number, existed_file
+from gaigar.parsers.argument_validation import (
+    positive_int,
+    positive_number,
+    existed_file,
+)
 
 
 def _run_simulation():
@@ -31,6 +35,8 @@ def _run_preprocess():
 
 def _run_training(args: argparse.Namespace) -> None:
     pass
+
+
 #    """
 #    """
 #    from gaigar.train import unet_train
@@ -60,27 +66,46 @@ def add_unet_parsers(subparsers: argparse.ArgumentParser) -> None:
     None.
 
     """
-    unet_parsers = subparsers.add_parser('unet', help='use U-Net models')
-    unet_subparsers = unet_parsers.add_subparsers(dest="unet_subparsers") 
+    unet_parsers = subparsers.add_parser("unet", help="use U-Net models")
+    unet_subparsers = unet_parsers.add_subparsers(dest="unet_subparsers")
 
     # Arguments for the simulate subcommand
-    parser = unet_subparsers.add_parser('simulate', help='simulate data for training')
+    parser = unet_subparsers.add_parser("simulate", help="simulate data for training")
     parser.set_defaults(runner=_run_simulation)
 
     # Arguments for the preprocess subcommand
-    parser = unet_subparsers.add_parser('preprocess', help='preprocess data for inference')
+    parser = unet_subparsers.add_parser(
+        "preprocess", help="preprocess data for inference"
+    )
     parser.set_defaults(runner=_run_preprocess)
 
     # Arguments for the train subcommand
-    parser = unet_subparsers.add_parser('train', help='train a UNet model')
-    parser.add_argument('--training-data', type=existed_file, required=True, 
-        help="path to the HDF5 file containing genotype matrices for training", dest='training_data')
-    parser.add_argument('--model-dir', type=str, required=True, 
-        help="path to the directory where the trained model and logs will be stored", dest='model_dir')
-    parser.add_argument('--trained-model-file', type=existed_file, default=None, 
-        help="path to the file storing the trained model for continuing training; default: None", dest='trained_model_file')
+    parser = unet_subparsers.add_parser("train", help="train a UNet model")
+    parser.add_argument(
+        "--training-data",
+        type=existed_file,
+        required=True,
+        help="path to the HDF5 file containing genotype matrices for training",
+        dest="training_data",
+    )
+    parser.add_argument(
+        "--model-dir",
+        type=str,
+        required=True,
+        help="path to the directory where the trained model and logs will be stored",
+        dest="model_dir",
+    )
+    parser.add_argument(
+        "--trained-model-file",
+        type=existed_file,
+        default=None,
+        help="path to the file storing the trained model for continuing training; default: None",
+        dest="trained_model_file",
+    )
     parser.set_defaults(runner=_run_training)
 
     # Arguments for the infer subcommand
-    parser = unet_subparsers.add_parser('infer', help='infer ghost introgressed fragments with a given UNet model')
+    parser = unet_subparsers.add_parser(
+        "infer", help="infer ghost introgressed fragments with a given UNet model"
+    )
     parser.set_defaults(runner=_run_inference)

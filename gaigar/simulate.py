@@ -21,15 +21,34 @@ import os, random, shutil
 import pandas as pd
 from gaigar.multiprocessing import mp_manager
 from gaigar.generators import RandomNumberGenerator
-from gaigar.simulators import LRTrainingDataSimulator
+from gaigar.simulators import LrSimulator
 
 
-def lr_simulate(demo_model_file: str, nrep: int, nref: int, ntgt: int,
-                ref_id: str, tgt_id: str, src_id: str, ploidy: int, 
-                is_phased: bool, seq_len: int, mut_rate: float, rec_rate: float, nprocess: int,
-                feature_config: str, intro_prop: float, non_intro_prop: float,
-                output_prefix: str, output_dir: str, seed: int, nfeature: int,
-                is_shuffled: bool, force_balanced: bool, keep_sim_data: bool) -> None:
+def lr_simulate(
+    demo_model_file: str,
+    nrep: int,
+    nref: int,
+    ntgt: int,
+    ref_id: str,
+    tgt_id: str,
+    src_id: str,
+    ploidy: int,
+    is_phased: bool,
+    seq_len: int,
+    mut_rate: float,
+    rec_rate: float,
+    nprocess: int,
+    feature_config: str,
+    intro_prop: float,
+    non_intro_prop: float,
+    output_prefix: str,
+    output_dir: str,
+    seed: int,
+    nfeature: int,
+    is_shuffled: bool,
+    force_balanced: bool,
+    keep_sim_data: bool,
+) -> None:
     """
     Simulates genomic data and generates feature vectors for logistic regression training.
 
@@ -106,12 +125,12 @@ def lr_simulate(demo_model_file: str, nrep: int, nref: int, ntgt: int,
 
     """
     if nfeature <= 0:
-        raise ValueError('nfeature must be positive.')
+        raise ValueError("nfeature must be positive.")
 
     os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f'{output_prefix}.features')
+    output_file = os.path.join(output_dir, f"{output_prefix}.features")
 
-    simulator = LRTrainingDataSimulator(
+    simulator = LrSimulator(
         demo_model_file=demo_model_file,
         nref=nref,
         ntgt=ntgt,
@@ -143,51 +162,52 @@ def lr_simulate(demo_model_file: str, nrep: int, nref: int, ntgt: int,
     is_stopped = False
 
     while not is_stopped:
-        generator = RandomNumberGenerator(
-            start_rep=start_rep, 
-            nrep=nrep, 
-            seed=seed
-        )
+        generator = RandomNumberGenerator(start_rep=start_rep, nrep=nrep, seed=seed)
         features = mp_manager(
-            job=simulator, 
-            data_generator=generator, 
-            nprocess=nprocess
+            job=simulator, data_generator=generator, nprocess=nprocess
         )
 
-        if features == 'error': 
-            raise SystemExit('Some errors occurred, stopping the program ...')
+        if features == "error":
+            raise SystemExit("Some errors occurred, stopping the program ...")
 
         features.sort(
             key=lambda x: (
-                x['Replicate'],
-                x['Chromosome'],
-                x['Start'],
-                x['End'],
-                x['Sample'],
+                x["Replicate"],
+                x["Chromosome"],
+                x["Start"],
+                x["End"],
+                x["Sample"],
             )
         )
 
-        features0 = [item for item in features if item['Label'] == 0]
-        features1 = [item for item in features if item['Label'] == 1]
+        features0 = [item for item in features if item["Label"] == 0]
+        features1 = [item for item in features if item["Label"] == 1]
 
         if not keep_sim_data:
-            for i in range(start_rep, start_rep+nrep):
-                shutil.rmtree(os.path.join(output_dir, f'{i}'), ignore_errors=True)
+            for i in range(start_rep, start_rep + nrep):
+                shutil.rmtree(os.path.join(output_dir, f"{i}"), ignore_errors=True)
 
         if force_balanced:
             # Calculate how many items can be added to each list without exceeding the desired count
             to_add_intro = min(num_intro_features - len(intro_features), len(features1))
-            to_add_non_intro = min(num_non_intro_features - len(non_intro_features), len(features0))
+            to_add_non_intro = min(
+                num_non_intro_features - len(non_intro_features), len(features0)
+            )
 
             intro_features.extend(features1[:to_add_intro])
             non_intro_features.extend(features0[:to_add_non_intro])
-            is_stopped = len(intro_features) >= num_intro_features and len(non_intro_features) >= num_non_intro_features
+            is_stopped = (
+                len(intro_features) >= num_intro_features
+                and len(non_intro_features) >= num_non_intro_features
+            )
         else:
             intro_features.extend(features1)
             non_intro_features.extend(features0)
             is_stopped = len(intro_features) + len(non_intro_features) >= nfeature
 
-        print(f"Number of obtained features: {len(intro_features)+len(non_intro_features)}")
+        print(
+            f"Number of obtained features: {len(intro_features)+len(non_intro_features)}"
+        )
 
         start_rep += nrep
 
@@ -200,11 +220,11 @@ def lr_simulate(demo_model_file: str, nrep: int, nref: int, ntgt: int,
     else:
         total_features.sort(
             key=lambda x: (
-                x['Replicate'],
-                x['Chromosome'],
-                x['Start'],
-                x['End'],
-                x['Sample'],
+                x["Replicate"],
+                x["Chromosome"],
+                x["Start"],
+                x["End"],
+                x["Sample"],
             )
         )
 
