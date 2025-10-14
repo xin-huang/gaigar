@@ -17,7 +17,7 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from gaigar.utils.models import LRModel
+from gaigar.models import LrModel
 
 
 def lr_train(
@@ -30,7 +30,7 @@ def lr_train(
     is_scaled: bool,
 ) -> None:
     """ """
-    LRModel.train(
+    LrModel.train(
         training_data=training_data,
         model_file=model_file,
         solver=solver,

@@ -17,14 +17,14 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from gaigar.utils.models import LRModel
+from gaigar.models import LrModel
 
 
 def lr_infer(
     inference_data: str, model_file: str, output_file: str, is_scaled: bool
 ) -> None:
     """ """
-    LRModel.infer(
+    LrModel.infer(
         inference_data=inference_data,
         model_file=model_file,
         output_file=output_file,
