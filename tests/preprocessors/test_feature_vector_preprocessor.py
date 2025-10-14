@@ -18,6 +18,8 @@
 
 
 import os, pytest, yaml
+import gaigar.stats
+from gaigar.configs import FeatureConfig
 from gaigar.utils import parse_ind_file
 from gaigar.generators import GenomicDataGenerator
 from gaigar.preprocessors import FeatureVectorPreprocessor
@@ -45,7 +47,7 @@ def feature_params():
     return {
         "ref_ind_file": os.path.join(expected_dir, "test.0.ref.ind.list"),
         "tgt_ind_file": os.path.join(expected_dir, "test.0.tgt.ind.list"),
-        "feature_config": "tests/data/ArchIE.features.yaml",
+        "feature_config_file": "tests/data/ArchIE.features.yaml",
     }
 
 
@@ -56,17 +58,17 @@ def test_FeatureVectorPreprocessor(data_params, feature_params):
     items = preprocessor.run(**list(generator.get())[0])
 
     num_features = 0
-    with open(feature_params["feature_config"], "r") as f:
-        features = yaml.safe_load(f)
-    features = features.get("Features", {})
+    with open(feature_params["feature_config_file"], "r") as f:
+        config_dict = yaml.safe_load(f)
+    feature_config = FeatureConfig(**config_dict)
 
     tgt_samples = parse_ind_file(data_params["tgt_ind_file"])
 
     num_features += (
-        len(features.keys()) - 3
+        len(feature_config.root.keys()) - 3
     )  # Remove `Ref distances`, `Tgt distances`, `Spectra`
-    num_features += len(features["Ref distances"].keys())
-    num_features += len(features["Tgt distances"].keys()) - 1  # Remove `All`
+    num_features += len(feature_config.root["ref_dist"].keys())
+    num_features += len(feature_config.root["tgt_dist"].keys()) - 1  # Remove `All`
     num_features += len(tgt_samples) * data_params["ploidy"] + 1
     num_features += len(tgt_samples) * data_params["ploidy"]
 

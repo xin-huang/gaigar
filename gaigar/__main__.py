@@ -18,6 +18,7 @@
 
 
 import argparse
+import gaigar.stats
 from gaigar.parsers.lr_parsers import add_lr_parsers
 from gaigar.parsers.unet_parsers import add_unet_parsers
 from gaigar.parsers.eval_parsers import add_eval_parsers

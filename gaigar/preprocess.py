@@ -32,7 +32,7 @@ def lr_preprocess(
     tgt_ind_file: str,
     win_len: int,
     win_step: int,
-    feature_config: str,
+    feature_config_file: str,
     output_dir: str,
     output_prefix: str = "lr",
     nprocess: int = 1,
@@ -61,7 +61,7 @@ def lr_preprocess(
         Length of the sliding window for analysis, in base pairs.
     win_step : int
         Step size for the sliding window, in base pairs.
-    feature_config : str
+    feature_config_file : str
         Path to the YAML configuration file specifying the features to be computed.
     output_dir : str
         Directory where output files will be saved.
@@ -100,7 +100,7 @@ def lr_preprocess(
     preprocessor = FeatureVectorPreprocessor(
         ref_ind_file=ref_ind_file,
         tgt_ind_file=tgt_ind_file,
-        feature_config=feature_config,
+        feature_config_file=feature_config_file,
     )
     res = mp_manager(job=preprocessor, data_generator=generator, nprocess=nprocess)
 

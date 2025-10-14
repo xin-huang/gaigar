@@ -20,6 +20,7 @@
 import os, pytest, shutil
 import numpy as np
 import pandas as pd
+import gaigar.stats
 from gaigar.simulate import lr_simulate
 
 
@@ -40,7 +41,7 @@ def lr_simulate_params(tmp_path):
         "mut_rate": 1.25e-8,
         "rec_rate": 1e-8,
         "nprocess": 2,
-        "feature_config": "tests/data/ArchIE.features.yaml",
+        "feature_config_file": "tests/data/ArchIE.features.yaml",
         "intro_prop": 0.7,
         "non_intro_prop": 0.3,
         "output_prefix": "test",
@@ -77,40 +78,11 @@ def test_lr_simulate(lr_simulate_params, cleanup_output_dir):
         sep="\t",
     )
 
-    for column in df.columns:
-        if df[column].dtype.kind in "ifc":  # Float, int, complex numbers
-            assert np.isclose(
-                df[column], expected_df[column], atol=1e-5, rtol=1e-5
-            ).all(), f"Mismatch in column {column}"
-        else:
-            assert (
-                df[column] == expected_df[column]
-            ).all(), f"Mismatch in column {column}"
-
-
-if __name__ == "__main__":
-    lr_simulate(
-        demo_model_file="tests/data/ArchIE_3D19.yaml",
-        nrep=100,
-        nref=50,
-        ntgt=50,
-        ref_id="Ref",
-        tgt_id="Tgt",
-        src_id="Ghost",
-        ploidy=2,
-        is_phased=True,
-        seq_len=50000,
-        mut_rate=1.25e-8,
-        rec_rate=1e-8,
-        nprocess=2,
-        feature_config="tests/data/ArchIE.features.yaml",
-        intro_prop=0.7,
-        non_intro_prop=0.3,
-        output_prefix="test",
-        output_dir="tests/test",
-        seed=12345,
-        nfeature=10000,
-        is_shuffled=False,
-        force_balanced=False,
-        keep_sim_data=True,
+    pd.testing.assert_frame_equal(
+        df,
+        expected_df,
+        check_dtype=False,
+        check_like=False,
+        rtol=1e-5,
+        atol=1e-5,
     )
