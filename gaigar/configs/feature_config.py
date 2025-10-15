@@ -149,7 +149,7 @@ class FeatureConfig(
             enabled statistics.
         """
         keys = set(params.keys())
-        if unknown := keys - SUPPORTED_DIST_STATS
+        if unknown := keys - SUPPORTED_DIST_STATS:
             raise ValueError(
                 f"{feat_name}: unknown dist stats {sorted(unknown)}. "
                 f"Allowed: {sorted(SUPPORTED_DIST_STATS)}"
@@ -192,7 +192,7 @@ class FeatureConfig(
             positive ``mismatch penalty``).
         """
         keys = set(params.keys())
-        if unknown:= keys - SUPPORTED_SSTAR_PARAMS
+        if unknown := keys - SUPPORTED_SSTAR_PARAMS:
             raise ValueError(
                 f"{feat_name}: unknown params {sorted(unknown)}. "
                 f"Allowed: {sorted(SUPPORTED_SSTAR_PARAMS)}"
