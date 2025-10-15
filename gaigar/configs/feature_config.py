@@ -62,20 +62,20 @@ class FeatureConfig(
 
     Structure
     ---------
-    - ``ref_dist`` / ``tgt_dist`` : dict
+    - `ref_dist` / `tgt_dist` : dict
         Mapping from distance statistic names to booleans. Allowed stats
-        are in ``SUPPORTED_DIST_STATS``. At least one must be ``True``.
-        ``all=True`` is mutually exclusive with any other ``True``.
-    - ``spectrum`` / ``num_private`` : bool
+        are in `SUPPORTED_DIST_STATS`. At least one must be `True`.
+        `all=True` is mutually exclusive with any other `True`.
+    - `spectrum` / `num_private` : bool
         Feature toggles.
-    - ``sstar`` : dict
+    - `sstar` : dict
         Mapping from S* parameter names to integer values. Allowed params
-        are in ``SUPPORTED_SSTAR_PARAMS``.
+        are in `SUPPORTED_SSTAR_PARAMS`.
 
     Notes
     -----
-    The model is defined as a ``RootModel`` where the underlying ``root``
-    is a ``Dict[str, Union[bool, Dict[str, Union[bool, int]]]]`` to allow
+    The model is defined as a `RootModel` where the underlying `root`
+    is a `Dict[str, Union[bool, Dict[str, Union[bool, int]]]]` to allow
     both boolean toggles and nested option dictionaries at the top level.
     """
 
@@ -132,12 +132,12 @@ class FeatureConfig(
     @staticmethod
     def valid_dist(feat_name: str, params: Dict[str, Union[bool, int]]):
         """
-        Validates distance-statistics options for ``ref_dist``/``tgt_dist``.
+        Validates distance-statistics options for `ref_dist`/`tgt_dist`.
 
         Parameters
         ----------
         feat_name : str
-            The feature name being validated (``"ref_dist"`` or ``"tgt_dist"``).
+            The feature name being validated (`"ref_dist"` or `"tgt_dist"`).
         params : dict
             Mapping from statistic names to booleans.
 
@@ -145,7 +145,7 @@ class FeatureConfig(
         ------
         ValueError
             If unknown statistic keys are present, if any value is not a bool,
-            if no statistic is enabled, or if ``all=True`` conflicts with other
+            if no statistic is enabled, or if `all=True` conflicts with other
             enabled statistics.
         """
         keys = set(params.keys())
@@ -180,7 +180,7 @@ class FeatureConfig(
         Parameters
         ----------
         feat_name : str
-            The feature name being validated (``"sstar"``).
+            The feature name being validated (`"sstar"`).
         params : dict
             Mapping from S* parameter names to integer values.
 
@@ -188,8 +188,8 @@ class FeatureConfig(
         ------
         ValueError
             If unknown parameter keys are present, if a value is not an int,
-            or if numeric constraints are violated (e.g., negative ``max mismatch``,
-            positive ``mismatch penalty``).
+            or if numeric constraints are violated (e.g., negative `max mismatch`,
+            positive `mismatch penalty`).
         """
         keys = set(params.keys())
         if unknown := keys - SUPPORTED_SSTAR_PARAMS:
