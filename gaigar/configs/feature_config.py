@@ -80,7 +80,9 @@ class FeatureConfig(
     """
 
     @field_validator("root")
-    def check_valid_feature_types(cls, v: Dict[str, Union[bool, Dict[str, Union[bool, int]]]]):
+    def check_valid_feature_types(
+        cls, v: Dict[str, Union[bool, Dict[str, Union[bool, int]]]]
+    ):
         """
         Validates top-level features and dispatch to per-feature checks.
 
@@ -104,12 +106,16 @@ class FeatureConfig(
         """
         for feat_name, params in v.items():
             if feat_name not in SUPPORTED_FEATURES:
-                raise ValueError(f"Unsupported feature: {feat_name!r}. "
-                                 f"Allowed: {sorted(SUPPORTED_FEATURES)}")
+                raise ValueError(
+                    f"Unsupported feature: {feat_name!r}. "
+                    f"Allowed: {sorted(SUPPORTED_FEATURES)}"
+                )
 
             if feat_name in {"ref_dist", "tgt_dist"}:
                 if not isinstance(params, dict):
-                    raise ValueError(f"{feat_name} must be a mapping of stats to bools.")
+                    raise ValueError(
+                        f"{feat_name} must be a mapping of stats to bools."
+                    )
                 cls.valid_dist(feat_name, params)
 
             elif feat_name in {"spectrum", "num_private"}:
@@ -145,12 +151,16 @@ class FeatureConfig(
         keys = set(params.keys())
         unknown = keys - SUPPORTED_DIST_STATS
         if unknown:
-            raise ValueError(f"{feat_name}: unknown dist stats {sorted(unknown)}. "
-                             f"Allowed: {sorted(SUPPORTED_DIST_STATS)}")
+            raise ValueError(
+                f"{feat_name}: unknown dist stats {sorted(unknown)}. "
+                f"Allowed: {sorted(SUPPORTED_DIST_STATS)}"
+            )
 
         for k, v in params.items():
             if not isinstance(v, bool):
-                raise ValueError(f"{feat_name}: value for '{k}' must be bool, got {type(v).__name__}.")
+                raise ValueError(
+                    f"{feat_name}: value for '{k}' must be bool, got {type(v).__name__}."
+                )
 
         if not any(bool(x) for x in params.values()):
             raise ValueError(f"{feat_name}: at least one stat must be True.")
@@ -158,8 +168,10 @@ class FeatureConfig(
         if params.get("all") is True:
             others_true = [k for k in keys - {"all"} if params[k] is True]
             if others_true:
-                raise ValueError(f"{feat_name}: 'all' conflicts with {others_true}. "
-                                 f"Use only 'all: true' or set others to false.")
+                raise ValueError(
+                    f"{feat_name}: 'all' conflicts with {others_true}. "
+                    f"Use only 'all: true' or set others to false."
+                )
 
     @staticmethod
     def valid_sstar(feat_name: str, params: Dict[str, Union[bool, int]]):
@@ -183,12 +195,16 @@ class FeatureConfig(
         keys = set(params.keys())
         unknown = keys - SUPPORTED_SSTAR_PARAMS
         if unknown:
-            raise ValueError(f"{feat_name}: unknown params {sorted(unknown)}. "
-                             f"Allowed: {sorted(SUPPORTED_SSTAR_PARAMS)}")
+            raise ValueError(
+                f"{feat_name}: unknown params {sorted(unknown)}. "
+                f"Allowed: {sorted(SUPPORTED_SSTAR_PARAMS)}"
+            )
 
         for k, v in params.items():
-            if not isinstance(v, int):
-                raise ValueError(f"{feat_name}: value for '{k}' must be int, got {type(v).__name__}.")
+            if type(v) is not int:
+                raise ValueError(
+                    f"{feat_name}: value for '{k}' must be int, got {type(v).__name__}."
+                )
 
         if "max mismatch" in params and params["max mismatch"] < 0:
             raise ValueError(f"{feat_name}: 'max mismatch' must be >= 0.")
