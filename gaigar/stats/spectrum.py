@@ -60,46 +60,46 @@ class Spectrum(GenericStatistic):
             `(n_samples, n_bins)` and `n_bins = n_samples * ploidy + 1`.
             Bin 0 is zeroed to exclude non-segregating sites (ArchIE behavior).
         """
-        spec = _calc_n_ton(tgt_gts, is_phased=is_phased, ploidy=ploidy)
+        spec = Spectrum._calc_n_ton(tgt_gts, is_phased=is_phased, ploidy=ploidy)
 
         return {"spectrum": spec}
 
+    @staticmethod
+    def _calc_n_ton(tgt_gt: np.ndarray, is_phased: bool, ploidy: int) -> np.ndarray:
+        """
+        Calculates individual frequency spectra for samples (ArchIE-style i-ton).
 
-def _calc_n_ton(tgt_gt: np.ndarray, is_phased: bool, ploidy: int) -> np.ndarray:
-    """
-    Calculates individual frequency spectra for samples (ArchIE-style i-ton).
+        Parameters
+        ----------
+        tgt_gt : np.ndarray
+            Genotype matrix of shape (n_sites, n_samples) for the target population.
+        is_phased : bool
+            If True, treat genotypes as phased haplotypes (ploidy is coerced to 1).
+        ploidy : int
+            Ploidy of the genomes (ignored when `is_phased` is True).
 
-    Parameters
-    ----------
-    tgt_gt : np.ndarray
-        Genotype matrix of shape (n_sites, n_samples) for the target population.
-    is_phased : bool
-        If True, treat genotypes as phased haplotypes (ploidy is coerced to 1).
-    ploidy : int
-        Ploidy of the genomes (ignored when `is_phased` is True).
+        Returns
+        -------
+        np.ndarray
+            Spectra array of shape (n_samples, n_bins), where
+            `n_bins = n_samples * ploidy + 1`. Bin 0 is set to 0 to mimic ArchIE
+            behavior (non-segregating sites are not counted).
+        """
+        if is_phased:
+            ploidy = 1
 
-    Returns
-    -------
-    np.ndarray
-        Spectra array of shape (n_samples, n_bins), where
-        `n_bins = n_samples * ploidy + 1`. Bin 0 is set to 0 to mimic ArchIE
-        behavior (non-segregating sites are not counted).
-    """
-    if is_phased:
-        ploidy = 1
+        mut_num, sample_num = tgt_gt.shape
+        iv = np.ones((sample_num, 1))
+        counts = (tgt_gt > 0) * np.matmul(tgt_gt, iv)
+        spectra = np.array(
+            [
+                np.bincount(
+                    counts[:, idx].astype("int64"), minlength=sample_num * ploidy + 1
+                )
+                for idx in range(sample_num)
+            ]
+        )
+        # ArchIE does not count non-segregating sites
+        spectra[:, 0] = 0
 
-    mut_num, sample_num = tgt_gt.shape
-    iv = np.ones((sample_num, 1))
-    counts = (tgt_gt > 0) * np.matmul(tgt_gt, iv)
-    spectra = np.array(
-        [
-            np.bincount(
-                counts[:, idx].astype("int64"), minlength=sample_num * ploidy + 1
-            )
-            for idx in range(sample_num)
-        ]
-    )
-    # ArchIE does not count non-segregating sites
-    spectra[:, 0] = 0
-
-    return spectra
+        return spectra

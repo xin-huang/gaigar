@@ -20,3 +20,4 @@
 
 from .generic_statistic import GenericStatistic
 from .spectrum import Spectrum
+from .distance import Distance

@@ -25,26 +25,31 @@ import pytest
 from gaigar.stats.spectrum import Spectrum
 
 
-
 def test_spectrum():
     # tgt_gt: (n_sites=4, n_samples=2)
     # rows = sites; cols = samples
-    tgt = np.array([
-        [0, 1],
-        [1, 0],
-        [1, 1],
-        [0, 0],
-    ], dtype=int)
+    tgt = np.array(
+        [
+            [0, 1],
+            [1, 0],
+            [1, 1],
+            [0, 0],
+        ],
+        dtype=int,
+    )
 
     out = Spectrum.compute(tgt_gts=tgt, is_phased=True, ploidy=2)["spectrum"]
 
     # per-site derived counts across samples: [1,1,2,0]
     # counts[:,0] = [0,1,2,0] -> bincount(minlength=3) = [2,1,1] -> [0,1,1] (set 0-bin as 0)
     # counts[:,1] = [1,0,2,0] -> bincount(minlength=3) = [2,1,1] -> [0,1,1] (set 0-bin as 0)
-    expected = np.array([
-        [0, 1, 1],
-        [0, 1, 1],
-    ], dtype=int)
+    expected = np.array(
+        [
+            [0, 1, 1],
+            [0, 1, 1],
+        ],
+        dtype=int,
+    )
 
     assert out.shape == (2, 3)
     assert np.all(out[:, 0] == 0)
