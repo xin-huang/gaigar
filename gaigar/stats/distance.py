@@ -21,7 +21,6 @@
 import numpy as np
 from typing import Dict, Any
 from scipy.spatial import distance_matrix
-
 from gaigar.registries.stat_registry import STAT_REGISTRY
 from gaigar.stats import GenericStatistic
 

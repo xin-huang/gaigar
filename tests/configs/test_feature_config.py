@@ -27,11 +27,11 @@ from gaigar.configs.feature_config import FeatureConfig
 def test_valid_minimal_bools():
     cfg = {
         "spectrum": True,
-        "num_private": True,
+        "private_mutation": True,
     }
     m = FeatureConfig.model_validate(cfg)
     assert m.root["spectrum"] is True
-    assert m.root["num_private"] is True
+    assert m.root["private_mutation"] is True
 
 
 def test_valid_ref_tgt_dist_some_stats_true():
@@ -155,7 +155,7 @@ def test_combined_valid_config():
         "ref_dist": {"mean": True, "variance": False},
         "tgt_dist": {"all": True},
         "spectrum": True,
-        "num_private": True,
+        "private_mutation": True,
         "sstar": {"match bonus": 1000, "max mismatch": 3, "mismatch penalty": -5000},
     }
     m = FeatureConfig.model_validate(cfg)

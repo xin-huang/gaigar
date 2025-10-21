@@ -25,7 +25,7 @@ SUPPORTED_FEATURES: Set[str] = {
     "ref_dist",
     "tgt_dist",
     "spectrum",
-    "num_private",
+    "private_mutation",
     "sstar",
 }
 
@@ -118,7 +118,7 @@ class FeatureConfig(
                     )
                 cls.valid_dist(feat_name, params)
 
-            elif feat_name in {"spectrum", "num_private"}:
+            elif feat_name in {"spectrum", "private_mutation"}:
                 if not isinstance(params, bool):
                     raise ValueError(f"{feat_name} must be a boolean.")
 
