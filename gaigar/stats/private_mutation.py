@@ -24,7 +24,7 @@ from gaigar.registries.stat_registry import STAT_REGISTRY
 from gaigar.stats import GenericStatistic
 
 
-@STAT_REGISTRY.register("num_private")
+@STAT_REGISTRY.register("private_mutation")
 class PrivateMutation(GenericStatistic):
     """
     Private-variant count statistic.

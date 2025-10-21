@@ -20,8 +20,6 @@
 
 import numpy as np
 import pytest
-
-
 from gaigar.stats.spectrum import Spectrum
 
 
