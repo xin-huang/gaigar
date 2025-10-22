@@ -18,7 +18,13 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .generic_statistic import GenericStatistic
-from .spectrum import Spectrum
-from .distance import Distance
-from .private_mutation import PrivateMutation
+from gaigar.registries.generic_registry import GenericRegistry
+
+
+class StatRegistry(GenericRegistry):
+    """
+    Concrete registry for statistic classes.
+    """
+
+
+STAT_REGISTRY = StatRegistry()
