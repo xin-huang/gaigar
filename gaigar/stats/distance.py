@@ -25,7 +25,6 @@ from gaigar.registries.stat_registry import STAT_REGISTRY
 from gaigar.stats import GenericStatistic
 
 
-@STAT_REGISTRY.register("distance")
 class Distance(GenericStatistic):
     """
     Pairwise Euclidean distance statistic.
@@ -87,3 +86,67 @@ class Distance(GenericStatistic):
         dists.sort()
 
         return dists
+
+
+@STAT_REGISTRY.register("ref_dist")
+class _RefDistance(GenericStatistic):
+    """
+    Computes pairwise Euclidean distances between columns (samples) of the
+    reference genotype matrix (`ref_gts`) and the target genotype matrix
+    (`tgt_gts`).
+    """
+
+    @staticmethod
+    def compute(**kwargs) -> Dict[str, Any]:
+        """
+        Computes distances from reference to target samples.
+
+        Parameters
+        ----------
+        **kwargs
+            ref_gts : np.ndarray
+                Reference genotype matrix of shape `(n_sites, n_ref_samples)`.
+            tgt_gts : np.ndarray
+                Target genotype matrix of shape `(n_sites, n_tgt_samples)`.
+
+        Returns
+        -------
+        dict
+            `{'ref_dist': np.ndarray}` where the array has shape
+            `(n_tgt_samples, n_ref_samples)`; rows correspond to target samples,
+            columns to reference samples. Each row is sorted in non-decreasing order.
+        """
+        ref_gts, tgt_gts = _RefDistance.require(kwargs, "ref_gts", "tgt_gts")
+
+        return Distance.compute(gt1=ref_gts, gt2=tgt_gts, key="ref_dist")
+
+
+@STAT_REGISTRY.register("tgt_dist")
+class _TgtDistance(GenericStatistic):
+    """
+    Computes pairwise Euclidean distances between columns (samples) of the
+    target genotype matrix (`tgt_gts`) itself.
+    """
+
+    @staticmethod
+    def compute(**kwargs):
+        """
+        Computes self-distances among target samples.
+
+        Parameters
+        ----------
+        **kwargs
+            tgt_gts : np.ndarray
+                Target genotype matrix of shape `(n_sites, n_tgt_samples)`.
+
+        Returns
+        -------
+        dict
+            `{'tgt_dist': np.ndarray}` where the array has shape
+            `(n_tgt_samples, n_tgt_samples)`; rows and columns both correspond
+            to target samples. Each row is sorted in non-decreasing order.
+        """
+
+        (tgt_gts,) = _TgtDistance.require(kwargs, "tgt_gts")
+
+        return Distance.compute(gt1=tgt_gts, gt2=tgt_gts, key="tgt_dist")

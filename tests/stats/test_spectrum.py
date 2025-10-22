@@ -55,9 +55,7 @@ def test_spectrum():
 
 
 def test_spectrum_missing_params():
-    params = {
-        "ploidy": 2
-    }
+    params = {"ploidy": 2}
 
     with pytest.raises(ValueError):
         Spectrum.compute(**params)
