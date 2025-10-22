@@ -18,6 +18,7 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
+import pytest
 import numpy as np
 from gaigar.stats.sstar import Sstar
 
@@ -71,3 +72,10 @@ def test_sstar_close_positions_or_singletons_yield_zero():
     pos_any = np.array([0, 100], dtype=int)
     out_single = Sstar.compute(tgt_gts=tgt_singletons, pos=pos_any)["sstar"]
     assert out_single == [0.0, 0.0]
+
+
+def test_sstar_missing_params():
+    params = {}
+
+    with pytest.raises(ValueError):
+        Sstar.compute(**params)

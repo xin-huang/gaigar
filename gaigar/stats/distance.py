@@ -35,25 +35,32 @@ class Distance(GenericStatistic):
     """
 
     @staticmethod
-    def compute(*, gt1: np.ndarray, gt2: np.ndarray, key: str) -> Dict[str, Any]:
+    def compute(**kwargs) -> Dict[str, Any]:
         """
         Computes pairwise Euclidean distances for two genotype matrices.
 
         Parameters
         ----------
-        gt1 : np.ndarray
-            Genotype matrix 1 with shape (n_sites, n_samples1). Samples are columns.
-        gt2 : np.ndarray
-            Genotype matrix 2 with shape (n_sites, n_samples2). Samples are columns.
-        key : str
-            The dictionary key to use for the returned distance matrix (e.g., 'ref_dist' or 'tgt_dist').
+        **kwargs
+            gt1 : np.ndarray
+                Genotype matrix 1 with shape (n_sites, n_samples1). Samples are columns.
+            gt2 : np.ndarray
+                Genotype matrix 2 with shape (n_sites, n_samples2). Samples are columns.
+            key : str
+                The dictionary key to use for the returned distance matrix (e.g., 'ref_dist' or 'tgt_dist').
 
         Returns
         -------
         dict
             A dictionary {key: np.ndarray} where the array has shape
             (n_samples2, n_samples1) and is sorted along the last axis.
+
+        Raises
+        ------
+        ValueError
+            If any required key is missing.
         """
+        gt1, gt2, key = Distance.require(kwargs, "gt1", "gt2", "key")
         dists = Distance._cal_dist(gt1, gt2)
 
         return {key: dists}

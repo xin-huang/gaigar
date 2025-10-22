@@ -39,18 +39,19 @@ class Spectrum(GenericStatistic):
     """
 
     @staticmethod
-    def compute(*, tgt_gts: np.ndarray, is_phased: bool, ploidy: int) -> Dict[str, Any]:
+    def compute(**kwargs) -> Dict[str, Any]:
         """
         Computes per-individual frequency spectra for the target population.
 
         Parameters
         ----------
-        tgt_gts : np.ndarray
-            Genotype matrix of shape `(n_sites, n_samples)` for the target population.
-        is_phased : bool
-            If `True`, treat genotypes as phased haplotypes (effective ploidy = 1).
-        ploidy : int
-            Sample ploidy when `is_phased` is `False` (ignored otherwise).
+        **kwargs
+            tgt_gts : np.ndarray
+                Genotype matrix of shape `(n_sites, n_samples)` for the target population.
+            is_phased : bool
+                If `True`, treat genotypes as phased haplotypes (effective ploidy = 1).
+            ploidy : int
+                Sample ploidy when `is_phased` is `False` (ignored otherwise).
 
         Returns
         -------
@@ -59,7 +60,15 @@ class Spectrum(GenericStatistic):
             `{"spectrum": np.ndarray}`, where the array has shape
             `(n_samples, n_bins)` and `n_bins = n_samples * ploidy + 1`.
             Bin 0 is zeroed to exclude non-segregating sites (ArchIE behavior).
+
+        Raises
+        ------
+        ValueError
+            If any required key is missing.
         """
+        tgt_gts, is_phased, ploidy = Spectrum.require(
+            kwargs, "tgt_gts", "is_phased", "ploidy"
+        )
         spec = Spectrum._calc_n_ton(tgt_gts, is_phased=is_phased, ploidy=ploidy)
 
         return {"spectrum": spec}
@@ -67,7 +76,7 @@ class Spectrum(GenericStatistic):
     @staticmethod
     def _calc_n_ton(tgt_gt: np.ndarray, is_phased: bool, ploidy: int) -> np.ndarray:
         """
-        Calculates individual frequency spectra for samples (ArchIE-style i-ton).
+        Computes individual frequency spectra for samples (ArchIE-style i-ton).
 
         Parameters
         ----------

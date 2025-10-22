@@ -39,34 +39,39 @@ class Sstar(GenericStatistic):
 
     @staticmethod
     def compute(
-        *,
-        tgt_gts: np.ndarray,
-        pos: np.ndarray,
-        match_bonus: int = 5000,
-        max_mismatch: int = 5,
-        mismatch_penalty: int = -10000,
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Computes S* scores for each target sample (column).
 
         Parameters
         ----------
-        tgt_gts : np.ndarray
-            Target genotype matrix of shape (n_sites, n_samples).
-        pos : np.ndarray
-            Genomic positions for the n_sites variants.
-        match_bonus : int, default 5000
-            Bonus added when genotype distance is 0 and physical distance ≥ 10.
-        max_mismatch : int, default 5
-            Maximum allowed genotype distance to still consider a pair.
-        mismatch_penalty : int, default -10000
-            Penalty applied when 0 < genotype distance ≤ max_mismatch.
+        **kwargs
+            tgt_gts : np.ndarray
+                Target genotype matrix of shape (n_sites, n_samples).
+            pos : np.ndarray
+                Genomic positions for the n_sites variants.
+            match_bonus : int, default 5000
+                Bonus added when genotype distance is 0 and physical distance ≥ 10.
+            max_mismatch : int, default 5
+                Maximum allowed genotype distance to still consider a pair.
+            mismatch_penalty : int, default -10000
+                Penalty applied when 0 < genotype distance ≤ max_mismatch.
 
         Returns
         -------
         dict
             {'sstar': list[float]} — per-sample S* scores.
+
+        Raises
+        ------
+        ValueError
+            If any required key is missing.
         """
+        tgt_gts, pos = Sstar.require(kwargs, "tgt_gts", "pos")
+        match_bonus = kwargs.get("match_bonus", 5000)
+        max_mismatch = kwargs.get("max_mismatch", 5)
+        mismatch_penalty = kwargs.get("mismatch_penalty", -10000)
         scores = Sstar._calc_sstar(
             tgt_gt=tgt_gts,
             pos=pos,
@@ -113,7 +118,7 @@ class Sstar(GenericStatistic):
             pos_sub = positions[mask]
 
             # Genotype sub-matrix across all individuals at those loci
-            geno_matrix = gt[mask].astype(np.float32)  # (n_pos, n_samples)
+            geno_matrix = gt[mask]  # (n_pos, n_samples)
 
             # Remove singletons across all individuals
             keep = geno_matrix.sum(axis=1) != 1

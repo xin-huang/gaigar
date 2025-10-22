@@ -52,3 +52,12 @@ def test_spectrum():
     assert out.shape == (2, 3)
     assert np.all(out[:, 0] == 0)
     assert np.array_equal(out, expected)
+
+
+def test_spectrum_missing_params():
+    params = {
+        "ploidy": 2
+    }
+
+    with pytest.raises(ValueError):
+        Spectrum.compute(**params)

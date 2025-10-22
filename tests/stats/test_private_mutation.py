@@ -18,12 +18,12 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import numpy as np
 import pytest
+import numpy as np
 from gaigar.stats.private_mutation import PrivateMutation
 
 
-def test_num_private_basic_counts():
+def test_private_mutation_basic_counts():
     # ref_gts: (n_sites=4, n_ref=2)
     ref = np.array(
         [
@@ -57,3 +57,10 @@ def test_num_private_basic_counts():
 
     assert v.shape == expected.shape
     assert np.array_equal(v, expected)
+
+
+def test_private_mutation_missing_params():
+    params = {}
+
+    with pytest.raises(ValueError):
+        PrivateMutation.compute(**params)

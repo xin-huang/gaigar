@@ -35,23 +35,30 @@ class PrivateMutation(GenericStatistic):
     """
 
     @staticmethod
-    def compute(*, ref_gts: np.ndarray, tgt_gts: np.ndarray) -> Dict[str, Any]:
+    def compute(**kwargs) -> Dict[str, Any]:
         """
         Computes per-sample private-variant counts.
 
         Parameters
         ----------
-        ref_gts : np.ndarray
-            Reference genotype matrix of shape `(n_sites, n_ref_samples)`.
-        tgt_gts : np.ndarray
-            Target genotype matrix of shape `(n_sites, n_tgt_samples)`.
+        **kwargs
+            ref_gts : np.ndarray
+                Reference genotype matrix of shape `(n_sites, n_ref_samples)`.
+            tgt_gts : np.ndarray
+                Target genotype matrix of shape `(n_sites, n_tgt_samples)`.
 
         Returns
         -------
         dict
             `{private_mutation: np.ndarray}` where the array has length
             `n_tgt_samples`, giving counts of private variants per target sample.
+
+        Raises
+        ------
+        ValueError
+            If any required key is missing.
         """
+        ref_gts, tgt_gts = PrivateMutation.require(kwargs, "ref_gts", "tgt_gts")
         counts = PrivateMutation._cal_mut_num(ref_gts, tgt_gts)
 
         return {"private_mutation": counts}

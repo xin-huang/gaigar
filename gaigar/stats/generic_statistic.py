@@ -47,3 +47,32 @@ class GenericStatistic(ABC):
             A dictionary containing the results of the statistic computation.
         """
         pass
+
+    @staticmethod
+    def require(kwargs: Dict[str, Any], *names: str) -> tuple[Any]:
+        """
+        Fetch required keyword-only arguments from `kwargs`.
+
+        Parameters
+        ----------
+        kwargs : dict
+            Source mapping (typically the `**kwargs` passed to `compute`).
+        *names : str
+            One or more required keys to retrieve from `kwargs`.
+
+        Returns
+        -------
+        tuple of Any
+            Values corresponding to `names`, in the same order.
+            If a single name is provided, the return value is a 1-tuple.
+
+        Raises
+        ------
+        ValueError
+            If any of the required keys are missing from `kwargs`.
+        """
+        missing = [n for n in names if n not in kwargs]
+        if missing:
+            raise ValueError(f"Missing required arguments: {missing}")
+
+        return tuple(kwargs[n] for n in names)

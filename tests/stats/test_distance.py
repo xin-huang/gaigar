@@ -60,3 +60,10 @@ def test_distance_custom_key():
 
     out = Distance.compute(gt1=gt1, gt2=gt2, key="tgt_dist")
     assert "tgt_dist" in out and out["tgt_dist"].shape == (2, 1)
+
+
+def test_distance_missing_params():
+    params = {}
+
+    with pytest.raises(ValueError):
+        Distance.compute(**params)
