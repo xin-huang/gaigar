@@ -31,7 +31,7 @@ class Sstar(GenericStatistic):
     """
     S* (Sstar) statistic.
 
-    Computes ArchIE-style S* scores per individual from a target genotype
+    Computes haplotype-based S* scores per individual from a target genotype
     matrix and variant positions. This implementation removes singletons,
     builds a physical-distance matrix and a genotype-distance matrix (L1),
     then performs dynamic programming to find the best-scoring chain.
@@ -68,13 +68,18 @@ class Sstar(GenericStatistic):
         ValueError
             If any required key is missing.
         """
-        tgt_gts, pos = Sstar.require(kwargs, "tgt_gts", "pos")
+        ref_gts, tgt_gts, pos = Sstar.require(kwargs, "ref_gts", "tgt_gts", "pos")
         match_bonus = kwargs.get("match_bonus", 5000)
         max_mismatch = kwargs.get("max_mismatch", 5)
         mismatch_penalty = kwargs.get("mismatch_penalty", -10000)
+
+        variants_not_in_ref = np.sum(ref_gts, axis=1) == 0
+        sub_tgt_gts = tgt_gts[variants_not_in_ref]
+        sub_pos = pos[variants_not_in_ref]
+
         scores = Sstar._calc_sstar(
-            tgt_gt=tgt_gts,
-            pos=pos,
+            tgt_gt=sub_tgt_gts,
+            pos=sub_pos,
             match_bonus=match_bonus,
             max_mismatch=max_mismatch,
             mismatch_penalty=mismatch_penalty,

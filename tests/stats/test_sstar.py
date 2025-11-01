@@ -24,14 +24,16 @@ from gaigar.stats.sstar import Sstar
 
 
 def test_sstar_all_zero_returns_zero():
+    ref = np.zeros((3, 2), dtype=int)
     tgt = np.zeros((3, 2), dtype=int)  # (n_sites=3, n_samples=2)
     pos = np.array([10, 50, 100], dtype=int)
 
-    out = Sstar.compute(tgt_gts=tgt, pos=pos)["sstar"]
+    out = Sstar.compute(ref_gts=ref, tgt_gts=tgt, pos=pos)["sstar"]
     assert out == [0.0, 0.0]
 
 
 def test_sstar_two_matching_loci_far_apart_gives_bonus_plus_distance():
+    ref = np.zeros((2, 2), dtype=int)
     tgt = np.array(
         [
             [1, 1],  # site 0
@@ -44,13 +46,16 @@ def test_sstar_two_matching_loci_far_apart_gives_bonus_plus_distance():
     match_bonus = 5000
     expected = 100 + match_bonus
 
-    out = Sstar.compute(tgt_gts=tgt, pos=pos, match_bonus=match_bonus)["sstar"]
+    out = Sstar.compute(ref_gts=ref, tgt_gts=tgt, pos=pos, match_bonus=match_bonus)[
+        "sstar"
+    ]
     assert len(out) == 2
     assert out[0] == expected
     assert out[1] == expected
 
 
 def test_sstar_close_positions_or_singletons_yield_zero():
+    ref = np.zeros((2, 2), dtype=int)
     tgt_close = np.array(
         [
             [1, 1],
@@ -59,7 +64,7 @@ def test_sstar_close_positions_or_singletons_yield_zero():
         dtype=int,
     )
     pos_close = np.array([0, 5], dtype=int)  # < 10
-    out_close = Sstar.compute(tgt_gts=tgt_close, pos=pos_close)["sstar"]
+    out_close = Sstar.compute(ref_gts=ref, tgt_gts=tgt_close, pos=pos_close)["sstar"]
     assert out_close == [0.0, 0.0]
 
     tgt_singletons = np.array(
@@ -70,7 +75,9 @@ def test_sstar_close_positions_or_singletons_yield_zero():
         dtype=int,
     )
     pos_any = np.array([0, 100], dtype=int)
-    out_single = Sstar.compute(tgt_gts=tgt_singletons, pos=pos_any)["sstar"]
+    out_single = Sstar.compute(ref_gts=ref, tgt_gts=tgt_singletons, pos=pos_any)[
+        "sstar"
+    ]
     assert out_single == [0.0, 0.0]
 
 
