@@ -59,7 +59,12 @@ class PrivateMutation(GenericStatistic):
             If any required key is missing.
         """
         ref_gts, tgt_gts = PrivateMutation.require(kwargs, "ref_gts", "tgt_gts")
-        counts = PrivateMutation._cal_mut_num(ref_gts, tgt_gts)
+
+        variants_not_in_ref = np.sum(ref_gts, axis=1) == 0
+        sub_ref_gts = ref_gts[variants_not_in_ref]
+        sub_tgt_gts = tgt_gts[variants_not_in_ref]
+
+        counts = PrivateMutation._cal_mut_num(sub_ref_gts, sub_tgt_gts)
 
         return {"private_mutation": counts}
 
