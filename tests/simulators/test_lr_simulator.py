@@ -20,6 +20,7 @@
 import os, pytest, shutil
 import numpy as np
 import pandas as pd
+import gaigar.stats
 from gaigar.multiprocessing import mp_manager
 from gaigar.generators import RandomNumberGenerator
 from gaigar.simulators import LrSimulator
@@ -44,7 +45,7 @@ def init_params():
         "is_phased": True,
         "intro_prop": 0.7,
         "non_intro_prop": 0.3,
-        "feature_config": "tests/data/ArchIE.features.yaml",
+        "feature_config_file": "tests/data/ArchIE.features.yaml",
     }
 
 
@@ -68,42 +69,11 @@ def test_LrSimulator(init_params, cleanup_output_dir):
         sep="\t",
     )
 
-    for column in df.columns:
-        if df[column].dtype.kind in "ifc":  # Float, int, complex numbers
-            assert np.isclose(
-                df[column], expected_df[column], atol=1e-5, rtol=1e-5
-            ).all(), f"Mismatch in column {column}"
-        else:
-            assert (
-                df[column] == expected_df[column]
-            ).all(), f"Mismatch in column {column}"
-
-
-if __name__ == "__main__":
-    from cProfile import Profile
-    from pstats import SortKey, Stats
-
-    with Profile() as profile:
-        simulator = LrSimulator(
-            demo_model_file="tests/data/ArchIE_3D19.yaml",
-            nref=50,
-            ntgt=50,
-            ref_id="Ref",
-            tgt_id="Tgt",
-            src_id="Ghost",
-            ploidy=2,
-            seq_len=50000,
-            mut_rate=1.25e-8,
-            rec_rate=1e-8,
-            output_prefix="test",
-            output_dir="tests/test_LRTrainingDataSimulator",
-            is_phased=True,
-            intro_prop=0.7,
-            non_intro_prop=0.3,
-            feature_config="tests/data/ArchIE.features.yaml",
-        )
-
-        for i in range(1000):
-            simulator.run()
-
-        Stats(profile).strip_dirs().sort_stats(SortKey.TIME).print_stats()
+    pd.testing.assert_frame_equal(
+        df,
+        expected_df,
+        check_dtype=False,
+        check_like=False,
+        rtol=1e-5,
+        atol=1e-5,
+    )

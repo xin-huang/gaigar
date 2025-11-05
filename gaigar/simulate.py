@@ -38,7 +38,7 @@ def lr_simulate(
     mut_rate: float,
     rec_rate: float,
     nprocess: int,
-    feature_config: str,
+    feature_config_file: str,
     intro_prop: float,
     non_intro_prop: float,
     output_prefix: str,
@@ -84,7 +84,7 @@ def lr_simulate(
         Recombination rate per base pair per generation.
     nprocess : int
         Number of processes to use for parallel execution.
-    feature_config : str
+    feature_config_file : str
         Path to the YAML configuration file specifying features to compute.
     intro_prop : float
         Proportion threshold for labeling a window as introgressed.
@@ -146,7 +146,7 @@ def lr_simulate(
         is_phased=is_phased,
         intro_prop=intro_prop,
         non_intro_prop=non_intro_prop,
-        feature_config=feature_config,
+        feature_config_file=feature_config_file,
     )
 
     total_features = []
