@@ -1,9 +1,9 @@
 # Logistic Regression
 
-`gaigar` supports logistic regression models for detecting ghost introgressed fragments. To view the subcommand information for logistic regression, users can use:
+`gaishi` supports logistic regression models for detecting ghost introgressed fragments. To view the subcommand information for logistic regression, users can use:
 
 ```
-gaigar lr -h
+gaishi lr -h
 ```
 
 This will show information for four subcommands:
@@ -18,7 +18,7 @@ This will show information for four subcommands:
 To see the arguments for each subcommand, for example, users can use:
 
 ```
-gaigar lr simulate -h
+gaishi lr simulate -h
 ```
 
 ## `simulate`
@@ -27,7 +27,7 @@ Users can utilize the `simulate` subcommand to generate a training dataset by pr
 
 ### Demographic model
 
-An example DEMES file is available [here](https://github.com/xin-huang/gaigar/blob/main/examples/demog/ArchIE_3D19.yaml) and appears as follows:
+An example DEMES file is available [here](https://github.com/xin-huang/gaishi/blob/main/examples/demog/ArchIE_3D19.yaml) and appears as follows:
 
 ```
 doi:
@@ -60,13 +60,13 @@ This demographic model, based on the ms command found [here](https://github.com/
 
 The visualization of this demographic model is illustrated below:
 
-![ArchIE_3D19](https://github.com/xin-huang/gaigar/blob/main/examples/demog/ArchIE_3D19.png?raw=true)
+![ArchIE_3D19](https://github.com/xin-huang/gaishi/blob/main/examples/demog/ArchIE_3D19.png?raw=true)
 
 In this diagram, the dashed arrow indicates introgression from the Source population to the Target population, while the Reference population remains unaffected. For ghost introgression scenarios, genomes from the Source population are unavailable.
 
 ### Feature configuration
 
-An example feature configuration file can be found [here](https://github.com/xin-huang/gaigar/blob/main/examples/features/ArchIE.features.yaml) and is shown below:
+An example feature configuration file can be found [here](https://github.com/xin-huang/gaishi/blob/main/examples/features/ArchIE.features.yaml) and is shown below:
 
 ```
 Features:
@@ -121,14 +121,14 @@ The above example feature configuration file specifies the same features used in
 To create a training dataset with the above demographic model and feature configuration, use the following command:
 
 ```
-gaigar lr simulate --demes examples/demog/ArchIE_3D19.yaml --nref 5 --ntgt 5 --ref-id Reference --tgt-id Target --src-id Source --seq-len 50000 --phased --mut-rate 1.2e-8 --rec-rate 1e-8 --replicate 100 --output-prefix example.lr --output-dir examples/results/data/training --feature-config examples/features/ArchIE.features.yaml --nfeature 100 --nprocess 2 --seed 12345
+gaishi lr simulate --demes examples/demog/ArchIE_3D19.yaml --nref 5 --ntgt 5 --ref-id Reference --tgt-id Target --src-id Source --seq-len 50000 --phased --mut-rate 1.2e-8 --rec-rate 1e-8 --replicate 100 --output-prefix example.lr --output-dir examples/results/data/training --feature-config examples/features/ArchIE.features.yaml --nfeature 100 --nprocess 2 --seed 12345
 ```
 
 In this command, we simulate a dataset with five diploid individuals from the Reference population and another five diploid individuals from the Target population, each with genomes of 50kb length (`--seq-len 50000`). The length of the simulated genomes in the training dataset should match the window length specified by the `--win-len` argument in the `preprocess` subcommand.
 
 The `--replicate` argument specifies the number of replications per batch for the simulation. The simulation will continue until the number of feature vectors specified by the `--nfeature` argument is obtained.
 
-The resulting training data can be found [here](https://github.com/xin-huang/gaigar/blob/main/examples/results/data/training/example.lr.features) and looks like this:
+The resulting training data can be found [here](https://github.com/xin-huang/gaishi/blob/main/examples/results/data/training/example.lr.features) and looks like this:
 
 ```
 Chromosome	Start	End	Sample	Sstar	Private_var_num	0_ton	1_ton	2_ton	3_ton	4_ton	5_ton	6_ton	7_ton	8_ton	9_ton	10_ton	Minimum_Ref_dist	Mean_Tgt_dist	Variance_Tgt_dist	Skew_Tgt_dist	Kurtosis_Tgt_dist	Tgt_dist_tsk_5_1	Tgt_dist_tsk_5_2	Tgt_dist_tsk_6_1	Tgt_dist_tsk_6_2	Tgt_dist_tsk_7_1	Tgt_dist_tsk_7_2	Tgt_dist_tsk_8_1	Tgt_dist_tsk_8_2	Tgt_dist_tsk_9_1	Tgt_dist_tsk_9_2	Label	Replicate
@@ -186,7 +186,7 @@ Users can use the `--introgressed-prop` and `--non-introgressed-prop` arguments 
 
 ## `preprocess`
 
-For real data, users should first use the `preprocess` subcommand to convert the data into feature vectors. Only [VCF](https://samtools.github.io/hts-specs/VCFv4.2.pdf) files are accepted. Additionally, two files specifying the sample names in the reference and target populations are required. An example file can be found [here](https://github.com/xin-huang/gaigar/blob/main/examples/results/data/test/example.lr.ref.ind.list) and is shown below:
+For real data, users should first use the `preprocess` subcommand to convert the data into feature vectors. Only [VCF](https://samtools.github.io/hts-specs/VCFv4.2.pdf) files are accepted. Additionally, two files specifying the sample names in the reference and target populations are required. An example file can be found [here](https://github.com/xin-huang/gaishi/blob/main/examples/results/data/test/example.lr.ref.ind.list) and is shown below:
 
 ```
 tsk_0
@@ -202,13 +202,13 @@ Similar to the `simulate` subcommand, the `--feature-config` argument specifies 
 
 ### Example
 
-An example VCF file can be found [here](https://github.com/xin-huang/gaigar/blob/main/examples/results/data/test/example.lr.vcf) and processed by the following command:
+An example VCF file can be found [here](https://github.com/xin-huang/gaishi/blob/main/examples/results/data/test/example.lr.vcf) and processed by the following command:
 
 ```
-gaigar lr preprocess --vcf examples/results/data/test/example.lr.vcf --chr-name 1 --ref examples/results/data/test/example.lr.ref.ind.list --tgt examples/results/data/test/example.lr.tgt.ind.list --feature-config examples/features/ArchIE.features.yaml --phased --output-prefix example --output-dir examples/results/data/test/ --win-len 50000 --win-step 10000 --nprocess 2
+gaishi lr preprocess --vcf examples/results/data/test/example.lr.vcf --chr-name 1 --ref examples/results/data/test/example.lr.ref.ind.list --tgt examples/results/data/test/example.lr.tgt.ind.list --feature-config examples/features/ArchIE.features.yaml --phased --output-prefix example --output-dir examples/results/data/test/ --win-len 50000 --win-step 10000 --nprocess 2
 ```
 
-In this command, the genome is divided into 50 kb sliding windows with a step size of 10 kb. The output feature file is available [here](https://github.com/xin-huang/gaigar/blob/main/examples/results/data/test/example.lr.features) and looks like:
+In this command, the genome is divided into 50 kb sliding windows with a step size of 10 kb. The output feature file is available [here](https://github.com/xin-huang/gaishi/blob/main/examples/results/data/test/example.lr.features) and looks like:
 
 ```
 Chromosome	Start	End	Sample	Sstar	Private_var_num	0_ton	1_ton	2_ton	3_ton	4_ton	5_ton	6_ton	7_ton	8_ton	9_ton	10_ton	Minimum_Ref_dist	Mean_Tgt_dist	Variance_Tgt_dist	Skew_Tgt_dist	Kurtosis_Tgt_dist	Tgt_dist_tsk_5_1	Tgt_dist_tsk_5_2	Tgt_dist_tsk_6_1	Tgt_dist_tsk_6_2	Tgt_dist_tsk_7_1	Tgt_dist_tsk_7_2	Tgt_dist_tsk_8_1	Tgt_dist_tsk_8_2	Tgt_dist_tsk_9_1	Tgt_dist_tsk_9_2
@@ -252,10 +252,10 @@ Once the training data is created using the `simulate` subcommand, users can use
 An example command is shown below:
 
 ```
-gaigar lr train --training-data examples/results/data/training/examples.features --model-file examples/results/trained_model/example.lr.model --seed 12345
+gaishi lr train --training-data examples/results/data/training/examples.features --model-file examples/results/trained_model/example.lr.model --seed 12345
 ```
 
-The trained model, which is a binary file, can be found [here](https://github.com/xin-huang/gaigar/blob/main/examples/results/trained_model/example.lr.model).
+The trained model, which is a binary file, can be found [here](https://github.com/xin-huang/gaishi/blob/main/examples/results/trained_model/example.lr.model).
 
 ### Arguments
 
@@ -278,10 +278,10 @@ Once a trained model is obtained, users can utilize the `infer` subcommand to ma
 An example command is shown below:
 
 ```
-gaigar lr infer --inference-data examples/results/data/test/example.lr.features --model-file examples/results/trained_model/example.lr.model --output-file examples/results/inference/example.lr.predictions
+gaishi lr infer --inference-data examples/results/data/test/example.lr.features --model-file examples/results/trained_model/example.lr.model --output-file examples/results/inference/example.lr.predictions
 ```
 
-The predictions are available [here](https://github.com/xin-huang/gaigar/blob/main/examples/results/inference/example.lr.predictions) and appears as follows:
+The predictions are available [here](https://github.com/xin-huang/gaishi/blob/main/examples/results/inference/example.lr.predictions) and appears as follows:
 
 ```
 Chromosome	Start	End	Sample	Non_Intro_Prob	Intro_Prob

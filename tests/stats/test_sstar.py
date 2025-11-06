@@ -20,7 +20,7 @@
 
 import pytest
 import numpy as np
-from gaigar.stats.sstar import Sstar
+from gaishi.stats.sstar import Sstar
 
 
 def test_sstar_all_zero_returns_zero():

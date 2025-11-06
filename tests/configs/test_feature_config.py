@@ -20,8 +20,7 @@
 
 import pytest
 from pydantic import ValidationError
-
-from gaigar.configs.feature_config import FeatureConfig
+from gaishi.configs.feature_config import FeatureConfig
 
 
 def test_valid_minimal_bools():

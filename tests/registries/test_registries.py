@@ -19,7 +19,7 @@
 
 
 import pytest
-from gaigar.registries import (
+from gaishi.registries import (
     StatRegistry,
 )
 

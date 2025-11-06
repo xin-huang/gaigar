@@ -20,7 +20,7 @@
 import os, pytest, shutil
 import numpy as np
 import pandas as pd
-from gaigar.labelers import BinaryWindowLabeler
+from gaishi.labelers import BinaryWindowLabeler
 
 
 @pytest.fixture

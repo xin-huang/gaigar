@@ -17,25 +17,25 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import pytest
-from gaishi.evaluate import window_evaluate
+from gaishi.models import LrModel
 
 
-@pytest.fixture
-def tract_files():
-    return {
-        "true_tract_file": "tests/data/test.lr.true.tracts.bed",
-        "inferred_tract_file": "tests/data/test.lr.inferred.tracts.bed",
-    }
-
-
-if __name__ == "__main__":
-    window_evaluate(
-        true_tract_file="tests/data/test.lr.true.tracts.bed",
-        inferred_tract_file="tests/data/test.lr.inferred.tracts.bed",
-        seq_len=200000000,
-        sample_size=50,
-        ploidy=2,
-        is_phased=True,
-        output="test.performance",
+def lr_train(
+    training_data: str,
+    model_file: str,
+    solver: str,
+    penalty: str,
+    max_iter: int,
+    seed: int,
+    is_scaled: bool,
+) -> None:
+    """ """
+    LrModel.train(
+        training_data=training_data,
+        model_file=model_file,
+        solver=solver,
+        penalty=penalty,
+        max_iter=max_iter,
+        seed=seed,
+        is_scaled=is_scaled,
     )

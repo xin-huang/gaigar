@@ -18,7 +18,7 @@
 
 
 import pytest
-from gaigar.generators import RandomNumberGenerator
+from gaishi.generators import RandomNumberGenerator
 
 
 @pytest.fixture

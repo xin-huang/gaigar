@@ -21,9 +21,9 @@ import scipy
 import numpy as np
 import pytest
 from scipy.spatial import distance_matrix
-from gaigar.stats.distance import Distance
-from gaigar.stats.distance import RefDistance
-from gaigar.stats.distance import TgtDistance
+from gaishi.stats.distance import Distance
+from gaishi.stats.distance import RefDistance
+from gaishi.stats.distance import TgtDistance
 
 
 @pytest.fixture

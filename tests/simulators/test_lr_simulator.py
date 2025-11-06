@@ -20,10 +20,10 @@
 import os, pytest, shutil
 import numpy as np
 import pandas as pd
-import gaigar.stats
-from gaigar.multiprocessing import mp_manager
-from gaigar.generators import RandomNumberGenerator
-from gaigar.simulators import LrSimulator
+import gaishi.stats
+from gaishi.multiprocessing import mp_manager
+from gaishi.generators import RandomNumberGenerator
+from gaishi.simulators import LrSimulator
 
 
 @pytest.fixture

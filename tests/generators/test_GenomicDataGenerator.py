@@ -19,8 +19,8 @@
 
 import os, pytest
 import numpy as np
-from gaigar.utils import read_data, create_windows
-from gaigar.generators import GenomicDataGenerator
+from gaishi.utils import read_data, create_windows
+from gaishi.generators import GenomicDataGenerator
 
 
 @pytest.fixture

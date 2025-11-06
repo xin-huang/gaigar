@@ -20,7 +20,7 @@
 import os, pytest, shutil
 import numpy as np
 import pandas as pd
-from gaigar.models import LrModel
+from gaishi.models import LrModel
 
 
 @pytest.fixture

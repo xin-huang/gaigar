@@ -20,7 +20,7 @@
 
 import pytest
 import numpy as np
-from gaigar.stats.private_mutation import PrivateMutation
+from gaishi.stats.private_mutation import PrivateMutation
 
 
 def test_private_mutation_basic_counts():

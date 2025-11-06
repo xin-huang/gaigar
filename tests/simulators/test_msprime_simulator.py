@@ -18,9 +18,9 @@
 
 
 import os, pytest, shutil
-from gaigar.multiprocessing import mp_manager
-from gaigar.simulators import MsprimeSimulator
-from gaigar.generators import RandomNumberGenerator
+from gaishi.multiprocessing import mp_manager
+from gaishi.simulators import MsprimeSimulator
+from gaishi.generators import RandomNumberGenerator
 
 
 @pytest.fixture

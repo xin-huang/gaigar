@@ -1,17 +1,17 @@
-# GAIGAR
+# GAISHI
 
-`gaigar` is a Python package for **G**enomic **A**nalysis of **I**ntrogression at **G**enic and **A**llelic **R**esolution using machine learning. 
+`gaishi` is a Python package for **G**enomic **A**nalysis of **I**ntrogressed-**S**ite and -**H**aplotype **Identification** using machine learning. 
 Currently, it supports two types of models:
 
 - Logistic regression models
 - U-Net models
 
-`gaigar` uses established population genetic simulators like `msprime` for generating training and test data. 
+`gaishi` uses established population genetic simulators like `msprime` for generating training and test data. 
 It can be applied to detect introgressed fragments or alleles in genomes from various species.
 
 ## Requirements
 
-`gaigar` works on UNIX/LINUX operating systems and tested with the following:
+`gaishi` works on UNIX/LINUX operating systems and tested with the following:
 
 - Python 3.9
 - Python packages:
@@ -22,6 +22,7 @@ It can be applied to detect introgressed fragments or alleles in genomes from va
     - msprime=1.3.1
     - numpy=1.26.4
     - pandas=2.2.1
+    - pydantic=2.11.7
     - python=3.9.19
     - pyranges=0.0.129
     - pytest=8.1.1
@@ -35,13 +36,13 @@ It can be applied to detect introgressed fragments or alleles in genomes from va
 
 ## Installation
 
-Users can install `gaigar` by using the following commands:
+Users can install `gaishi` by using the following commands:
 
 ```
-git clone https://github.com/xin-huang/gaigar
-cd gaigar
+git clone https://github.com/xin-huang/gaishi
+cd gaishi
 mamba env create -f env.yaml
-mamba activate gaigar
+mamba activate gaishi
 pip install .
 ```
 
@@ -52,7 +53,7 @@ Users first need to install [mamba](https://mamba.readthedocs.io/en/latest/insta
 To get help information, users can use:
 
 ```         
-gaigar -h
+gaishi -h
 ```
 
 This will display information for three commands:
@@ -63,4 +64,4 @@ This will display information for three commands:
 | unet | Use U-Net models |
 | eval | Evaluate model performance |
 
-If you need further help, such as reporting a bug or suggesting a feature, please open an [issue](https://github.com/xin-huang/gaigar/issues).
+If you need further help, such as reporting a bug or suggesting a feature, please open an [issue](https://github.com/xin-huang/gaishi/issues).
