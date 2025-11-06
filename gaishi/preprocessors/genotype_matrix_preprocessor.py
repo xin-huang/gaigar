@@ -17,25 +17,10 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import pytest
-from gaishi.evaluate import window_evaluate
+from gaishi.preprocessors import GenericPreprocessor
 
 
-@pytest.fixture
-def tract_files():
-    return {
-        "true_tract_file": "tests/data/test.lr.true.tracts.bed",
-        "inferred_tract_file": "tests/data/test.lr.inferred.tracts.bed",
-    }
+class GenotypeMatrixPreprocessor(GenericPreprocessor):
+    """ """
 
-
-if __name__ == "__main__":
-    window_evaluate(
-        true_tract_file="tests/data/test.lr.true.tracts.bed",
-        inferred_tract_file="tests/data/test.lr.inferred.tracts.bed",
-        seq_len=200000000,
-        sample_size=50,
-        ploidy=2,
-        is_phased=True,
-        output="test.performance",
-    )
+    pass

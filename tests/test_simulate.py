@@ -20,8 +20,8 @@
 import os, pytest, shutil
 import numpy as np
 import pandas as pd
-import gaigar.stats
-from gaigar.simulate import lr_simulate
+import gaishi.stats
+from gaishi.simulate import lr_simulate
 
 
 @pytest.fixture

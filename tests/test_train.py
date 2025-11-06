@@ -18,7 +18,7 @@
 
 
 import joblib, os, pytest, shutil
-from gaigar.models import LrModel
+from gaishi.models import LrModel
 
 
 @pytest.fixture

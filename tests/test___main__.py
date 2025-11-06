@@ -19,7 +19,7 @@
 
 import pytest, os, signal, argparse
 from unittest.mock import patch
-from gaigar.__main__ import _set_sigpipe_handler, _gaigar_cli_parser
+from gaishi.__main__ import _set_sigpipe_handler, _gaigar_cli_parser
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Test only applicable on POSIX systems")

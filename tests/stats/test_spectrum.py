@@ -20,7 +20,7 @@
 
 import numpy as np
 import pytest
-from gaigar.stats.spectrum import Spectrum
+from gaishi.stats.spectrum import Spectrum
 
 
 def test_spectrum():

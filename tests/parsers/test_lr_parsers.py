@@ -18,7 +18,7 @@
 
 
 import pytest, argparse
-from gaigar.parsers.lr_parsers import add_lr_parsers
+from gaishi.parsers.lr_parsers import add_lr_parsers
 
 
 @pytest.fixture

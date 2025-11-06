@@ -18,11 +18,11 @@
 
 
 import os, pytest, yaml
-import gaigar.stats
-from gaigar.configs import FeatureConfig
-from gaigar.utils import parse_ind_file
-from gaigar.generators import GenomicDataGenerator
-from gaigar.preprocessors import FeatureVectorPreprocessor
+import gaishi.stats
+from gaishi.configs import FeatureConfig
+from gaishi.utils import parse_ind_file
+from gaishi.generators import GenomicDataGenerator
+from gaishi.preprocessors import FeatureVectorPreprocessor
 
 
 @pytest.fixture
