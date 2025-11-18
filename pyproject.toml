@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gaigar"
+name = "gaishi"
 version = "1.0.0"
-description = "Genomic Analysis of Introgression at Genic and Allelic Resolution"
+description = "Genomic Analysis of Introgressed-Site and -Haplotype Identification"
 readme = "README.md"
 requires-python = "==3.9.19"
 license = {text = "GPLv3"}
 authors = [{name = "Xin Huang", email = "xinhuang.res@gmail.com"}]
-urls = {Homepage = "https://github.com/xin-huang/gaigar"}
+urls = {Homepage = "https://github.com/xin-huang/gaishi"}
 
 classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-gaigar = "gaigar.__main__:main"
+gaishi = "gaishi.__main__:main"
 
 [tool.setuptools]
 include-package-data = true
