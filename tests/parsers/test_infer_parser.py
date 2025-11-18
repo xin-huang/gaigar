@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,37 +18,36 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import pytest, os, signal, argparse
-from unittest.mock import patch
-from gaishi.__main__ import _set_sigpipe_handler, _gaishi_cli_parser
+import pytest
+import argparse
+from gaishi.parsers.infer_parser import add_infer_parser
 
 
-@pytest.mark.skipif(os.name != "posix", reason="Test only applicable on POSIX systems")
-@patch("signal.signal")
-def test_set_sigpipe_handler(mock_signal):
-    _set_sigpipe_handler()
-    mock_signal.assert_called_once_with(signal.SIGPIPE, signal.SIG_DFL)
+@pytest.fixture
+def parser():
+    # Initialize the argument parser with a subparser for the 'infer' command
+    main_parser = argparse.ArgumentParser()
+    subparsers = main_parser.add_subparsers(dest="command")
+    add_infer_parser(subparsers)
+    return main_parser
 
 
-def test_gaishi_cli_parser():
-    parser = _gaishi_cli_parser()
-
-    assert isinstance(parser, argparse.ArgumentParser)
-
+def test_add_score_parser(parser):
+    # Simulate command-line arguments to parse
     args = parser.parse_args(
         [
-            "train",
-            "--demes",
-            "tests/data/ArchIE_3D19.yaml",
+            "infer",
+            "--model",
+            "tests/data/test.lr.model",
             "--config",
             "tests/data/ArchIE.features.yaml",
             "--output",
             "output/results.tsv",
         ]
     )
-    assert hasattr(
-        args, "subparsers"
-    ), "Parsed args do not have the 'subparsers' attribute"
-    assert (
-        args.subparsers == "train"
-    ), "The 'subparsers' attribute does not correctly capture the sub-command name"
+
+    # Validate parsed arguments
+    assert args.command == "infer"
+    assert args.model == "tests/data/test.lr.model"
+    assert args.config == "tests/data/ArchIE.features.yaml"
+    assert args.output == "output/results.tsv"

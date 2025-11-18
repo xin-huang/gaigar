@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,3 +16,12 @@
 # along with this program. If not, please see
 #
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
+
+
+from typing import Any, Literal
+from pydantic import BaseModel, Field
+
+
+class ModelConfig(BaseModel):
+    name: Literal["logistic_regression", "extra_trees_classifier"]
+    params: dict[str, Any] = Field(default_factory=dict)

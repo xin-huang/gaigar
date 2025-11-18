@@ -17,25 +17,51 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from gaishi.models import LrModel
+import yaml
+from gaishi.configs import GlobalConfig
+from gaishi.registries.model_registry import MODEL_REGISTRY
+from gaishi.simulate import simulate_feature_vectors
+from gaishi.utils import UniqueKeyLoader
 
 
-def lr_train(
-    training_data: str,
-    model_file: str,
-    solver: str,
-    penalty: str,
-    max_iter: int,
-    seed: int,
-    is_scaled: bool,
+def train(
+    demes: str,
+    config: str,
+    output: str,
 ) -> None:
-    """ """
-    LrModel.train(
-        training_data=training_data,
-        model_file=model_file,
-        solver=solver,
-        penalty=penalty,
-        max_iter=max_iter,
-        seed=seed,
-        is_scaled=is_scaled,
+    """
+    Run simulation and model training from YAML configuration.
+
+    Parameters
+    ----------
+    demes : str
+        Path to the demography (demes) YAML file used for simulation.
+    config : str
+        Path to the gaishi configuration YAML file.
+    output : str
+        Output path or directory passed to the model's `train` method, used
+        to store the trained model.
+    """
+    try:
+        with open(config, "r") as f:
+            config_dict = yaml.load(f, Loader=UniqueKeyLoader)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Configuration file '{config}' not found.")
+    except yaml.YAMLError as e:
+        raise ValueError(f"Error parsing YAML configuration file '{config}': {e}")
+
+    global_config = GlobalConfig(**config_dict)
+    simulate_feature_vectors(
+        demo_model_file=demes,
+        **global_config.simulation.model_dump(),
+    )
+
+    data = f"{global_config.simulation.output_dir}/{global_config.simulation.output_prefix}.features"
+    model_name = global_config.model.name
+    model_params = global_config.model.params
+    model_cls = MODEL_REGISTRY.get(model_name)
+    model_cls.train(
+        data=data,
+        output=output,
+        **model_params,
     )

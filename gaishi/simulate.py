@@ -21,10 +21,10 @@ import os, random, shutil
 import pandas as pd
 from gaishi.multiprocessing import mp_manager
 from gaishi.generators import RandomNumberGenerator
-from gaishi.simulators import LrSimulator
+from gaishi.simulators import FeatureVectorSimulator
 
 
-def lr_simulate(
+def simulate_feature_vectors(
     demo_model_file: str,
     nrep: int,
     nref: int,
@@ -130,7 +130,7 @@ def lr_simulate(
     os.makedirs(output_dir, exist_ok=True)
     output_file = os.path.join(output_dir, f"{output_prefix}.features")
 
-    simulator = LrSimulator(
+    simulator = FeatureVectorSimulator(
         demo_model_file=demo_model_file,
         nref=nref,
         ntgt=ntgt,

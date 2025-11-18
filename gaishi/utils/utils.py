@@ -60,7 +60,7 @@ def read_geno_data(vcf, ind, anc_allele_file, filter_missing):
         data dict: Genotype data.
     """
 
-    vcf = allel.read_vcf(vcf, alt_number=1, samples=ind)
+    vcf = allel.read_vcf(str(vcf), alt_number=1, samples=ind)
     gt = vcf["calldata/GT"]
     chr_names = np.unique(vcf["variants/CHROM"])
     samples = vcf["samples"]
