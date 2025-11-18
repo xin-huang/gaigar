@@ -18,15 +18,18 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import joblib, os
+import inspect, joblib, os
 import pandas as pd
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.preprocessing import StandardScaler
 from gaishi.models import MlModel
+from gaishi.registries.model_registry import MODEL_REGISTRY
+
 
 pd.options.mode.chained_assignment = None
 
 
+@MODEL_REGISTRY.register("extra_trees_classifier")
 class EtcModel(MlModel):
     """
     An extra-trees classifier for training and inferring purposes,
@@ -37,33 +40,37 @@ class EtcModel(MlModel):
 
     @staticmethod
     def train(
-        training_data: str,
-        model_file: str,
-        seed: int = None,
-        is_scaled: bool = False,
+        data: str,
+        output: str,
+        **model_params,
     ) -> None:
         """
-        Train an extra-trees classifier using provided training data,
-        save the model and the scaler (if data scaling is applied) to disk.
-        If `is_scaled` is True, the feature data will be scaled using StandardScaler
-        and a scaler object will be saved to disk alongside the model, with the filename
-        `<model_file>.scaler`.
+        Train an extra-trees classifier on tabular feature data.
+
+        The input feature table is read from a tab-separated file, a model is
+        fitted, and the trained model is written to disk. Any keyword arguments
+        in `model_params` are forwarded to the underlying
+        :class:`sklearn.ensemble.ExtraTreesClassifier`. If data scaling is
+        enabled (e.g. via an `is_scaled` flag in `model_params`), the feature
+        matrix is scaled using :class:`sklearn.preprocessing.StandardScaler`
+        and the fitted scaler is saved alongside the model file.
 
         Parameters
         ----------
-        training_data : str
-            Path to the training data file in tab-separated format.
-        model_file : str
-            Path where the trained model will be saved.
-        seed : int, optional
-            Random seed for reproducibility. Default: None.
-        is_scaled : bool, optional
-            Indicates whether the feature data should be scaled. Default: False.
+        data : str
+            Path to the training data file in tab-separated format. The table
+            is expected to contain a `Label` column and any required metadata
+            columns, which will be dropped before model fitting.
+        output : str
+            Path where the trained model will be saved (e.g. a joblib pickle).
+        **model_params
+            Additional keyword arguments controlling the model and optional
+            preprocessing. These are passed to the underlying extra-trees
+            classifier (for example `n_estimators`, `max_depth`, `random_state`)
+            and may also include flags such as `is_scaled` to indicate that
+            the feature data should be standardized before training.
         """
-        features = pd.read_csv(training_data, sep="\t")
-        output_dir = os.path.dirname(model_file)
-        if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
+        features = pd.read_csv(data, sep="\t")
 
         if "Label" not in features.columns:
             raise ValueError(
@@ -74,50 +81,68 @@ class EtcModel(MlModel):
             columns=["Chromosome", "Start", "End", "Sample", "Replicate", "Label"]
         ).values
 
-        if is_scaled:
+        if "is_scaled" in model_params and model_params["is_scaled"]:
             scaler = StandardScaler()
             data = scaler.fit_transform(data)
-            joblib.dump(scaler, f"{model_file}.scaler")
+            joblib.dump(scaler, f"{output}.scaler")
 
-        model = ExtraTreesClassifier(
-            n_estimators=100,
-            random_state=seed,
-        )
+        is_allowed = inspect.signature(ExtraTreesClassifier).parameters
+        clean_params = {k: v for k, v in model_params.items() if k in is_allowed}
+
+        model = ExtraTreesClassifier(**clean_params)
         model.fit(data, labels.astype(int))
 
-        joblib.dump(model, model_file)
+        joblib.dump(model, output)
 
     @staticmethod
     def infer(
-        inference_data: str, model_file: str, output_file: str, is_scaled: bool = False
+        data: str,
+        model: str,
+        output: str,
+        **model_params,
     ) -> None:
         """
-        Perform inference using a trained extra-trees classifier on new data, outputting
-        predictions to a specified file. If `is_scaled` is True, it loads the scaler object
-        from `<model_file>.scaler` and applies it to scale the feature data before inference.
+        Perform inference with a trained extra-trees classifier on new data.
+
+        The feature table is read from a tab-separated file, the trained model is
+        loaded from disk, and predictions are written to the specified output.
+        Any keyword arguments in `model_params` are forwarded to the underlying
+        :class:`sklearn.ensemble.ExtraTreesClassifier` or used to control
+        optional preprocessing. If an `is_scaled` flag is provided and set to
+        True, a scaler object is loaded from ``<model>.scaler`` and applied to
+        the feature matrix before inference.
 
         Parameters
         ----------
-        inference_data : str
-            Path to the inference data file in tab-separated format.
-        model_file : str
-            Path to the saved trained model. The method will also look for `<model_file>.scaler`
-            if `is_scaled` is True to load and apply the scaler.
-        output_file : str
-            Path where the inference output will be saved.
-        is_scaled : bool, optional
-            If True, scales the feature data using the scaler object saved during training,
-            which is expected to be found at `<model_file>.scaler`. Default: False.
+        data : str
+            Path to the inference data file in tab-separated format. The table
+            is expected to contain the same feature columns as the training
+            data, along with any metadata columns that will be dropped before
+            prediction.
+        model : str
+            Path to the saved trained model (e.g. a joblib pickle). If
+            ``is_scaled=True`` is passed via `model_params`, the method will
+            also look for a corresponding scaler file at ``<model>.scaler`` and
+            apply it to the features.
+        output : str
+            Path where the inference output (e.g. predicted labels or
+            probabilities) will be written.
+        **model_params
+            Additional keyword arguments controlling the model and optional
+            preprocessing. These are typically forwarded to the underlying
+            extra-trees classifier (for example `n_jobs`, `random_state`) and
+            may include an `is_scaled` flag indicating that a saved scaler
+            should be loaded and applied prior to prediction.
         """
-        features = pd.read_csv(inference_data, sep="\t")
-        output_dir = os.path.dirname(output_file)
+        features = pd.read_csv(data, sep="\t")
+        output_dir = os.path.dirname(output)
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
 
         data = features.drop(columns=["Chromosome", "Start", "End", "Sample"]).values
 
-        if is_scaled:
-            scaler_path = f"{model_file}.scaler"
+        if "is_scaled" in model_params and model_params["is_scaled"]:
+            scaler_path = f"{model}.scaler"
             try:
                 scaler = joblib.load(scaler_path)
             except FileNotFoundError:
@@ -125,12 +150,10 @@ class EtcModel(MlModel):
                     f"Scaler file not found: {scaler_path}. Please ensure the scaler was saved during training."
                 )
             except Exception as e:
-                raise RuntimeError(
-                    f"Failed to load scaler from {scaler_path}: {e}"
-                )
+                raise RuntimeError(f"Failed to load scaler from {scaler_path}: {e}")
             data = scaler.transform(data)
 
-        model = joblib.load(model_file)
+        model = joblib.load(model)
 
         predictions = model.predict_proba(data)
         prediction_df = features[["Chromosome", "Start", "End", "Sample"]]
@@ -146,5 +169,5 @@ class EtcModel(MlModel):
             prediction_df[f"{class_name}_Prob"] = predictions[:, i]
 
         prediction_df.sort_values(by=["Sample", "Chromosome", "Start", "End"]).to_csv(
-            output_file, sep="\t", index=False
+            output, sep="\t", index=False
         )

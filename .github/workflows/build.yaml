@@ -19,6 +19,8 @@ jobs:
     - name: Add micromamba to system path
       uses: mamba-org/setup-micromamba@v1
       with:
+        cache-downloads: false
+        cache-environment: false
         environment-name: gaishi-dev
         environment-file: dev-env.yaml
     - name: Test with pytest

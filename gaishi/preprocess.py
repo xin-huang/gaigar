@@ -25,7 +25,7 @@ from gaishi.generators import GenomicDataGenerator
 from gaishi.preprocessors import FeatureVectorPreprocessor
 
 
-def lr_preprocess(
+def preprocess_feature_vectors(
     vcf_file: str,
     chr_name: str,
     ref_ind_file: str,

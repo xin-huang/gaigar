@@ -17,6 +17,6 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .generic_generator import GenericGenerator
-from .random_number_generator import RandomNumberGenerator
-from .genomic_data_generator import GenomicDataGenerator
+from .generic_generator import GenericGenerator  # noqa: F401
+from .random_number_generator import RandomNumberGenerator  # noqa: F401
+from .genomic_data_generator import GenomicDataGenerator  # noqa: F401

@@ -21,6 +21,7 @@
 import pytest
 from gaishi.registries import (
     StatRegistry,
+    ModelRegistry,
 )
 
 
@@ -28,6 +29,7 @@ from gaishi.registries import (
     "RegistryClass",
     [
         StatRegistry,
+        ModelRegistry,
     ],
 )
 def test_register_and_get(RegistryClass):
@@ -47,6 +49,7 @@ def test_register_and_get(RegistryClass):
     "RegistryClass",
     [
         StatRegistry,
+        ModelRegistry,
     ],
 )
 def test_duplicate_registration(RegistryClass):
@@ -65,6 +68,7 @@ def test_duplicate_registration(RegistryClass):
     "RegistryClass",
     [
         StatRegistry,
+        ModelRegistry,
     ],
 )
 def test_get_unregistered(RegistryClass):

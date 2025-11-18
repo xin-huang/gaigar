@@ -1,0 +1,14 @@
+ref_dist:
+  minimum: True
+tgt_dist:
+  all: True
+  mean: True
+  variance: True
+  skew: True
+  kurtosis: True
+spectrum: True
+private_mutation: True
+sstar:
+  match_bonus: 5000
+  max_mismatch: 5
+  mismatch_penalty: -10000

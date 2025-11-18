@@ -17,6 +17,6 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .ml_model import MlModel
-from .lr_model import LrModel
-from .etc_model import EtcModel
+from .ml_model import MlModel  # noqa: F401
+from .lr_model import LrModel  # noqa: F401
+from .etc_model import EtcModel  # noqa: F401

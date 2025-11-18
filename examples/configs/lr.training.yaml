@@ -1,0 +1,29 @@
+simulation:
+  nrep: 100
+  nref: 5
+  ntgt: 5
+  ref_id: "Reference"
+  tgt_id: "Target"
+  src_id: "Source"
+  ploidy: 2
+  is_phased: True
+  seq_len: 50000
+  mut_rate: 1.2e-8
+  rec_rate: 1e-8
+  nprocess: 2
+  feature_config_file: "examples/configs/ArchIE.features.yaml"
+  intro_prop: 0.7
+  non_intro_prop: 0.3
+  output_prefix: "example.lr"
+  output_dir: "examples/results/data/training"
+  seed: 12345
+  nfeature: 100
+  is_shuffled: False
+  force_balanced: False
+  keep_sim_data: False
+
+model:
+  name: "logistic_regression"
+  params:
+    solver: "newton-cg"
+    max_iter: 10000

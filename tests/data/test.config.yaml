@@ -1,0 +1,44 @@
+simulation:
+  nrep: 100
+  nref: 50
+  ntgt: 50
+  ref_id: "Ref"
+  tgt_id: "Tgt"
+  src_id: "Ghost"
+  seq_len: 50000
+  mut_rate: 1.2e-8
+  rec_rate: 1e-8
+  ploidy: 2
+  is_phased: True
+  output_prefix: "gaishi.lr"
+  output_dir: "tests/test_train"
+  nfeature: 100
+  feature_config_file: "tests/data/ArchIE.features.yaml"
+  intro_prop: 0.7
+  non_intro_prop: 0.3
+  is_shuffled: False
+  force_balanced: True
+  nprocess: 2
+  seed: 12345
+
+preprocess:
+  vcf_file: "tests/expected_results/simulators/MsprimeSimulator/0/test.0.vcf"
+  chr_name: "1"
+  ref_ind_file: "tests/expected_results/simulators/MsprimeSimulator/0/test.0.ref.ind.list"
+  tgt_ind_file: "tests/expected_results/simulators/MsprimeSimulator/0/test.0.tgt.ind.list"
+  win_len: 50000
+  win_step: 50000
+  is_phased: True
+  feature_config_file: "tests/data/ArchIE.features.yaml"
+  output_dir: "tests/test_infer"
+  output_prefix: "gaishi.lr"
+  nprocess: 2
+  ploidy: 2
+
+model:
+  name: "logistic_regression"
+  params:
+    solver: "newton-cg"
+    penalty: ~
+    max_iter: 10000
+    random_state: 12345
