@@ -19,4 +19,4 @@
 
 from .generic_simulator import GenericSimulator
 from .msprime_simulator import MsprimeSimulator
-from .lr_simulator import LrSimulator
+from .feature_vector_simulator import FeatureVectorSimulator
