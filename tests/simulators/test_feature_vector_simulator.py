@@ -23,12 +23,12 @@ import pandas as pd
 import gaishi.stats
 from gaishi.multiprocessing import mp_manager
 from gaishi.generators import RandomNumberGenerator
-from gaishi.simulators import LrSimulator
+from gaishi.simulators import FeatureVectorSimulator
 
 
 @pytest.fixture
 def init_params():
-    output_dir = "tests/test_LRTrainingDataSimulator"
+    output_dir = "tests/test_FeatureVectorSimulator"
     return {
         "demo_model_file": "tests/data/ArchIE_3D19.yaml",
         "nref": 50,
@@ -57,15 +57,15 @@ def cleanup_output_dir(request, init_params):
     shutil.rmtree(init_params["output_dir"], ignore_errors=True)
 
 
-def test_LrSimulator(init_params, cleanup_output_dir):
-    simulator = LrSimulator(**init_params)
+def test_FeatureVectorSimulator(init_params, cleanup_output_dir):
+    simulator = FeatureVectorSimulator(**init_params)
     generator = RandomNumberGenerator(nrep=2, seed=12345)
     res = mp_manager(job=simulator, data_generator=generator, nprocess=2)
     res.sort(key=lambda x: (x["Replicate"]))
 
     df = pd.DataFrame(res)
     expected_df = pd.read_csv(
-        "tests/expected_results/simulators/LRTrainingDataSimulator/test.features",
+        "tests/expected_results/simulators/FeatureVectorSimulator/test.features",
         sep="\t",
     )
 
