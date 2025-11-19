@@ -19,7 +19,7 @@
 
 import pytest, os, signal, argparse
 from unittest.mock import patch
-from gaishi.__main__ import _set_sigpipe_handler, _gaigar_cli_parser
+from gaishi.__main__ import _set_sigpipe_handler, _gaishi_cli_parser
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Test only applicable on POSIX systems")
@@ -29,15 +29,15 @@ def test_set_sigpipe_handler(mock_signal):
     mock_signal.assert_called_once_with(signal.SIGPIPE, signal.SIG_DFL)
 
 
-def test_gaigar_cli_parser():
-    parser = _gaigar_cli_parser()
+def test_gaishi_cli_parser():
+    parser = _gaishi_cli_parser()
 
     assert isinstance(parser, argparse.ArgumentParser)
 
-    args = parser.parse_args(["lr"])
+    args = parser.parse_args(["train"])
     assert hasattr(
         args, "subparsers"
     ), "Parsed args do not have the 'subparsers' attribute"
     assert (
-        args.subparsers == "lr"
+        args.subparsers == "train"
     ), "The 'subparsers' attribute does not correctly capture the sub-command name"
