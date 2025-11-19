@@ -34,7 +34,17 @@ def test_gaishi_cli_parser():
 
     assert isinstance(parser, argparse.ArgumentParser)
 
-    args = parser.parse_args(["train"])
+    args = parser.parse_args(
+        [
+            "train",
+            "--demes",
+            "tests/data/ArchIE_3D19.yaml",
+            "--config",
+            "tests/data/ArchIE.features.yaml",
+            "--output",
+            "output/results.tsv",
+        ]
+    )
     assert hasattr(
         args, "subparsers"
     ), "Parsed args do not have the 'subparsers' attribute"
