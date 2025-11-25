@@ -20,6 +20,12 @@
 
 import argparse
 from gaishi.parsers.argument_validation import existed_file
+from gaishi.train import train
+
+
+def _run_train(args: argparse.Namespace) -> None:
+    """ """
+    pass
 
 
 def add_train_parser(subparsers: argparse.ArgumentParser) -> None:

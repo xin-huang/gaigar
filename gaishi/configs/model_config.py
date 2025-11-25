@@ -18,7 +18,10 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .feature_config import FeatureConfig
-from .model_config import ModelConfig
-from .simulation_config import SimulationConfig
-from .train_config import TrainConfig
+from typing import Any, Literal
+from pydantic import BaseModel, Field
+
+
+class ModelConfig(BaseModel):
+    name: Literal["logistic_regression", "extra_trees_classifier"]
+    params: dict[str, Any] = Field(default_factory=dict)

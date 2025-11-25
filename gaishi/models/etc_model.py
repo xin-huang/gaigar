@@ -125,9 +125,7 @@ class EtcModel(MlModel):
                     f"Scaler file not found: {scaler_path}. Please ensure the scaler was saved during training."
                 )
             except Exception as e:
-                raise RuntimeError(
-                    f"Failed to load scaler from {scaler_path}: {e}"
-                )
+                raise RuntimeError(f"Failed to load scaler from {scaler_path}: {e}")
             data = scaler.transform(data)
 
         model = joblib.load(model_file)
