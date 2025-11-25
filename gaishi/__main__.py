@@ -27,7 +27,6 @@ from gaishi.parsers.infer_parser import add_infer_parser
 def _set_sigpipe_handler() -> None:
     """
     Sets the signal handler for SIGPIPE signals on POSIX systems.
-
     """
     import os, signal
 
@@ -45,7 +44,6 @@ def _gaishi_cli_parser() -> argparse.ArgumentParser:
     -------
     top_parser : argparse.ArgumentParser
         A configured command-line interface parser.
-
     """
     top_parser = argparse.ArgumentParser(
         description="GAISHI: Genomic Analysis of Introgressed-Site and -Haplotype Identification"
@@ -66,7 +64,6 @@ def main(arg_list: list = None) -> None:
     ----------
     arg_list : list, optional
         A list containing arguments for gaishi. Default: None.
-
     """
     _set_sigpipe_handler()
     parser = _gaishi_cli_parser()

@@ -17,10 +17,11 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import os, random, shutil
+import os, random, shutil, yaml
 import pandas as pd
-from gaishi.multiprocessing import mp_manager
+from gaishi.configs import TrainConfig
 from gaishi.generators import RandomNumberGenerator
+from gaishi.multiprocessing import mp_manager
 from gaishi.simulators import FeatureVectorSimulator
 from gaishi.models import LrModel
 from gaishi.models import EtcModel
@@ -32,10 +33,23 @@ def train(
     output: str,
 ) -> None:
     """ """
-    pass
+    try:
+        with open(config, "r") as f:
+            config_dict = yaml.safe_load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Configuration file '{config}' not found.")
+    except yaml.YAMLError as e:
+        raise ValueError(f"Error parsing YAML configuration file '{config}': {e}")
+
+    train_config = TrainConfig(**config_dict)
+    simulate_feature_vectors(
+        demo_model_file=demes,
+        **train_config.simulation.model_dump(),
+    )
+    #train_model()
 
 
-def feature_vector_simulate(
+def simulate_feature_vectors(
     demo_model_file: str,
     nrep: int,
     nref: int,
@@ -61,7 +75,7 @@ def feature_vector_simulate(
     keep_sim_data: bool,
 ) -> None:
     """
-    Simulates genomic data and generates feature vectors for logistic regression training.
+    Simulates genomic data and generates feature vectors for training.
 
     This function orchestrates the entire process of simulating genomic data, labeling the data,
     and generating feature vectors. It supports multiprocessing for efficiency and allows for the
@@ -240,3 +254,6 @@ def feature_vector_simulate(
         )
 
     pd.DataFrame(total_features).to_csv(output_file, sep="\t", index=False)
+
+
+def train_model(): pass

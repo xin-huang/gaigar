@@ -79,13 +79,13 @@ def test_train_config_valid_with_logistic_regression():
 
     cfg = TrainConfig(
         simulation=sim_cfg,
-        model_type=model_cfg,
+        model=model_cfg,
     )
 
     assert cfg.simulation.nrep == 10
     assert cfg.simulation.seq_len == 1_000_000
-    assert cfg.model_type.name == "logistic_regression"
-    assert cfg.model_type.params["C"] == 1.0
+    assert cfg.model.name == "logistic_regression"
+    assert cfg.model.params["C"] == 1.0
 
 
 def test_train_config_valid_with_extra_trees():
@@ -94,19 +94,19 @@ def test_train_config_valid_with_extra_trees():
 
     cfg = TrainConfig(
         simulation=sim_cfg,
-        model_type=model_cfg,
+        model=model_cfg,
     )
 
-    assert cfg.model_type.name == "extra_trees_classifier"
-    assert cfg.model_type.params["n_estimators"] == 500
-    assert cfg.model_type.params["n_jobs"] == -1
+    assert cfg.model.name == "extra_trees_classifier"
+    assert cfg.model.params["n_estimators"] == 500
+    assert cfg.model.params["n_jobs"] == -1
 
 
 def test_train_config_missing_simulation_raises():
     model_cfg = _valid_model_config_logreg()
 
     with pytest.raises(ValidationError):
-        TrainConfig(model_type=model_cfg)  # type: ignore[arg-type]
+        TrainConfig(model=model_cfg)  # type: ignore[arg-type]
 
 
 def test_train_config_missing_model_type_raises():
@@ -122,7 +122,7 @@ def test_train_config_invalid_model_name_raises():
     with pytest.raises(ValidationError):
         TrainConfig(
             simulation=sim_cfg,
-            model_type=ModelConfig(
+            model=ModelConfig(
                 name="random_forest",  # not allowed by Literal
                 params={"n_estimators": 100},
             ),

@@ -29,7 +29,7 @@ class TrainConfig(BaseModel):
     simulation: SimulationConfig
 
     # Model choice
-    model_type: ModelConfig
+    model: ModelConfig
 
     # Generic training options
     # test_size: float = Field(0.2, gt=0.0, lt=1.0, description="Hold-out test fraction")

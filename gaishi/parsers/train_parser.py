@@ -25,7 +25,11 @@ from gaishi.train import train
 
 def _run_train(args: argparse.Namespace) -> None:
     """ """
-    pass
+    train(
+        demes=args.demes,
+        config=args.config,
+        output=args.output,
+    )
 
 
 def add_train_parser(subparsers: argparse.ArgumentParser) -> None:
@@ -58,3 +62,4 @@ def add_train_parser(subparsers: argparse.ArgumentParser) -> None:
         required=True,
         help="Path to the output file.",
     )
+    parser.set_defaults(runner=_run_train)
