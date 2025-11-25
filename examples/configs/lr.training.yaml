@@ -20,7 +20,7 @@ simulation:
   nfeature: 100
   is_shuffled: False
   force_balanced: False
-  force_balanced: True
+  keep_sim_data: False
 
 model:
   name: "logistic_regression"
