@@ -25,6 +25,7 @@ from gaishi.multiprocessing import mp_manager
 from gaishi.simulators import FeatureVectorSimulator
 from gaishi.models import LrModel
 from gaishi.models import EtcModel
+from gaishi.utils import UniqueKeyLoader
 
 
 def train(
@@ -35,7 +36,7 @@ def train(
     """ """
     try:
         with open(config, "r") as f:
-            config_dict = yaml.safe_load(f)
+            config_dict = yaml.load(f, Loader=UniqueKeyLoader)
     except FileNotFoundError:
         raise FileNotFoundError(f"Configuration file '{config}' not found.")
     except yaml.YAMLError as e:
@@ -46,7 +47,7 @@ def train(
         demo_model_file=demes,
         **train_config.simulation.model_dump(),
     )
-    #train_model()
+    # train_model()
 
 
 def simulate_feature_vectors(
@@ -256,4 +257,5 @@ def simulate_feature_vectors(
     pd.DataFrame(total_features).to_csv(output_file, sep="\t", index=False)
 
 
-def train_model(): pass
+def train_model():
+    pass

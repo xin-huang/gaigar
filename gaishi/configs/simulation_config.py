@@ -82,9 +82,9 @@ class SimulationConfig(BaseModel):
     # Randomness
     seed: int = Field(..., description="Base random seed")
 
-    #@field_validator("intro_prop", "non_intro_prop")
-    #@classmethod
-    #def _check_props_range(cls, v: float) -> float:
+    # @field_validator("intro_prop", "non_intro_prop")
+    # @classmethod
+    # def _check_props_range(cls, v: float) -> float:
     #    if not (0.0 <= v <= 1.0):
     #        raise ValueError("intro_prop and non_intro_prop must be in [0, 1].")
     #    return v
