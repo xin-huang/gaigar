@@ -18,6 +18,7 @@
 
 
 import argparse
+import gaishi.models
 import gaishi.stats
 from gaishi import __version__
 from gaishi.parsers.train_parser import add_train_parser

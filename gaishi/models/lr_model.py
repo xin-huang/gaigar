@@ -40,8 +40,8 @@ class LrModel(MlModel):
 
     @staticmethod
     def train(
-        training_data: str,
-        model_file: str,
+        data: str,
+        output: str,
         seed: int = None,
         solver: str = "newton-cg",
         penalty: str = None,
@@ -57,9 +57,9 @@ class LrModel(MlModel):
 
         Parameters
         ----------
-        training_data : str
+        data : str
             Path to the training data file in tab-separated format.
-        model_file : str
+        output : str
             Path where the trained model will be saved.
         seed : int, optional
             Random seed for reproducibility. Default: None.
@@ -73,9 +73,7 @@ class LrModel(MlModel):
             Indicates whether the feature data should be scaled. Default: False.
 
         """
-        features = pd.read_csv(training_data, sep="\t")
-        output_dir = os.path.dirname(model_file)
-        os.makedirs(output_dir, exist_ok=True)
+        features = pd.read_csv(data, sep="\t")
 
         labels = features["Label"]
         data = features.drop(
@@ -95,7 +93,7 @@ class LrModel(MlModel):
         )
         model.fit(data, labels.astype(int))
 
-        joblib.dump(model, model_file)
+        joblib.dump(model, output)
 
     @staticmethod
     def infer(

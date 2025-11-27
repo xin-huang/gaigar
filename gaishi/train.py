@@ -22,9 +22,8 @@ import pandas as pd
 from gaishi.configs import TrainConfig
 from gaishi.generators import RandomNumberGenerator
 from gaishi.multiprocessing import mp_manager
+from gaishi.registries.model_registry import MODEL_REGISTRY
 from gaishi.simulators import FeatureVectorSimulator
-from gaishi.models import LrModel
-from gaishi.models import EtcModel
 from gaishi.utils import UniqueKeyLoader
 
 
@@ -47,7 +46,16 @@ def train(
         demo_model_file=demes,
         **train_config.simulation.model_dump(),
     )
-    # train_model()
+
+    data = f"{train_config.simulation.output_dir}/{train_config.simulation.output_prefix}.features"
+    model_name = train_config.model.name
+    model_params = train_config.model.params
+    model_cls = MODEL_REGISTRY.get(model_name)
+    model_cls.train(
+        data=data,
+        output=output,
+        **model_params,
+    )
 
 
 def simulate_feature_vectors(
@@ -255,7 +263,3 @@ def simulate_feature_vectors(
         )
 
     pd.DataFrame(total_features).to_csv(output_file, sep="\t", index=False)
-
-
-def train_model():
-    pass

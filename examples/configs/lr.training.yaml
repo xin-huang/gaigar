@@ -26,4 +26,4 @@ model:
   name: "logistic_regression"
   params:
     solver: "newton-cg"
-    max-iteration: 10000
+    max_iter: 10000
