@@ -23,10 +23,13 @@ import pandas as pd
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.preprocessing import StandardScaler
 from gaishi.models import MlModel
+from gaishi.registries.model_registry import MODEL_REGISTRY
+
 
 pd.options.mode.chained_assignment = None
 
 
+@MODEL_REGISTRY.register("extra_trees_classifier")
 class EtcModel(MlModel):
     """
     An extra-trees classifier for training and inferring purposes,

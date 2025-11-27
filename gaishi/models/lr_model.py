@@ -22,10 +22,13 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from gaishi.models import MlModel
+from gaishi.registries.model_registry import MODEL_REGISTRY
+
 
 pd.options.mode.chained_assignment = None
 
 
+@MODEL_REGISTRY.register("logistic_regression")
 class LrModel(MlModel):
     """
     A logistic regression model class for training and inferring purposes,
