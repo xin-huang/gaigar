@@ -24,7 +24,14 @@ from gaishi.train import train
 
 
 def _run_train(args: argparse.Namespace) -> None:
-    """ """
+    """ 
+    Execute the train process with specified parameters.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        A namespace object obtained from argparse, containing specified parameters.
+    """
     train(
         demes=args.demes,
         config=args.config,

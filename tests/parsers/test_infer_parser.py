@@ -37,8 +37,6 @@ def test_add_score_parser(parser):
     args = parser.parse_args(
         [
             "infer",
-            "--vcf",
-            "tests/data/test.vcf",
             "--model",
             "tests/data/test.lr.model",
             "--config",
@@ -50,7 +48,6 @@ def test_add_score_parser(parser):
 
     # Validate parsed arguments
     assert args.command == "infer"
-    assert args.vcf == "tests/data/test.vcf"
     assert args.model == "tests/data/test.lr.model"
     assert args.config == "tests/data/ArchIE.features.yaml"
     assert args.output == "output/results.tsv"

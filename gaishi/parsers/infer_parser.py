@@ -20,6 +20,23 @@
 
 import argparse
 from gaishi.parsers.argument_validation import existed_file
+from gaishi.infer import infer
+
+
+def _run_infer(args: argparse.Namespace) -> None:
+    """
+    Execute the infer process with specified parameters.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        A namespace object obtained from argparse, containing specified parameters.
+    """
+    infer(
+        model_file=args.model,
+        config=args.config,
+        output=args.output,
+    )
 
 
 def add_infer_parser(subparsers: argparse.ArgumentParser) -> None:
@@ -34,12 +51,6 @@ def add_infer_parser(subparsers: argparse.ArgumentParser) -> None:
     """
     parser = subparsers.add_parser(
         "infer", help="Run the infer command based on specified parameters."
-    )
-    parser.add_argument(
-        "--vcf",
-        type=existed_file,
-        required=True,
-        help="Path to the VCF file containing variant data.",
     )
     parser.add_argument(
         "--model",

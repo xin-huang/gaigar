@@ -42,11 +42,14 @@ def cleanup_output_dir(request, file_paths):
 
 def test_LRModel_train(file_paths, cleanup_output_dir):
     os.makedirs(file_paths["output_dir"], exist_ok=True)
+    model_params = {
+        "random_state": 12345,
+    }
 
     LrModel.train(
         data=file_paths["training_data"],
         output=file_paths["model_file"],
-        seed=12345,
+        **model_params,
     )
 
     model = joblib.load(file_paths["model_file"])

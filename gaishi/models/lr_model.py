@@ -17,7 +17,7 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import joblib, os
+import inspect, joblib, os
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
@@ -42,11 +42,11 @@ class LrModel(MlModel):
     def train(
         data: str,
         output: str,
-        seed: int = None,
-        solver: str = "newton-cg",
-        penalty: str = None,
-        max_iter: int = 10000,
-        is_scaled: bool = False,
+        **model_params,
+        #solver: str = "newton-cg",
+        #penalty: str = None,
+        #max_iter: int = 10000,
+        #is_scaled: bool = False,
     ) -> None:
         """
         Train a logistic regression model using provided training data,
@@ -80,24 +80,25 @@ class LrModel(MlModel):
             columns=["Chromosome", "Start", "End", "Sample", "Replicate", "Label"]
         ).values
 
-        if is_scaled:
+        if "is_scaled" in model_params and model_params["is_scaled"]:
             scaler = StandardScaler()
             data = scaler.fit_transform(data)
             joblib.dump(scaler, f"{model_file}.scaler")
 
-        model = LogisticRegression(
-            solver=solver,
-            penalty=penalty,
-            max_iter=max_iter,
-            random_state=seed,
-        )
+        is_allowed = inspect.signature(LogisticRegression).parameters
+        clean_params = {k: v for k, v in model_params.items() if k in is_allowed}
+
+        model = LogisticRegression(**clean_params)
         model.fit(data, labels.astype(int))
 
         joblib.dump(model, output)
 
     @staticmethod
     def infer(
-        inference_data: str, model_file: str, output_file: str, is_scaled: bool = False
+        data: str, 
+        model: str, 
+        output: str, 
+        **model_params,
     ) -> None:
         """
         Perform inference using a trained logistic regression model on new data, outputting
@@ -106,29 +107,29 @@ class LrModel(MlModel):
 
         Parameters
         ----------
-        inference_data : str
+        data : str
             Path to the inference data file in tab-separated format.
-        model_file : str
+        model : str
             Path to the saved trained model. The method will also look for `<model_file>.scaler`
             if `is_scaled` is True to load and apply the scaler.
-        output_file : str
+        output : str
             Path where the inference output will be saved.
         is_scaled : bool, optional
             If True, scales the feature data using the scaler object saved during training,
             which is expected to be found at `<model_file>.scaler`. Default: False.
 
         """
-        features = pd.read_csv(inference_data, sep="\t")
-        output_dir = os.path.dirname(output_file)
+        features = pd.read_csv(data, sep="\t")
+        output_dir = os.path.dirname(output)
         os.makedirs(output_dir, exist_ok=True)
 
         data = features.drop(columns=["Chromosome", "Start", "End", "Sample"]).values
 
-        if is_scaled:
-            scaler = joblib.load(f"{model_file}.scaler")
+        if "is_scaled" in model_params and model_params["is_scaled"]:
+            scaler = joblib.load(f"{model}.scaler")
             data = scaler.transform(data)
 
-        model = joblib.load(model_file)
+        model = joblib.load(model)
 
         predictions = model.predict_proba(data)
         prediction_df = features[["Chromosome", "Start", "End", "Sample"]]
@@ -144,5 +145,5 @@ class LrModel(MlModel):
             prediction_df[f"{class_name}_Prob"] = predictions[:, i]
 
         prediction_df.sort_values(by=["Sample", "Chromosome", "Start", "End"]).to_csv(
-            output_file, sep="\t", index=False
+            output, sep="\t", index=False
         )
