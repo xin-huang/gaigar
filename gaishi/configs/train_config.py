@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,25 +18,25 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import pytest
-from gaishi.evaluate import window_evaluate
+from pydantic import BaseModel
+from gaishi.configs import SimulationConfig, ModelConfig
 
 
-@pytest.fixture
-def tract_files():
-    return {
-        "true_tract_file": "tests/data/test.lr.true.tracts.bed",
-        "inferred_tract_file": "tests/data/test.lr.inferred.tracts.bed",
-    }
+class TrainConfig(BaseModel):
+    """Top-level config for training: simulation + model details."""
 
+    # Simulation block
+    simulation: SimulationConfig
 
-if __name__ == "__main__":
-    window_evaluate(
-        true_tract_file="tests/data/test.lr.true.tracts.bed",
-        inferred_tract_file="tests/data/test.lr.inferred.tracts.bed",
-        seq_len=200000000,
-        sample_size=50,
-        ploidy=2,
-        is_phased=True,
-        output="test.performance",
-    )
+    # Model choice
+    model: ModelConfig
+
+    # Generic training options
+    # test_size: float = Field(0.2, gt=0.0, lt=1.0, description="Hold-out test fraction")
+    # val_size: float = Field(
+    #    0.0,
+    #    ge=0.0,
+    #    lt=1.0,
+    #    description="Optional validation fraction (0 means no explicit val split)",
+    # )
+    # shuffle_before_split: bool = True

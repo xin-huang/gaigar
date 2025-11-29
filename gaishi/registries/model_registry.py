@@ -18,6 +18,13 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .generic_registry import GenericRegistry  # noqa: F401
-from .model_registry import ModelRegistry  # noqa: F401
-from .stat_registry import StatRegistry  # noqa: F401
+from gaishi.registries.generic_registry import GenericRegistry
+
+
+class ModelRegistry(GenericRegistry):
+    """
+    Concrete registry for machine learning model classes.
+    """
+
+
+MODEL_REGISTRY = ModelRegistry()

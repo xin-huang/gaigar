@@ -21,12 +21,12 @@ import os, pytest, shutil
 import numpy as np
 import pandas as pd
 import gaishi.stats
-from gaishi.simulate import lr_simulate
+from gaishi.simulate import simulate_feature_vectors
 
 
 @pytest.fixture
-def lr_simulate_params(tmp_path):
-    output_dir = "tests/test_lr_simulate"
+def feature_vector_simulate_params(tmp_path):
+    output_dir = "tests/test_feature_vector_simulate"
     return {
         "demo_model_file": "tests/data/ArchIE_3D19.yaml",
         "nrep": 100,
@@ -55,26 +55,26 @@ def lr_simulate_params(tmp_path):
 
 
 @pytest.fixture
-def cleanup_output_dir(request, lr_simulate_params):
+def cleanup_output_dir(request, feature_vector_simulate_params):
     # Setup (nothing to do before the test)
     yield  # Hand over control to the test
     # Teardown
-    shutil.rmtree(lr_simulate_params["output_dir"], ignore_errors=True)
+    shutil.rmtree(feature_vector_simulate_params["output_dir"], ignore_errors=True)
 
 
-def test_lr_simulate(lr_simulate_params, cleanup_output_dir):
-    lr_simulate(**lr_simulate_params)
+def test_feature_vector_simulate(feature_vector_simulate_params, cleanup_output_dir):
+    simulate_feature_vectors(**feature_vector_simulate_params)
 
     df = pd.read_csv(
         os.path.join(
-            lr_simulate_params["output_dir"],
-            f"{lr_simulate_params['output_prefix']}.features",
+            feature_vector_simulate_params["output_dir"],
+            f"{feature_vector_simulate_params['output_prefix']}.features",
         ),
         sep="\t",
     )
 
     expected_df = pd.read_csv(
-        "tests/expected_results/simulate/test.lr.simulate.features",
+        "tests/expected_results/simulate/test.feature.vector.simulate.features",
         sep="\t",
     )
 

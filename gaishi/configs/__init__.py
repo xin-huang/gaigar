@@ -18,4 +18,9 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .feature_config import FeatureConfig
+from .feature_config import FeatureConfig  # noqa: F401
+from .model_config import ModelConfig  # noqa: F401
+from .preprocess_config import PreprocessConfig  # noqa: F401
+from .simulation_config import SimulationConfig  # noqa: F401
+from .train_config import TrainConfig  # noqa: F401
+from .infer_config import InferConfig  # noqa: F401

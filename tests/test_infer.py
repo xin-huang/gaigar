@@ -46,9 +46,9 @@ def test_LRModel_infer(file_paths, cleanup_output_dir):
     os.makedirs(file_paths["output_dir"], exist_ok=True)
 
     LrModel.infer(
-        inference_data=file_paths["inference_data"],
-        model_file=file_paths["model_file"],
-        output_file=file_paths["output_file"],
+        data=file_paths["inference_data"],
+        model=file_paths["model_file"],
+        output=file_paths["output_file"],
     )
 
     df = pd.read_csv(file_paths["output_file"], sep="\t")

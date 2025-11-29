@@ -23,10 +23,13 @@ import pandas as pd
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.preprocessing import StandardScaler
 from gaishi.models import MlModel
+from gaishi.registries.model_registry import MODEL_REGISTRY
+
 
 pd.options.mode.chained_assignment = None
 
 
+@MODEL_REGISTRY.register("extra_trees_classifier")
 class EtcModel(MlModel):
     """
     An extra-trees classifier for training and inferring purposes,
@@ -125,9 +128,7 @@ class EtcModel(MlModel):
                     f"Scaler file not found: {scaler_path}. Please ensure the scaler was saved during training."
                 )
             except Exception as e:
-                raise RuntimeError(
-                    f"Failed to load scaler from {scaler_path}: {e}"
-                )
+                raise RuntimeError(f"Failed to load scaler from {scaler_path}: {e}")
             data = scaler.transform(data)
 
         model = joblib.load(model_file)
