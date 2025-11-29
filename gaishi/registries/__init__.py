@@ -18,6 +18,6 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .generic_registry import GenericRegistry
-from .model_registry import ModelRegistry
-from .stat_registry import StatRegistry
+from .generic_registry import GenericRegistry  # noqa: F401
+from .model_registry import ModelRegistry  # noqa: F401
+from .stat_registry import StatRegistry  # noqa: F401
