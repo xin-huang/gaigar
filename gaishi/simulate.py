@@ -24,7 +24,7 @@ from gaishi.generators import RandomNumberGenerator
 from gaishi.simulators import FeatureVectorSimulator
 
 
-def feature_vector_simulate(
+def simulate_feature_vectors(
     demo_model_file: str,
     nrep: int,
     nref: int,

@@ -44,8 +44,8 @@ def test_LRModel_train(file_paths, cleanup_output_dir):
     os.makedirs(file_paths["output_dir"], exist_ok=True)
 
     LrModel.train(
-        training_data=file_paths["training_data"],
-        model_file=file_paths["model_file"],
+        data=file_paths["training_data"],
+        output=file_paths["model_file"],
         seed=12345,
     )
 

@@ -21,7 +21,7 @@ import os, pytest, shutil
 import numpy as np
 import pandas as pd
 import gaishi.stats
-from gaishi.simulate import feature_vector_simulate
+from gaishi.simulate import simulate_feature_vectors
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ def cleanup_output_dir(request, feature_vector_simulate_params):
 
 
 def test_feature_vector_simulate(feature_vector_simulate_params, cleanup_output_dir):
-    feature_vector_simulate(**feature_vector_simulate_params)
+    simulate_feature_vectors(**feature_vector_simulate_params)
 
     df = pd.read_csv(
         os.path.join(
