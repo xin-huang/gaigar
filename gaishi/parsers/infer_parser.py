@@ -69,3 +69,4 @@ def add_infer_parser(subparsers: argparse.ArgumentParser) -> None:
         required=True,
         help="Path to the output file.",
     )
+    parser.set_defaults(runner=_run_infer)
