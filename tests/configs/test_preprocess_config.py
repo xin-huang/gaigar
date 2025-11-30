@@ -30,14 +30,14 @@ from gaishi.configs import PreprocessConfig
 def _valid_kwargs() -> dict:
     """Return a minimal valid kwargs dict for PreprocessConfig."""
     return {
-        "vcf_file": "data/input.vcf.gz",
+        "vcf_file": Path("data/input.vcf.gz"),
         "chr_name": "chr1",
-        "ref_ind_file": "config/ref.txt",
-        "tgt_ind_file": "config/tgt.txt",
+        "ref_ind_file": Path("config/ref.txt"),
+        "tgt_ind_file": Path("config/tgt.txt"),
         "win_len": 10000,
         "win_step": 5000,
         "feature_config_file": "config/features.yaml",
-        "output_dir": "results/preprocess",
+        "output_dir": Path("results/preprocess"),
         "output_prefix": "lr",
         # optional fields left as defaults
     }
