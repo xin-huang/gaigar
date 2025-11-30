@@ -73,7 +73,7 @@ class SimulationConfig(BaseModel):
 
     # Output
     output_prefix: str = Field(..., description="Filename prefix for outputs")
-    output_dir: Path = Field(..., description="Directory for all outputs")
+    output_dir: str = Field(..., description="Directory for all outputs")
     keep_sim_data: bool = Field(
         False,
         description="Whether to keep raw simulation data (trees, msprime/demes outputs, etc.)",

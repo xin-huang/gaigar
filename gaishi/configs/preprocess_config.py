@@ -42,7 +42,7 @@ class PreprocessConfig(BaseModel):
     )
 
     # Output
-    output_dir: Path = Field(..., description="Directory for output feature files")
+    output_dir: str = Field(..., description="Directory for output feature files")
     output_prefix: str = Field(
         ...,
         description="Prefix for output files (before extensions / suffixes)",
