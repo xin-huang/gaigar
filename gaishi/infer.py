@@ -25,7 +25,7 @@ from gaishi.utils import UniqueKeyLoader
 
 
 def infer(
-    model_file: str, 
+    model: str, 
     config: str, 
     output: str,
 ) -> None:

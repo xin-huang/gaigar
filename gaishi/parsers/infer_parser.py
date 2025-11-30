@@ -33,7 +33,7 @@ def _run_infer(args: argparse.Namespace) -> None:
         A namespace object obtained from argparse, containing specified parameters.
     """
     infer(
-        model_file=args.model,
+        model=args.model,
         config=args.config,
         output=args.output,
     )
