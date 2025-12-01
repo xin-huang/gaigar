@@ -20,7 +20,7 @@ jobs:
       uses: mamba-org/setup-micromamba@v1
       with:
         cache-downloads: false
-        cache-env: false
+        cache-environment: false
         environment-name: gaishi-dev
         environment-file: dev-env.yaml
     - name: Test with pytest
