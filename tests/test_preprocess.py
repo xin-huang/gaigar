@@ -21,7 +21,7 @@ import os, pytest, shutil
 import numpy as np
 import pandas as pd
 import gaishi.stats
-from gaishi.preprocess import lr_preprocess
+from gaishi.preprocess import preprocess_feature_vectors
 
 
 @pytest.fixture
@@ -51,8 +51,8 @@ def cleanup_output_dir(request, init_params):
     shutil.rmtree(init_params["output_dir"], ignore_errors=True)
 
 
-def test_lr_preprocess(init_params, cleanup_output_dir):
-    lr_preprocess(**init_params)
+def test_preprocess_feature_vectors(init_params, cleanup_output_dir):
+    preprocess_feature_vectors(**init_params)
 
     df = pd.read_csv(
         os.path.join(

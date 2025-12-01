@@ -26,10 +26,10 @@ from gaishi.labelers import BinaryWindowLabeler
 from gaishi.preprocessors import FeatureVectorPreprocessor
 
 
-class LrSimulator(GenericSimulator):
+class FeatureVectorSimulator(GenericSimulator):
     """
     A simulator class that integrates simulation, labeling, and feature vector generation
-    to prepare data for logistic regression training.
+    to prepare data for training.
 
     This class automates the process of simulating genomic data, labeling the simulated data
     based on introgression, generating genomic features, and merging labels with features to

@@ -20,9 +20,6 @@
 import numpy as np
 import pandas as pd
 from abc import ABC, abstractmethod
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression as LR
-from sklearn.ensemble import ExtraTreesClassifier
 
 
 class MlModel(ABC):
@@ -32,21 +29,28 @@ class MlModel(ABC):
     This class defines a standard interface for training and inferring from
     machine learning models. It ensures that all derived model classes implement
     the `train` and `infer` methods.
-
     """
 
     @abstractmethod
-    def train(self):
+    def train(self, **kwargs):
         """
         Train the machine learning model.
 
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional keyword arguments specific to the model being used.
         """
         pass
 
     @abstractmethod
-    def infer(self):
+    def infer(self, **kwargs):
         """
         Perform inference using the trained model on the provided data.
 
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional keyword arguments specific to the model being used.
         """
         pass

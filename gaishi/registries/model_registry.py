@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,25 +18,13 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import pytest
-from gaishi.evaluate import window_evaluate
+from gaishi.registries.generic_registry import GenericRegistry
 
 
-@pytest.fixture
-def tract_files():
-    return {
-        "true_tract_file": "tests/data/test.lr.true.tracts.bed",
-        "inferred_tract_file": "tests/data/test.lr.inferred.tracts.bed",
-    }
+class ModelRegistry(GenericRegistry):
+    """
+    Concrete registry for machine learning model classes.
+    """
 
 
-if __name__ == "__main__":
-    window_evaluate(
-        true_tract_file="tests/data/test.lr.true.tracts.bed",
-        inferred_tract_file="tests/data/test.lr.inferred.tracts.bed",
-        seq_len=200000000,
-        sample_size=50,
-        ploidy=2,
-        is_phased=True,
-        output="test.performance",
-    )
+MODEL_REGISTRY = ModelRegistry()
