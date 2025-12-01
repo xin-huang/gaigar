@@ -19,14 +19,34 @@
 
 
 from pydantic import BaseModel
-from gaishi.configs import PreprocessConfig, ModelConfig
+from gaishi.configs import ModelConfig
+from gaishi.configs import SimulationConfig
+from gaishi.configs import PreprocessConfig
 
 
-class InferConfig(BaseModel):
-    """Top-level config for training: simulation + model details."""
+class GlobalConfig(BaseModel):
+    """
+    Top-level config for runing gaishi
 
-    # Preprocess block
+    - training: simulation + model details.
+    - infer: preprocess + model details.
+    """
+
+    # Simulation block
+    simulation: SimulationConfig
+
+     # Preprocess block
     preprocess: PreprocessConfig
 
     # Model choice
     model: ModelConfig
+
+    # Generic training options
+    # test_size: float = Field(0.2, gt=0.0, lt=1.0, description="Hold-out test fraction")
+    # val_size: float = Field(
+    #    0.0,
+    #    ge=0.0,
+    #    lt=1.0,
+    #    description="Optional validation fraction (0 means no explicit val split)",
+    # )
+    # shuffle_before_split: bool = True

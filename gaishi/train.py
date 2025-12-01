@@ -18,7 +18,7 @@
 
 
 import yaml
-from gaishi.configs import TrainConfig
+from gaishi.configs import GlobalConfig
 from gaishi.registries.model_registry import MODEL_REGISTRY
 from gaishi.simulate import simulate_feature_vectors
 from gaishi.utils import UniqueKeyLoader
@@ -37,7 +37,7 @@ def train(
     demes : str
         Path to the demography (demes) YAML file used for simulation.
     config : str
-        Path to the training configuration YAML file.
+        Path to the gaishi configuration YAML file.
     output : str
         Output path or directory passed to the model's `train` method, used
         to store the trained model.
@@ -50,15 +50,15 @@ def train(
     except yaml.YAMLError as e:
         raise ValueError(f"Error parsing YAML configuration file '{config}': {e}")
 
-    train_config = TrainConfig(**config_dict)
+    global_config = GlobalConfig(**config_dict)
     simulate_feature_vectors(
         demo_model_file=demes,
-        **train_config.simulation.model_dump(),
+        **global_config.simulation.model_dump(),
     )
 
-    data = f"{train_config.simulation.output_dir}/{train_config.simulation.output_prefix}.features"
-    model_name = train_config.model.name
-    model_params = train_config.model.params
+    data = f"{global_config.simulation.output_dir}/{global_config.simulation.output_prefix}.features"
+    model_name = global_config.model.name
+    model_params = global_config.model.params
     model_cls = MODEL_REGISTRY.get(model_name)
     model_cls.train(
         data=data,

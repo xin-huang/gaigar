@@ -21,7 +21,10 @@
 import pytest
 from pathlib import Path
 from pydantic import ValidationError
-from gaishi.configs import SimulationConfig, ModelConfig, TrainConfig
+from gaishi.configs import GlobalConfig
+from gaishi.configs import ModelConfig
+from gaishi.configs import PreprocessConfig
+from gaishi.configs import SimulationConfig
 
 
 def _valid_simulation_kwargs() -> dict:
@@ -51,6 +54,20 @@ def _valid_simulation_kwargs() -> dict:
     }
 
 
+def _valid_preprocess_kwargs() -> dict:
+    return {
+        "vcf_file": "data/input.vcf.gz",
+        "chr_name": "chr1",
+        "ref_ind_file": "config/ref.txt",
+        "tgt_ind_file": "config/tgt.txt",
+        "win_len": 10000,
+        "win_step": 5000,
+        "feature_config_file": "config/features.yaml",
+        "output_dir": "results/infer",
+        "output_prefix": "lr",
+    }
+
+
 def _valid_model_config_logreg() -> ModelConfig:
     return ModelConfig(
         name="logistic_regression",
@@ -73,27 +90,39 @@ def _valid_model_config_extra_trees() -> ModelConfig:
     )
 
 
-def test_train_config_valid_with_logistic_regression():
+def test_global_config_valid_with_logistic_regression():
     sim_cfg = SimulationConfig(**_valid_simulation_kwargs())
+    preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
     model_cfg = _valid_model_config_logreg()
 
-    cfg = TrainConfig(
+    cfg = GlobalConfig(
         simulation=sim_cfg,
+        preprocess=preprocess_cfg,
         model=model_cfg,
     )
 
+    # simulation block
     assert cfg.simulation.nrep == 10
     assert cfg.simulation.seq_len == 1_000_000
+
+    # preprocess block
+    assert cfg.preprocess.chr_name == "chr1"
+    assert isinstance(cfg.preprocess.vcf_file, Path)
+    assert cfg.preprocess.win_len == 10000
+
+    # model block
     assert cfg.model.name == "logistic_regression"
     assert cfg.model.params["C"] == 1.0
 
 
-def test_train_config_valid_with_extra_trees():
+def test_global_config_valid_with_extra_trees():
     sim_cfg = SimulationConfig(**_valid_simulation_kwargs())
+    preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
     model_cfg = _valid_model_config_extra_trees()
 
-    cfg = TrainConfig(
+    cfg = GlobalConfig(
         simulation=sim_cfg,
+        preprocess=preprocess_cfg,
         model=model_cfg,
     )
 
@@ -102,26 +131,47 @@ def test_train_config_valid_with_extra_trees():
     assert cfg.model.params["n_jobs"] == -1
 
 
-def test_train_config_missing_simulation_raises():
+def test_global_config_missing_simulation_raises():
+    preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
     model_cfg = _valid_model_config_logreg()
 
     with pytest.raises(ValidationError):
-        TrainConfig(model=model_cfg)  # type: ignore[arg-type]
+        GlobalConfig(
+            preprocess=preprocess_cfg,
+            model=model_cfg,
+        )  # type: ignore[arg-type]
 
 
-def test_train_config_missing_model_type_raises():
+def test_infer_config_missing_preprocess_raises():
     sim_cfg = SimulationConfig(**_valid_simulation_kwargs())
+    model_cfg = _valid_model_config_logreg()
 
     with pytest.raises(ValidationError):
-        TrainConfig(simulation=sim_cfg)  # type: ignore[arg-type]
-
-
-def test_train_config_invalid_model_name_raises():
-    sim_cfg = SimulationConfig(**_valid_simulation_kwargs())
-
-    with pytest.raises(ValidationError):
-        TrainConfig(
+        GlobalConfig(
             simulation=sim_cfg,
+            model=model_cfg,  # type: ignore[arg-type]
+        )
+
+
+def test_global_config_missing_model_type_raises():
+    sim_cfg = SimulationConfig(**_valid_simulation_kwargs())
+    preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
+
+    with pytest.raises(ValidationError):
+        GlobalConfig(
+            simulation=sim_cfg,
+            preprocess=preprocess_cfg,
+        )  # type: ignore[arg-type]
+
+
+def test_global_config_invalid_model_name_raises():
+    sim_cfg = SimulationConfig(**_valid_simulation_kwargs())
+    preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
+
+    with pytest.raises(ValidationError):
+        GlobalConfig(
+            simulation=sim_cfg,
+            preprocess=preprocess_cfg,
             model=ModelConfig(
                 name="random_forest",  # not allowed by Literal
                 params={"n_estimators": 100},
