@@ -17,5 +17,5 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .generic_labeler import GenericLabeler
-from .binary_window_labeler import BinaryWindowLabeler
+from .generic_labeler import GenericLabeler  # noqa: F401
+from .binary_window_labeler import BinaryWindowLabeler  # noqa: F401

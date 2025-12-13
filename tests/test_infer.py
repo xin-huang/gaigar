@@ -18,18 +18,19 @@
 
 
 import os, pytest, shutil
-import numpy as np
 import pandas as pd
-from gaishi.models import LrModel
+import gaishi.models
+import gaishi.stats
+from gaishi.infer import infer
 
 
 @pytest.fixture
 def file_paths():
     output_dir = "tests/test_infer"
     return {
-        "inference_data": "tests/data/test.lr.inference.features",
-        "model_file": "tests/expected_results/train/test.lr.model",
-        "output_file": os.path.join(output_dir, "test.lr.predictions"),
+        "model": "tests/expected_results/train/test.lr.model",
+        "config": "tests/data/test.config.yaml",
+        "output": os.path.join(output_dir, "test.lr.predictions"),
         "output_dir": str(output_dir),
     }
 
@@ -42,16 +43,16 @@ def cleanup_output_dir(request, file_paths):
     shutil.rmtree(file_paths["output_dir"], ignore_errors=True)
 
 
-def test_LRModel_infer(file_paths, cleanup_output_dir):
+def test_infer(file_paths, cleanup_output_dir):
     os.makedirs(file_paths["output_dir"], exist_ok=True)
 
-    LrModel.infer(
-        inference_data=file_paths["inference_data"],
-        model_file=file_paths["model_file"],
-        output_file=file_paths["output_file"],
+    infer(
+        model=file_paths["model"],
+        config=file_paths["config"],
+        output=file_paths["output"],
     )
 
-    df = pd.read_csv(file_paths["output_file"], sep="\t")
+    df = pd.read_csv(file_paths["output"], sep="\t")
 
     expected_df = pd.read_csv(
         "tests/expected_results/infer/test.lr.predictions", sep="\t"
