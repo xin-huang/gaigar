@@ -17,16 +17,50 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from gaishi.models import LrModel
+import yaml
+from gaishi.configs import GlobalConfig
+from gaishi.registries.model_registry import MODEL_REGISTRY
+from gaishi.preprocess import preprocess_feature_vectors
+from gaishi.utils import UniqueKeyLoader
 
 
-def lr_infer(
-    inference_data: str, model_file: str, output_file: str, is_scaled: bool
+def infer(
+    model: str,
+    config: str,
+    output: str,
 ) -> None:
-    """ """
-    LrModel.infer(
-        inference_data=inference_data,
-        model_file=model_file,
-        output_file=output_file,
-        is_scaled=is_scaled,
+    """
+    Run feature preprocessing and model-based inference from a YAML configuration.
+
+    Parameters
+    ----------
+    model : str
+        Path to the trained model file to be used for inference.
+    config : str
+        Path to the inference configuration YAML file.
+    output : str
+        Path where inference outputs.
+    """
+    try:
+        with open(config, "r") as f:
+            config_dict = yaml.load(f, Loader=UniqueKeyLoader)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Configuration file '{config}' not found.")
+    except yaml.YAMLError as e:
+        raise ValueError(f"Error parsing YAML configuration file '{config}': {e}")
+
+    global_config = GlobalConfig(**config_dict)
+    preprocess_feature_vectors(
+        **global_config.preprocess.model_dump(),
+    )
+
+    data = f"{global_config.preprocess.output_dir}/{global_config.preprocess.output_prefix}.features"
+    model_name = global_config.model.name
+    model_params = global_config.model.params
+    model_cls = MODEL_REGISTRY.get(model_name)
+    model_cls.infer(
+        data=data,
+        model=model,
+        output=output,
+        **model_params,
     )

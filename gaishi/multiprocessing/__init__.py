@@ -17,4 +17,4 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .mp_manager import mp_manager
+from .mp_manager import mp_manager  # noqa: F401

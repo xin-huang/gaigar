@@ -18,16 +18,16 @@
 
 
 import argparse
+import gaishi.models
 import gaishi.stats
-from gaishi.parsers.lr_parsers import add_lr_parsers
-from gaishi.parsers.unet_parsers import add_unet_parsers
-from gaishi.parsers.eval_parsers import add_eval_parsers
+from gaishi import __version__
+from gaishi.parsers.train_parser import add_train_parser
+from gaishi.parsers.infer_parser import add_infer_parser
 
 
 def _set_sigpipe_handler() -> None:
     """
     Sets the signal handler for SIGPIPE signals on POSIX systems.
-
     """
     import os, signal
 
@@ -36,22 +36,23 @@ def _set_sigpipe_handler() -> None:
         signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 
-def _gaigar_cli_parser() -> argparse.ArgumentParser:
+def _gaishi_cli_parser() -> argparse.ArgumentParser:
     """
     Initializes and configures the command-line interface parser
-    for gaigar.
+    for gaishi.
 
     Returns
     -------
     top_parser : argparse.ArgumentParser
         A configured command-line interface parser.
-
     """
-    top_parser = argparse.ArgumentParser()
+    top_parser = argparse.ArgumentParser(
+        description="GAISHI: Genomic Analysis of Introgressed-Site and -Haplotype Identification"
+    )
+    top_parser.add_argument("--version", action="version", version=f"{__version__}")
     subparsers = top_parser.add_subparsers(dest="subparsers")
-    add_lr_parsers(subparsers)
-    add_unet_parsers(subparsers)
-    add_eval_parsers(subparsers)
+    add_train_parser(subparsers)
+    add_infer_parser(subparsers)
 
     return top_parser
 
@@ -63,10 +64,9 @@ def main(arg_list: list = None) -> None:
     Parameters
     ----------
     arg_list : list, optional
-        A list containing arguments for gaigar. Default: None.
-
+        A list containing arguments for gaishi. Default: None.
     """
     _set_sigpipe_handler()
-    parser = _gaigar_cli_parser()
+    parser = _gaishi_cli_parser()
     args = parser.parse_args(arg_list)
     args.runner(args)
