@@ -21,6 +21,7 @@ import yaml
 from gaishi.configs import GlobalConfig
 from gaishi.registries.model_registry import MODEL_REGISTRY
 from gaishi.preprocess import preprocess_feature_vectors
+from gaishi.preprocess import preprocess_genotype_matrices
 from gaishi.utils import UniqueKeyLoader
 
 
@@ -50,11 +51,21 @@ def infer(
         raise ValueError(f"Error parsing YAML configuration file '{config}': {e}")
 
     global_config = GlobalConfig(**config_dict)
-    preprocess_feature_vectors(
-        **global_config.preprocess.model_dump(),
-    )
+    if global_config.preprocess.process_type == "feature_vector":
+        preprocess_feature_vectors(
+            **global_config.preprocess.model_dump(),
+        )
 
-    data = f"{global_config.preprocess.output_dir}/{global_config.preprocess.output_prefix}.features"
+        data = f"{global_config.preprocess.output_dir}/{global_config.preprocess.output_prefix}.features"
+    elif global_config.preprocess.process_type == "genotype_matrix":
+        preprocess_genotype_matrices(
+            **global_config.preprocess.model_dump(),
+        )
+
+        data = f"{global_config.preprocess.output_dir}/{global_config.preprocess.output_prefix}.h5"
+    else:
+        raise ValueError("")
+
     model_name = global_config.model.name
     model_params = global_config.model.params
     model_cls = MODEL_REGISTRY.get(model_name)

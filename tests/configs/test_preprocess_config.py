@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-from gaishi.configs import PreprocessConfig
+from gaishi.configs import FeatureVectorPreprocessConfig
 
 
 def _valid_kwargs():
@@ -43,7 +43,7 @@ def _valid_kwargs():
 
 
 def test_preprocess_config_valid():
-    cfg = PreprocessConfig(**_valid_kwargs())
+    cfg = FeatureVectorPreprocessConfig(**_valid_kwargs())
 
     # Paths
     assert isinstance(cfg.vcf_file, Path)
@@ -77,14 +77,14 @@ def test_preprocess_config_positive_int_fields_must_be_gt_zero(
     kwargs[field] = bad_value
 
     with pytest.raises(ValidationError):
-        PreprocessConfig(**kwargs)
+        FeatureVectorPreprocessConfig(**kwargs)
 
 
 def test_preprocess_config_output_dir_normalization():
     kwargs = _valid_kwargs()
     kwargs["output_dir"] = "relative/output"
 
-    cfg = PreprocessConfig(**kwargs)
+    cfg = FeatureVectorPreprocessConfig(**kwargs)
     assert cfg.output_dir.is_absolute()
     assert cfg.output_dir.as_posix().endswith("relative/output")
 
@@ -93,7 +93,7 @@ def test_preprocess_config_accepts_anc_allele_file():
     kwargs = _valid_kwargs()
     kwargs["anc_allele_file"] = "config/anc_alleles.tsv"
 
-    cfg = PreprocessConfig(**kwargs)
+    cfg = FeatureVectorPreprocessConfig(**kwargs)
     assert isinstance(cfg.anc_allele_file, Path)
     assert cfg.anc_allele_file.as_posix().endswith("config/anc_alleles.tsv")
 
@@ -103,4 +103,4 @@ def test_preprocess_config_missing_required_field_raises():
     kwargs.pop("vcf_file")
 
     with pytest.raises(ValidationError):
-        PreprocessConfig(**kwargs)
+        FeatureVectorPreprocessConfig(**kwargs)
