@@ -20,7 +20,7 @@
 import os, pytest
 import numpy as np
 from gaishi.utils import read_data, create_windows
-from gaishi.generators import GenomicDataGenerator
+from gaishi.generators import WindowDataGenerator
 
 
 @pytest.fixture
@@ -79,8 +79,8 @@ def expected_params(file_paths):
     return expected_data
 
 
-def test_GenomicDataGenerator(init_params, expected_params):
-    generator = GenomicDataGenerator(**init_params)
+def test_WindowDataGenerator(init_params, expected_params):
+    generator = WindowDataGenerator(**init_params)
     generated_params_list = list(generator.get())
 
     assert len(generated_params_list) == len(

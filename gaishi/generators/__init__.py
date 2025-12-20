@@ -19,4 +19,4 @@
 
 from .generic_generator import GenericGenerator  # noqa: F401
 from .random_number_generator import RandomNumberGenerator  # noqa: F401
-from .genomic_data_generator import GenomicDataGenerator  # noqa: F401
+from .window_data_generator import WindowDataGenerator  # noqa: F401

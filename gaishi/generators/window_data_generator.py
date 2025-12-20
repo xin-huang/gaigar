@@ -22,10 +22,9 @@ from gaishi.utils import read_data, create_windows
 from gaishi.generators import GenericGenerator
 
 
-class GenomicDataGenerator(GenericGenerator):
+class WindowDataGenerator(GenericGenerator):
     """
     Generates genomic data for each specified window from VCF and other related files.
-
     """
 
     def __init__(
@@ -41,7 +40,7 @@ class GenomicDataGenerator(GenericGenerator):
         is_phased: bool = True,
     ):
         """
-        Initializes a new instance of GenomicDataGenerator.
+        Initializes a new instance of WindowDataGenerator.
 
         Parameters
         ----------
@@ -70,7 +69,6 @@ class GenomicDataGenerator(GenericGenerator):
         ValueError
             If `win_len` is less than or equal to 0, if `win_step` is negative,
             if `ploidy` is less than or equal to 0, or if `chr_name` is not in the VCF file.
-
         """
         if win_len <= 0:
             raise ValueError("win_len must be greater than 0.")
@@ -127,7 +125,6 @@ class GenomicDataGenerator(GenericGenerator):
             A dictionary containing chromosome name, start and end positions,
             ploidy and phase information, reference and target genotypes,
             and positions for each window.
-
         """
         for d in self.data:
             yield d
