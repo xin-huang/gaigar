@@ -18,7 +18,7 @@
 
 
 import numpy as np
-from gaishi.utils import read_data, create_windows
+from gaishi.utils import read_data, split_genome
 from gaishi.generators import GenericGenerator
 
 
@@ -89,14 +89,22 @@ class WindowDataGenerator(GenericGenerator):
         if chr_name not in tgt_data:
             raise ValueError(f"{chr_name} is not present in the VCF file.")
 
-        windows = create_windows(tgt_data[chr_name]["POS"], chr_name, win_step, win_len)
+        pos = tgt_data[chr_name]["POS"]
+
+        windows = split_genome(
+            pos=pos,
+            chr_name=chr_name,
+            polymorphism_size=win_len,
+            step_size=win_step,
+        )
 
         self.data = []
         for w in range(len(windows)):
-            chr_name, start, end = windows[w]
+            chr_name = windows[w][0]
+            start = windows[w][1][0]
+            end = windows[w][1][1]
             ref_gts = ref_data[chr_name]["GT"]
             tgt_gts = tgt_data[chr_name]["GT"]
-            pos = tgt_data[chr_name]["POS"]
             idx = (pos > start) * (pos <= end)
             sub_ref_gts = ref_gts[idx]
             sub_tgt_gts = tgt_gts[idx]

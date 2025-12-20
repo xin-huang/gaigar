@@ -277,34 +277,6 @@ def check_anc_allele(data, anc_allele, c):
     return data
 
 
-def create_windows(pos, chr_name, win_step, win_len):
-    """
-    Description:
-        Creates sliding windows along the genome.
-
-    Arguments:
-        pos numpy.ndarray: Positions for the variants.
-        chr_name str: Name of the chromosome.
-        win_step int: Step size of sliding windows.
-        win_len int: Length of sliding windows.
-
-    Returns:
-        windows list: List of sliding windows along the genome.
-    """
-    win_start = (pos[0] + win_step) // win_step * win_step - win_len
-    if win_start < 0:
-        win_start = 0
-    last_pos = pos[-1]
-
-    windows = []
-    while last_pos > win_start:
-        win_end = win_start + win_len
-        windows.append((chr_name, win_start, win_end))
-        win_start += win_step
-
-    return windows
-
-
 def split_genome(
     pos: np.ndarray,
     chr_name: str,
@@ -315,7 +287,7 @@ def split_genome(
     seed: int = None,
 ) -> list[tuple]:
     """
-    Creates sliding windows along the genome.
+    Create sliding windows along the genome.
 
     Parameters
     ----------
@@ -348,7 +320,6 @@ def split_genome(
     ValueError
         If `step_size` or `polymorphism_size` are non-positive, or if the `pos` array is empty,
         or if no windows could be created with the given parameters.
-
     """
     if (step_size is not None and step_size <= 0) or polymorphism_size <= 0:
         raise ValueError(
