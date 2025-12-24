@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,9 +18,9 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import os, pytest, shutil
-import numpy as np
+import pytest
 import pandas as pd
+from gaishi.labelers import BinaryAlleleLabeler
 from gaishi.labelers import BinaryWindowLabeler
 
 
@@ -34,7 +35,7 @@ def labeler_params():
     }
 
 
-def test_BinaryWindowLabeler(labeler_params):
+def test_BinaryAlleleLabeler(labeler_params):
     labeler = BinaryWindowLabeler(**labeler_params)
     res = labeler.run(
         tgt_ind_file="tests/expected_results/simulators/MsprimeSimulator/0/test.0.tgt.ind.list",
@@ -42,16 +43,13 @@ def test_BinaryWindowLabeler(labeler_params):
     )
 
     df = pd.DataFrame(res)
-    expected_df = pd.read_csv(
-        "tests/expected_results/labelers/0/test.0.labels", sep="\t"
-    )
+    expected_df = pd.read_csv("tests/expected_results/labelers/0/test.0.labels", sep="\t")
 
-    for column in df.columns:
-        if df[column].dtype.kind in "ifc":  # Float, int, complex numbers
-            assert np.isclose(
-                df[column], expected_df[column], atol=1e-5, rtol=1e-5
-            ).all(), f"Mismatch in column {column}"
-        else:
-            assert (
-                df[column] == expected_df[column]
-            ).all(), f"Mismatch in column {column}"
+    pd.testing.assert_frame_equal(
+        df,
+        expected_df,
+        check_dtype=False,
+        check_like=False,
+        rtol=1e-5,
+        atol=1e-5,
+    )
