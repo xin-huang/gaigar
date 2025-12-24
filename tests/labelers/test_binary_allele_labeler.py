@@ -18,38 +18,133 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
+import allel
 import pytest
-import pandas as pd
+import numpy as np
 from gaishi.labelers import BinaryAlleleLabeler
-from gaishi.labelers import BinaryWindowLabeler
 
 
 @pytest.fixture
-def labeler_params():
-    return {
-        "win_len": 50000,
-        "intro_prop": 0.7,
-        "non_intro_prop": 0.3,
-        "ploidy": 2,
-        "is_phased": True,
-    }
+def set_vcf_positions(monkeypatch):
+    def _set(pos):
+        pos = np.asarray(pos, dtype=int)
+        monkeypatch.setattr(allel, "read_vcf", lambda _vcf_path: {"variants/POS": pos})
+
+    return _set
 
 
-def test_BinaryAlleleLabeler(labeler_params):
-    labeler = BinaryWindowLabeler(**labeler_params)
-    res = labeler.run(
-        tgt_ind_file="tests/expected_results/simulators/MsprimeSimulator/0/test.0.tgt.ind.list",
-        true_tract_file="tests/expected_results/simulators/MsprimeSimulator/0/test.0.true.tracts.bed",
+def test_run_phased_labels_and_rep(set_vcf_positions, tmp_path):
+    set_vcf_positions([10, 20, 30, 40, 50])
+
+    tgt_ind_file = tmp_path / "tgt.txt"
+    tgt_ind_file.write_text("ind1\nind2\n")
+
+    true_tract_file = tmp_path / "tracts.tsv"
+    true_tract_file.write_text(
+        "\n".join(
+            [
+                "chr1\t15\t45\tind1_1",  # => 20,30,40
+                "chr1\t0\t25\tind2_2",  # => 10,20
+                "chr1\t30\t40\tind1_2",  # => 30 (end exclusive)
+                "chr1\t1\t100\tghost_1",  # ignored
+            ]
+        )
+        + "\n"
     )
 
-    df = pd.DataFrame(res)
-    expected_df = pd.read_csv("tests/expected_results/labelers/0/test.0.labels", sep="\t")
-
-    pd.testing.assert_frame_equal(
-        df,
-        expected_df,
-        check_dtype=False,
-        check_like=False,
-        rtol=1e-5,
-        atol=1e-5,
+    labeler = BinaryAlleleLabeler(ploidy=2, is_phased=True, num_polymorphisms=5)
+    out = labeler.run(
+        tgt_ind_file=str(tgt_ind_file),
+        vcf_file=str(tmp_path / "dummy.vcf"),
+        true_tract_file=str(true_tract_file),
+        rep=3,
     )
+
+    assert isinstance(out, dict)
+    assert set(out.keys()) == {"ind1_1", "ind1_2", "ind2_1", "ind2_2"}
+
+    assert np.array_equal(out["ind1_1"]["Label"], np.array([0, 1, 1, 1, 0], dtype=int))
+    assert np.array_equal(out["ind1_2"]["Label"], np.array([0, 0, 1, 0, 0], dtype=int))
+    assert np.array_equal(out["ind2_1"]["Label"], np.array([0, 0, 0, 0, 0], dtype=int))
+    assert np.array_equal(out["ind2_2"]["Label"], np.array([1, 1, 0, 0, 0], dtype=int))
+
+    for s in out:
+        assert out[s]["Sample"] == s
+        assert out[s]["Replicate"] == 3
+
+
+def test_run_unphased_labels(set_vcf_positions, tmp_path):
+    set_vcf_positions([100, 200, 300])
+
+    tgt_ind_file = tmp_path / "tgt.txt"
+    tgt_ind_file.write_text("indA\nindB\n")
+
+    true_tract_file = tmp_path / "tracts.tsv"
+    true_tract_file.write_text(
+        "\n".join(
+            [
+                "chr1\t150\t301\tindA",  # => 200,300
+                "chr1\t0\t150\tindB",  # => 100
+            ]
+        )
+        + "\n"
+    )
+
+    labeler = BinaryAlleleLabeler(ploidy=2, is_phased=False, num_polymorphisms=3)
+    out = labeler.run(
+        tgt_ind_file=str(tgt_ind_file),
+        vcf_file=str(tmp_path / "dummy.vcf"),
+        true_tract_file=str(true_tract_file),
+    )
+
+    assert set(out.keys()) == {"indA", "indB"}
+    assert np.array_equal(out["indA"]["Label"], np.array([0, 1, 1], dtype=int))
+    assert np.array_equal(out["indB"]["Label"], np.array([1, 0, 0], dtype=int))
+
+
+def test_run_raises_if_too_few_polymorphisms(set_vcf_positions, tmp_path):
+    set_vcf_positions([1, 2, 3])
+
+    tgt_ind_file = tmp_path / "tgt.txt"
+    tgt_ind_file.write_text("ind1\n")
+
+    true_tract_file = tmp_path / "tracts.tsv"
+    true_tract_file.write_text("chr1\t0\t10\tind1\n")
+
+    labeler = BinaryAlleleLabeler(ploidy=2, is_phased=False, num_polymorphisms=4)
+
+    with pytest.raises(ValueError, match=r"less than 4"):
+        labeler.run(
+            tgt_ind_file=str(tgt_ind_file),
+            vcf_file=str(tmp_path / "dummy.vcf"),
+            true_tract_file=str(true_tract_file),
+        )
+
+
+def test_run_missing_tgt_ind_file(set_vcf_positions, tmp_path):
+    set_vcf_positions([1, 2, 3, 4])
+
+    labeler = BinaryAlleleLabeler(ploidy=2, is_phased=False, num_polymorphisms=4)
+
+    with pytest.raises(FileNotFoundError, match=r"tgt_ind_file .* not found"):
+        labeler.run(
+            tgt_ind_file=str(tmp_path / "nope.txt"),
+            vcf_file=str(tmp_path / "dummy.vcf"),
+            true_tract_file=str(tmp_path / "tracts.tsv"),
+        )
+
+
+def test_run_missing_true_tract_file(set_vcf_positions, tmp_path):
+    set_vcf_positions([1, 2, 3, 4])
+
+    tgt_ind_file = tmp_path / "tgt.txt"
+    tgt_ind_file.write_text("ind1\n")
+
+    labeler = BinaryAlleleLabeler(ploidy=2, is_phased=False, num_polymorphisms=4)
+
+    with pytest.raises(FileNotFoundError, match=r"true_tract_file .* not found"):
+        labeler.run(
+            tgt_ind_file=str(tgt_ind_file),
+            vcf_file=str(tmp_path / "dummy.vcf"),
+            true_tract_file=str(tmp_path / "nope.tsv"),
+        )
