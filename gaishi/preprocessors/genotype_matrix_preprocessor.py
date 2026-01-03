@@ -44,7 +44,7 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
         is_sorted: bool,
     ):
         """
-        Initialize a new instance of GenotypeMatricesPreprocessor with specific parameters.
+        Initialize a new instance of GenotypeMatrixPreprocessor with specific parameters.
 
         Parameters:
         -----------
