@@ -18,67 +18,14 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import multiprocessing
-
 import h5py
+import multiprocessing
+import pytest
 import numpy as np
-
 from gaishi.utils import write_h5, write_tsv
-
-
-def test_write_h5_creates_group_and_datasets(tmp_path):
-    h5_file = tmp_path / "out.h5"
-    lock = multiprocessing.Lock()
-
-    data_dict = {
-        "scalar_int": 7,
-        "scalar_float": 3.14,
-        "str_list": ["a", "bb", "ccc"],
-        "int_list": [1, 2, 3],
-        "ndarray": np.array([[1, 2], [3, 4]], dtype=np.int32),
-    }
-
-    write_h5(str(h5_file), "grp1", data_dict, lock)
-
-    with h5py.File(h5_file, "r") as f:
-        assert "grp1" in f
-        g = f["grp1"]
-
-        assert set(g.keys()) == set(data_dict.keys())
-
-        # Scalars: no compression, scalar shape
-        assert g["scalar_int"].shape == ()
-        assert g["scalar_int"].compression is None
-        assert int(g["scalar_int"][()]) == 7
-
-        assert g["scalar_float"].shape == ()
-        assert g["scalar_float"].compression is None
-        assert float(g["scalar_float"][()]) == 3.14
-
-        # Arrays/lists: lzf compression
-        assert g["int_list"].compression == "lzf"
-        assert np.array_equal(g["int_list"][()], np.array([1, 2, 3]))
-
-        assert g["ndarray"].compression == "lzf"
-        assert np.array_equal(g["ndarray"][()], data_dict["ndarray"])
-
-        # String list: stored as bytes (dtype kind 'S'), lzf compression
-        assert g["str_list"].dtype.kind == "S"
-        assert g["str_list"].compression == "lzf"
-        assert [x for x in g["str_list"][()]] == [b"a", b"bb", b"ccc"]
-
-
-def test_write_h5_raises_if_group_exists(tmp_path):
-    h5_file = tmp_path / "out.h5"
-    lock = multiprocessing.Lock()
-
-    data_dict = {"x": [1, 2, 3]}
-    write_h5(str(h5_file), "grp", data_dict, lock)
-
-    import pytest
-
-    with pytest.raises(ValueError):
-        write_h5(str(h5_file), "grp", data_dict, lock)
+from gaishi.utils.io import _normalize_hdf_entry
+from gaishi.utils.io import _pack_hdf_entry
+from gaishi.utils.io import _append_hdf_entries
 
 
 def test_write_tsv_appends_rows(tmp_path):
@@ -93,3 +40,291 @@ def test_write_tsv_appends_rows(tmp_path):
 
     lines = tsv_file.read_text().splitlines()
     assert lines == ["[1, 2]\t3", "[9, 8, 7]\t4"]
+
+
+def test_normalize_hdf_entry_random_start_phased():
+    d = {
+        "Start": "Random",
+        "End": 999999,  # should be overwritten
+        "Ref_sample": ["ref_0_1", "ref_12_2"],
+        "Tgt_sample": ["tgt_3_1"],
+    }
+
+    out = _normalize_hdf_entry(d, stepsize=192, is_phased=True)
+
+    # In-place
+    assert out is d
+
+    assert d["Start"] == 0
+    assert d["End"] == 192
+    assert d["StartEnd"] == [0, 192]
+
+    # Phased: hap is 0-based (hap-1)
+    assert d["Ref_sample"] == [[0, 0], [12, 1]]
+    assert d["Tgt_sample"] == [[3, 0]]
+
+
+def test_normalize_hdf_entry_nonrandom_start_unphased():
+    d = {
+        "Start": 100,
+        "End": 250,
+        "Ref_sample": ["ref_5_2"],
+        "Tgt_sample": ["tgt_7_1", "tgt_7_2"],
+    }
+
+    _normalize_hdf_entry(d, stepsize=999, is_phased=False)
+
+    # Start/End unchanged when Start != "Random"
+    assert d["Start"] == 100
+    assert d["End"] == 250
+    assert d["StartEnd"] == [100, 250]
+
+    # Unphased: hap forced to 0
+    assert d["Ref_sample"] == [[5, 0]]
+    assert d["Tgt_sample"] == [[7, 0], [7, 0]]
+
+
+def test_normalize_hdf_entry_missing_required_key_raises_keyerror():
+    d = {
+        "Start": 0,
+        "End": 10,
+        "Ref_sample": ["ref_0_1"],
+        # "Tgt_sample" missing
+    }
+    with pytest.raises(KeyError):
+        _normalize_hdf_entry(d, stepsize=10, is_phased=True)
+
+
+def test_normalize_hdf_entry_malformed_sample_id_raises():
+    d = {
+        "Start": 0,
+        "End": 10,
+        "Ref_sample": ["ref_0"],  # malformed, missing hap
+        "Tgt_sample": ["tgt_1_1"],
+    }
+
+    # Current implementation may raise IndexError (missing parts) or ValueError (non-int).
+    with pytest.raises((IndexError, ValueError)):
+        _normalize_hdf_entry(d, stepsize=10, is_phased=True)
+
+
+def test_pack_hdf_entry_orders_fields_correctly():
+    ref_g = np.array([[1, 0], [0, 1]], dtype=np.uint8)
+    tgt_g = np.array([[0, 1], [1, 0]], dtype=np.uint8)
+    label = np.array([[1, 0]], dtype=np.uint8)
+
+    ref_s = [[0, 0], [1, 1]]
+    tgt_s = [[2, 0]]
+    start_end = [0, 192]
+
+    d = {
+        "Ref_genotype": ref_g,
+        "Tgt_genotype": tgt_g,
+        "Label": label,
+        "Ref_sample": ref_s,
+        "Tgt_sample": tgt_s,
+        "StartEnd": start_end,
+        "End": 192,
+        "Replicate": 7,
+        "Position": [10, 20, 30],
+        "Forward_relative_position": [0.1, 0.2, 0.3],
+        "Backward_relative_position": [0.9, 0.8, 0.7],
+    }
+
+    packed = _pack_hdf_entry(d)
+
+    assert isinstance(packed, list)
+    assert len(packed) == 9
+
+    # Group 0: genotypes
+    assert packed[0][0] is ref_g
+    assert packed[0][1] is tgt_g
+
+    # Group 1: label
+    assert packed[1][0] is label
+
+    # Group 2: samples
+    assert packed[2][0] is ref_s
+    assert packed[2][1] is tgt_s
+
+    # Group 3: StartEnd
+    assert packed[3][0] is start_end
+
+    # Group 4..8
+    assert packed[4][0] == 192
+    assert packed[5][0] == 7
+    assert packed[6][0] == [10, 20, 30]
+    assert packed[7][0] == [0.1, 0.2, 0.3]
+    assert packed[8][0] == [0.9, 0.8, 0.7]
+
+
+def test_pack_hdf_entry_does_not_modify_input():
+    d = {
+        "Ref_genotype": [1],
+        "Tgt_genotype": [2],
+        "Label": [3],
+        "Ref_sample": [4],
+        "Tgt_sample": [5],
+        "StartEnd": [6],
+        "End": 7,
+        "Replicate": 8,
+        "Position": [9],
+        "Forward_relative_position": [10],
+        "Backward_relative_position": [11],
+    }
+
+    before = dict(d)
+    _ = _pack_hdf_entry(d)
+    assert d == before
+
+
+def test_pack_hdf_entry_missing_key_raises_keyerror():
+    d = {
+        "Ref_genotype": [1],
+        "Tgt_genotype": [2],
+        # "Label" missing
+        "Ref_sample": [4],
+        "Tgt_sample": [5],
+        "StartEnd": [6],
+        "End": 7,
+        "Replicate": 8,
+        "Position": [9],
+        "Forward_relative_position": [10],
+        "Backward_relative_position": [11],
+    }
+
+    with pytest.raises(KeyError):
+        _pack_hdf_entry(d)
+
+
+def _make_packed_entry(
+    H: int = 3,
+    W: int = 4,
+    N: int = 2,
+    rep: int = 7,
+    start_end=(0, 192),
+):
+    """
+    Create one packed entry matching the expected on-disk schema.
+
+    entry[0] : list of 2 (H,W) arrays -> base channels
+    entry[1] : list of 1 (H,W) array -> label
+    entry[2] : list of 2 (N,2) arrays -> indices (ref/tgt)
+    entry[3] : list of 1 (2,) array/list -> StartEnd
+    entry[5] : list of 1 scalar -> replicate/index (ix)
+    entry[-2], entry[-1] : (1,H,W) integer arrays -> fw/bw channels
+    """
+    ref = np.arange(H * W, dtype=np.uint32).reshape(H, W)
+    tgt = np.arange(H * W, dtype=np.uint32).reshape(H, W) + 100
+
+    label = np.arange(H * W, dtype=np.uint8).reshape(H, W) % 2
+
+    ref_idx = np.array([[0, 0], [1, 1]], dtype=np.uint32)[:N]
+    tgt_idx = np.array([[2, 0], [3, 1]], dtype=np.uint32)[:N]
+
+    # Forward/backward channels must be integer dtype and shape (1, H, W)
+    fw = np.zeros((1, H, W), dtype=np.int32)
+    bw = np.ones((1, H, W), dtype=np.int32)
+
+    entry = [
+        [ref, tgt],  # 0: base channels (2, H, W) after np.asarray
+        [label],  # 1: label (1, H, W) after np.asarray
+        [ref_idx, tgt_idx],  # 2: indices (2, N, 2) after np.asarray
+        [list(start_end)],  # 3: StartEnd (1, 2) after np.asarray
+        [start_end[1]],  # 4: End (unused by writer)
+        [rep],  # 5: Replicate -> ix
+        [[10, 20, 30]],  # 6: Position (unused by writer)
+        fw,  # 7: Forward_relative_position (used when fwbw=True)
+        bw,  # 8: Backward_relative_position (used when fwbw=True)
+    ]
+    return entry
+
+
+def test_append_hdf_entries_writes_one_entry_and_sets_last_index(tmp_path):
+    h5_file = tmp_path / "out.h5"
+    lock = multiprocessing.Lock()
+
+    entry = _make_packed_entry(H=3, W=4, N=2, rep=7)
+    nxt = _append_hdf_entries(
+        hdf_file=str(h5_file),
+        input_entries=[entry],
+        lock=lock,
+        start_nr=None,
+        chunk_size=1,
+        fwbw=True,
+        set_attributes=True,
+    )
+    assert nxt == 1
+
+    with h5py.File(h5_file, "r") as f:
+        # last_index should be updated to 1
+        assert int(f.attrs["last_index"]) == 1
+
+        # group "0" and datasets exist
+        assert "0" in f
+        g = f["0"]
+        for name in ("x_0", "y", "indices", "pos", "ix"):
+            assert name in g
+
+        x = g["x_0"][()]
+        y = g["y"][()]
+        ind = g["indices"][()]
+        pos = g["pos"][()]
+        ix = g["ix"][()]
+
+        # Shapes
+        assert x.shape == (1, 4, 3, 4)  # 2 base + 2 fwbw channels
+        assert y.shape == (1, 1, 3, 4)
+        assert ind.shape == (1, 2, 2, 2)
+        assert pos.shape == (1, 1, 1, 2)
+        assert ix.shape == (1, 1, 1)
+
+        # Dtypes
+        assert g["x_0"].dtype == np.dtype(np.uint32)
+        assert g["y"].dtype == np.dtype(np.uint8)
+        assert g["indices"].dtype == np.dtype(np.uint32)
+        assert g["pos"].dtype == np.dtype(np.uint32)
+        assert g["ix"].dtype == np.dtype(np.uint32)
+
+        # Content sanity
+        ref = np.asarray(entry[0])[0]
+        tgt = np.asarray(entry[0])[1]
+        fw = np.asarray(entry[-2])[0]
+        bw = np.asarray(entry[-1])[0]
+
+        assert np.array_equal(x[0, 0], ref)
+        assert np.array_equal(x[0, 1], tgt)
+        assert np.array_equal(x[0, 2], fw.astype(np.uint32))
+        assert np.array_equal(x[0, 3], bw.astype(np.uint32))
+
+        assert np.array_equal(y[0, 0], np.asarray(entry[1])[0])
+
+        assert np.array_equal(ind[0], np.asarray(entry[2], dtype=np.uint32))
+
+        assert np.array_equal(pos[0, 0, 0], np.asarray(entry[3], dtype=np.uint32)[0])
+
+        assert int(ix[0, 0, 0]) == entry[5][0]
+
+
+def test_append_hdf_entries_appends_second_group(tmp_path):
+    h5_file = tmp_path / "out.h5"
+    lock = multiprocessing.Lock()
+
+    entry0 = _make_packed_entry(rep=1)
+    entry1 = _make_packed_entry(rep=2)
+
+    nxt1 = _append_hdf_entries(
+        str(h5_file), [entry0], lock=lock, chunk_size=1, fwbw=True
+    )
+    assert nxt1 == 1
+
+    nxt2 = _append_hdf_entries(
+        str(h5_file), [entry1], lock=lock, chunk_size=1, fwbw=True
+    )
+    assert nxt2 == 2
+
+    with h5py.File(h5_file, "r") as f:
+        assert "0" in f and "1" in f
+        assert int(f.attrs["last_index"]) == 2
+        assert int(f["0/ix"][0, 0, 0]) == 1
+        assert int(f["1/ix"][0, 0, 0]) == 2

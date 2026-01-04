@@ -19,4 +19,4 @@
 
 from .utils import *  # noqa: F401
 from .unique_key_loader import UniqueKeyLoader  # noqa: F401
-from .io import * # noqa: F401
+from .io import *  # noqa: F401

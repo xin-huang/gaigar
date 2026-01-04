@@ -318,15 +318,14 @@ class GenotypeMatrixSimulator(GenericSimulator):
 
         if write_data:
             if output_h5:
-                if rep is not None:
-                    group_name = f"{group_name_prefix}.{rep}"
-                else:
-                    group_name = f"{group_name_prefix}"
                 write_h5(
                     file_name=file_name,
-                    group_name=group_name,
                     data_dict=data_dict,
                     lock=lock,
+                    stepsize=self.num_polymorphisms,
+                    is_phased=self.is_phased,
+                    chunk_size=1,
+                    fwbw=True,
                 )
             else:
                 write_tsv(
