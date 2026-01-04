@@ -23,7 +23,7 @@ import multiprocessing
 import h5py
 import numpy as np
 
-from gaishi.multiprocessing import write_h5, write_tsv
+from gaishi.utils import write_h5, write_tsv
 
 
 def test_write_h5_creates_group_and_datasets(tmp_path):

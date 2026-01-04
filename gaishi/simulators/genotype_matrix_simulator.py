@@ -28,7 +28,7 @@ from gaishi.simulators import MsprimeSimulator
 from gaishi.generators import PolymorphismDataGenerator
 from gaishi.labelers import BinaryAlleleLabeler
 from gaishi.preprocessors import GenotypeMatrixPreprocessor
-from gaishi.multiprocessing import write_h5, write_tsv
+from gaishi.utils import write_h5, write_tsv
 
 
 class GenotypeMatrixSimulator(GenericSimulator):
