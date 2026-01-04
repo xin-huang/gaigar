@@ -168,7 +168,8 @@ class GenotypeMatrixSimulator(GenericSimulator):
                     + "Tgt_sample\t"
                     + "Tgt_genotype\t"
                     + "Replicate\t"
-                    + "Seed\n"
+                    + "Seed\t"
+                    + "Label\n"
                 )
 
     def run(self, rep: int = None, seed: int = None, **kwargs) -> None:

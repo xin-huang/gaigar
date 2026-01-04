@@ -79,7 +79,7 @@ def test_GenotypeMatrixSimulator(init_params, cleanup_output_dir):
 
     df = pd.DataFrame(res)
     expected_df = pd.read_csv(
-        "tests/expected_results/simulators/GenotypeMatrixSimulator/test.features",
+        "tests/expected_results/simulators/GenotypeMatrixSimulator/test.tsv",
         sep="\t",
     )
 

@@ -313,9 +313,6 @@ def _append_hdf_entries(
                     entry = input_entries[i + k]
 
                     if fwbw:
-                        x_base = np.asarray(entry[0])
-                        fw = np.asarray(entry[-2])
-                        bw = np.asarray(entry[-1])
                         features = np.concatenate([entry[0], entry[-2], entry[-1]])
                     else:
                         features = entry[0]

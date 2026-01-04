@@ -18,7 +18,7 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import h5py
+import copy, h5py
 import multiprocessing
 import pytest
 import numpy as np
@@ -26,6 +26,199 @@ from gaishi.utils import write_h5, write_tsv
 from gaishi.utils.io import _normalize_hdf_entry
 from gaishi.utils.io import _pack_hdf_entry
 from gaishi.utils.io import _append_hdf_entries
+
+
+@pytest.fixture
+def test_data():
+    return {
+        "Chromosome": "213",
+        "Start": "Random",
+        "End": "Random",
+        "Position": np.array([0, 1, 2, 3, 4]),
+        "Position_index": [0, 1, 2, 3, 4],
+        "Forward_relative_position": np.array(
+            [
+                [0, 1, 1, 1, 1],
+                [0, 1, 1, 1, 1],
+                [0, 1, 1, 1, 1],
+                [0, 1, 1, 1, 1],
+            ],
+            dtype=np.int64,
+        ),
+        "Backward_relative_position": np.array(
+            [
+                [1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 0],
+            ],
+            dtype=np.int64,
+        ),
+        "Ref_sample": ["tsk_0_1", "tsk_0_2", "tsk_1_1", "tsk_1_2"],
+        "Ref_genotype": np.array(
+            [
+                [0, 0, 1, 0, 0],
+                [0, 1, 0, 1, 1],
+                [0, 1, 0, 1, 1],
+                [0, 1, 0, 1, 1],
+            ],
+            dtype=np.uint32,
+        ),
+        "Tgt_sample": ["tsk_2_1", "tsk_2_2", "tsk_3_1", "tsk_3_2"],
+        "Tgt_genotype": np.array(
+            [
+                [1, 0, 1, 0, 0],
+                [1, 0, 0, 0, 0],
+                [1, 0, 0, 0, 0],
+                [1, 0, 0, 1, 1],
+            ],
+            dtype=np.uint32,
+        ),
+        "Replicate": 666,
+        "Seed": 4836,
+        "Label": np.array(
+            [
+                [0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0],
+            ],
+            dtype=np.uint8,
+        ),
+    }
+
+
+def test_write_h5_single_entry_creates_group_and_updates_last_index(tmp_path, test_data):
+    h5_file = tmp_path / "out.h5"
+    lock = multiprocessing.Lock()
+
+    d = copy.deepcopy(test_data)
+
+    nxt = write_h5(
+        file_name=str(h5_file),
+        entries=d,
+        lock=lock,
+        stepsize=192,
+        is_phased=True,
+        chunk_size=1,
+        fwbw=True,
+        start_nr=None,
+        set_attributes=True,
+    )
+    assert nxt == 1
+
+    with h5py.File(h5_file, "r") as f:
+        assert int(f.attrs["last_index"]) == 1
+        assert "0" in f
+
+        g = f["0"]
+        for name in ("x_0", "y", "indices", "pos", "ix"):
+            assert name in g
+
+        x = g["x_0"][()]
+        y = g["y"][()]
+        ind = g["indices"][()]
+        pos = g["pos"][()]
+        ix = g["ix"][()]
+
+        # Shapes implied by current writer:
+        # x: (1, 4, n_samples, n_sites)  -> 2 genotype channels + 2 fwbw channels
+        assert x.shape == (1, 4, 4, 5)
+        assert y.shape == (1, 1, 4, 5)
+        assert ind.shape == (1, 2, 4, 2)
+        assert pos.shape == (1, 1, 1, 2)
+        assert ix.shape == (1, 1, 1)
+
+        # Content sanity checks
+        assert np.array_equal(x[0, 0], d["Ref_genotype"])
+        assert np.array_equal(x[0, 1], d["Tgt_genotype"])
+        assert np.array_equal(x[0, 2], d["Forward_relative_position"].astype(np.uint32))
+        assert np.array_equal(x[0, 3], d["Backward_relative_position"].astype(np.uint32))
+        assert np.array_equal(y[0, 0], d["Label"])
+
+        # is_phased=True => hap is (hap-1)
+        expected_ref = np.array([
+                [0, 0],  # tsk_0_1 -> hap 1 -> 0
+                [0, 1],  # tsk_0_2 -> hap 2 -> 1
+                [1, 0],  # tsk_1_1 -> 0
+                [1, 1],  # tsk_1_2 -> 1
+            ],
+            dtype=np.uint32,
+        )
+
+        expected_tgt = np.array(
+            [
+                [2, 0],  # tsk_2_1 -> 0
+                [2, 1],  # tsk_2_2 -> 1
+                [3, 0],  # tsk_3_1 -> 0
+                [3, 1],  # tsk_3_2 -> 1
+            ],
+            dtype=np.uint32,
+        )
+
+        assert np.array_equal(ind[0, 0], expected_ref)
+        assert np.array_equal(ind[0, 1], expected_tgt)
+
+        # Start=="Random" => Start=0, End=stepsize
+        assert np.array_equal(pos[0, 0, 0], np.array([0, 192], dtype=np.uint32))
+
+        assert int(ix[0, 0, 0]) == d["Replicate"]
+
+
+def test_write_h5_list_of_entries_appends_multiple_groups(tmp_path, test_data):
+    h5_file = tmp_path / "out.h5"
+    lock = multiprocessing.Lock()
+
+    d1 = copy.deepcopy(test_data)
+    d1["Replicate"] = 1
+
+    d2 = copy.deepcopy(test_data)
+    d2["Replicate"] = 2
+
+    nxt = write_h5(
+        file_name=str(h5_file),
+        entries=[d1, d2],
+        lock=lock,
+        stepsize=192,
+        is_phased=True,
+        chunk_size=1,
+        fwbw=True,
+        start_nr=None,
+        set_attributes=True,
+    )
+    assert nxt == 2
+
+    with h5py.File(h5_file, "r") as f:
+        assert int(f.attrs["last_index"]) == 2
+        assert "0" in f and "1" in f
+        assert int(f["0/ix"][0, 0, 0]) == 1
+        assert int(f["1/ix"][0, 0, 0]) == 2
+
+
+def test_write_h5_respects_start_nr(tmp_path, test_data):
+    h5_file = tmp_path / "out.h5"
+    lock = multiprocessing.Lock()
+
+    d = copy.deepcopy(test_data)
+    d["Replicate"] = 5
+
+    nxt = write_h5(
+        file_name=str(h5_file),
+        entries=d,
+        lock=lock,
+        stepsize=192,
+        is_phased=True,
+        chunk_size=1,
+        fwbw=True,
+        start_nr=10,
+        set_attributes=False,
+    )
+    assert nxt == 11
+
+    with h5py.File(h5_file, "r") as f:
+        assert "10" in f
+        assert "0" not in f
+        assert "last_index" not in f.attrs
 
 
 def test_write_tsv_appends_rows(tmp_path):
