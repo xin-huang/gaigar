@@ -40,6 +40,56 @@ def write_h5(
     """
     Append one or many entry dictionaries to an HDF5 file.
 
+    This is a high-level convenience wrapper that prepares per-window/per-sample
+    dictionaries for on-disk storage. Each input dictionary is normalized to the
+    expected schema, packed into the writer-specific nested-list representation,
+    and then appended to the HDF5 file using the low-level writer.
+
+    Parameters
+    ----------
+    file_name : str
+        Path to the output HDF5 file.
+    entries : dict[str, Any] or list[dict[str, Any]]
+        Either a single entry dictionary or a list of entry dictionaries.
+        Each entry is expected to contain the fields required by the schema
+        normalizer and packer (for example: ``Start``, ``End``, ``Ref_sample``,
+        ``Tgt_sample``, ``Ref_genotype``, ``Tgt_genotype``, ``Label``,
+        ``Forward_relative_position``, ``Backward_relative_position``, and
+        ``Replicate``).
+    lock : multiprocessing.Lock
+        Inter-process lock used to serialize HDF5 writes.
+    stepsize : int, optional
+        Window length used when an entry has ``Start == "Random"``. In that case,
+        ``Start`` is set to 0 and ``End`` is set to ``stepsize``. Defaults to 192.
+    is_phased : bool, optional
+        Whether the sample identifiers encode phased haplotypes. If True, haplotype
+        indices are preserved but converted to 0-based indexing (hap-1). If False,
+        haplotype indices are set to 0. Defaults to True.
+    chunk_size : int, optional
+        Number of packed entries passed to the low-level writer per write call.
+        Defaults to 1. Keep ``chunk_size=1`` until chunk semantics in the low-level
+        writer are validated.
+    fwbw : bool, optional
+        Whether to include forward/backward information as additional feature
+        channels in the stored feature tensor. Defaults to True.
+    start_nr : int, optional
+        Starting group id for writing. If None, the low-level writer determines
+        the next id from the file attribute ``last_index`` (defaulting to 0 if
+        missing). Defaults to None.
+    set_attributes : bool, optional
+        Whether to update the file attribute ``last_index`` after writing.
+        Defaults to True.
+
+    Returns
+    -------
+    int
+        The next available group id after the final write.
+
+    Raises
+    ------
+    KeyError
+        If required keys are missing from an entry dictionary.
+
     Notes
     -----
     - This function normalizes and packs entries into the schema expected by the

@@ -29,8 +29,8 @@ from gaishi.simulators import GenotypeMatrixSimulator
 
 
 @pytest.fixture
-def init_params():
-    output_dir = "tests/test_GenotypeMatrixSimulator"
+def init_params(tmp_path):
+    output_dir = tmp_path / "test_GenotypeMatrixSimulator"
     return {
         "demo_model_file": "tests/data/ArchIE_3D19.yaml",
         "nref": 50,
@@ -53,15 +53,7 @@ def init_params():
     }
 
 
-@pytest.fixture
-def cleanup_output_dir(request, init_params):
-    # Setup (nothing to do before the test)
-    yield  # Hand over control to the test
-    # Teardown
-    shutil.rmtree(init_params["output_dir"], ignore_errors=True)
-
-
-def test_GenotypeMatrixSimulator(init_params, cleanup_output_dir):
+def test_GenotypeMatrixSimulator(init_params):
     simulator = GenotypeMatrixSimulator(**init_params)
     generator = RandomNumberGenerator(nrep=10, seed=12345)
     res = mp_manager(

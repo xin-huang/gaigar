@@ -88,7 +88,9 @@ def test_data():
     }
 
 
-def test_write_h5_single_entry_creates_group_and_updates_last_index(tmp_path, test_data):
+def test_write_h5_single_entry_creates_group_and_updates_last_index(
+    tmp_path, test_data
+):
     h5_file = tmp_path / "out.h5"
     lock = multiprocessing.Lock()
 
@@ -133,11 +135,14 @@ def test_write_h5_single_entry_creates_group_and_updates_last_index(tmp_path, te
         assert np.array_equal(x[0, 0], d["Ref_genotype"])
         assert np.array_equal(x[0, 1], d["Tgt_genotype"])
         assert np.array_equal(x[0, 2], d["Forward_relative_position"].astype(np.uint32))
-        assert np.array_equal(x[0, 3], d["Backward_relative_position"].astype(np.uint32))
+        assert np.array_equal(
+            x[0, 3], d["Backward_relative_position"].astype(np.uint32)
+        )
         assert np.array_equal(y[0, 0], d["Label"])
 
         # is_phased=True => hap is (hap-1)
-        expected_ref = np.array([
+        expected_ref = np.array(
+            [
                 [0, 0],  # tsk_0_1 -> hap 1 -> 0
                 [0, 1],  # tsk_0_2 -> hap 2 -> 1
                 [1, 0],  # tsk_1_1 -> 0

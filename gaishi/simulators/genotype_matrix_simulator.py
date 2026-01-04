@@ -67,6 +67,9 @@ class GenotypeMatrixSimulator(GenericSimulator):
         keep_sim_data: bool,
         num_polymorphisms: int,
         num_upsamples: int,
+        h5_chunk_size: int = 1,
+        h5_fwbw: bool = True,
+        h5_set_attributes: bool = True,
     ):
         """
         Initialize a new instance of the GenotypeMatrixSimulator class.
@@ -109,12 +112,12 @@ class GenotypeMatrixSimulator(GenericSimulator):
             Number of polymorphic sites to simulate.
         num_upsamples : int
             Number of samples after upsampling to generate.
-
-        Notes
-        -----
-        The output file will be created in the specified directory, with either a `.h5` or `.tsv` extension
-        depending on the value of `output_h5`. If `output_h5` is True, an empty HDF5 file will be initialized.
-        Otherwise, a TSV file will be created with appropriate headers.
+        h5_chunk_size : int, optional
+            Chunk size passed to the HDF5 writer. Keep at 1 until chunk semantics are validated.
+        h5_fwbw : bool, optional
+            Whether to store forward/backward information as additional feature channels in HDF5.
+        h5_set_attributes : bool, optional
+            Whether to update the HDF5 attribute ``last_index`` after writing.
         """
 
         self.simulator = MsprimeSimulator(
@@ -147,10 +150,15 @@ class GenotypeMatrixSimulator(GenericSimulator):
         self.num_upsamples = num_upsamples
         self.output_h5 = output_h5
 
+        # HDF writer configuration (output policy, not per-run state)
+        self.h5_chunk_size = h5_chunk_size
+        self.h5_fwbw = h5_fwbw
+        self.h5_set_attributes = h5_set_attributes
+
         os.makedirs(output_dir, exist_ok=True)
         if self.output_h5:
             self.output = os.path.join(output_dir, f"{output_prefix}.h5")
-            with h5py.File(self.output, "w") as f:
+            with h5py.File(self.output, "w"):
                 pass
         else:
             self.output = os.path.join(output_dir, f"{output_prefix}.tsv")
@@ -292,7 +300,6 @@ class GenotypeMatrixSimulator(GenericSimulator):
         lock : multiprocessing.Lock
             Lock for synchronizing multiprocessing operations.
         """
-
         label_sum = np.sum(data_dict["Label"])
         if only_intro and (label_sum == 0):
             return
@@ -300,7 +307,6 @@ class GenotypeMatrixSimulator(GenericSimulator):
             return
 
         write_data = False
-
         with lock:
             if nintro.value + nnonintro.value < nfeature:
                 if force_balanced:
@@ -321,12 +327,13 @@ class GenotypeMatrixSimulator(GenericSimulator):
             if output_h5:
                 write_h5(
                     file_name=file_name,
-                    data_dict=data_dict,
+                    entries=data_dict,
                     lock=lock,
                     stepsize=self.num_polymorphisms,
                     is_phased=self.is_phased,
-                    chunk_size=1,
-                    fwbw=True,
+                    chunk_size=self.h5_chunk_size,
+                    fwbw=self.h5_fwbw,
+                    set_attributes=self.h5_set_attributes,
                 )
             else:
                 write_tsv(
