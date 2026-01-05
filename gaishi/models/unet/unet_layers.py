@@ -43,6 +43,20 @@ class ResidualConcatBlock(nn.Module):
     n_layers : int, default=2
         Number of convolutional layers inside the block.
 
+    Returns
+    -------
+    torch.Tensor
+        Output tensor of shape ``(B, out_channels * n_layers, H, W)``.
+
+    Raises
+    ------
+    ValueError
+        If ``n_layers < 1``.
+    ValueError
+        If ``k < 1``.
+    ValueError
+        If ``k`` is even.
+
     Notes
     -----
     - The output channel dimension equals ``out_channels * n_layers`` due to concatenation.
@@ -60,8 +74,19 @@ class ResidualConcatBlock(nn.Module):
         Activation function applied after concatenation (ELU).
     """
 
-    def __init__(self, in_channels: int, out_channels: int, k: int = 3, n_layers: int = 2):
+    def __init__(
+        self, in_channels: int, out_channels: int, k: int = 3, n_layers: int = 2
+    ):
         super().__init__()
+
+        if n_layers < 1:
+            raise ValueError(f"n_layers must be >= 1, got {n_layers}.")
+        if k < 1:
+            raise ValueError(f"k must be >= 1, got {k}.")
+        if k % 2 == 0:
+            raise ValueError(
+                f"k must be odd to preserve spatial shape for residual addition, got {k}."
+            )
 
         pad = (k + 1) // 2 - 1
 

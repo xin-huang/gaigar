@@ -69,7 +69,7 @@ def init_params_h5(tmp_path):
         "rec_rate": 1e-8,
         "output_prefix": "test",
         "output_dir": str(output_dir),
-        "output_h5": True,          # H5 mode
+        "output_h5": True,  # H5 mode
         "is_phased": True,
         "is_sorted": True,
         "keep_sim_data": False,
