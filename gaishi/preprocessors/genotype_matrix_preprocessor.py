@@ -139,11 +139,11 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
             for i in self.tgt_rdm_spl_idx:
                 tgt_samples.append(tgt_samples[i])
 
-        fwd_rlt_pos = np.diff(pos, prepend=[pos[0]])
-        bwd_rlt_pos = np.diff(pos, append=[pos[-1]])
+        prev_gap = np.diff(pos, prepend=[pos[0]])
+        next_gap = np.diff(pos, append=[pos[-1]])
 
-        fwd_rlt_pos = np.broadcast_to(fwd_rlt_pos, ref_gts.shape)
-        bwd_rlt_pos = np.broadcast_to(bwd_rlt_pos, ref_gts.shape)
+        prev_gap = np.broadcast_to(prev_gap, ref_gts.shape)
+        next_gap = np.broadcast_to(next_gap, ref_gts.shape)
 
         data_dict = {
             "Chromosome": chr_name,
@@ -151,8 +151,8 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
             "End": end,
             "Position": pos,
             "Position_index": pos_idx,
-            "Forward_relative_position": fwd_rlt_pos,
-            "Backward_relative_position": bwd_rlt_pos,
+            "Gap_to_prev": prev_gap,
+            "Gap_to_next": next_gap,
             "Ref_sample": ref_samples,
             "Ref_genotype": ref_gts,
             "Tgt_sample": tgt_samples,

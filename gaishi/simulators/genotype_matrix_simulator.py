@@ -68,7 +68,7 @@ class GenotypeMatrixSimulator(GenericSimulator):
         num_polymorphisms: int,
         num_upsamples: int,
         h5_chunk_size: int = 1,
-        h5_fwbw: bool = True,
+        h5_neighbor_gaps: bool = True,
         h5_set_attributes: bool = True,
     ):
         """
@@ -114,8 +114,10 @@ class GenotypeMatrixSimulator(GenericSimulator):
             Number of samples after upsampling to generate.
         h5_chunk_size : int, optional
             Chunk size passed to the HDF5 writer. Keep at 1 until chunk semantics are validated.
-        h5_fwbw : bool, optional
-            Whether to store forward/backward information as additional feature channels in HDF5.
+        h5_neighbor_gaps : bool, optional
+            Whether to store neighbor-gap information as additional feature channels in HDF5.
+            When enabled, two channels are saved for each position: the distance to the previous
+            variant (gap_to_prev) and the distance to the next variant (gap_to_next).
         h5_set_attributes : bool, optional
             Whether to update the HDF5 attribute ``last_index`` after writing.
         """
@@ -152,7 +154,7 @@ class GenotypeMatrixSimulator(GenericSimulator):
 
         # HDF writer configuration (output policy, not per-run state)
         self.h5_chunk_size = h5_chunk_size
-        self.h5_fwbw = h5_fwbw
+        self.h5_neighbor_gaps  = h5_neighbor_gaps
         self.h5_set_attributes = h5_set_attributes
 
         os.makedirs(output_dir, exist_ok=True)
@@ -169,8 +171,8 @@ class GenotypeMatrixSimulator(GenericSimulator):
                     + "End\t"
                     + "Position\t"
                     + "Position_index\t"
-                    + "Forward_relative_position\t"
-                    + "Backward_relative_position\t"
+                    + "Gap_to_prev\t"
+                    + "Gap_to_next\t"
                     + "Ref_sample\t"
                     + "Ref_genotype\t"
                     + "Tgt_sample\t"
@@ -332,7 +334,7 @@ class GenotypeMatrixSimulator(GenericSimulator):
                     stepsize=self.num_polymorphisms,
                     is_phased=self.is_phased,
                     chunk_size=self.h5_chunk_size,
-                    fwbw=self.h5_fwbw,
+                    neighbor_gaps=self.h5_neighbor_gaps,
                     set_attributes=self.h5_set_attributes,
                 )
             else:

@@ -77,7 +77,7 @@ def init_params_h5(tmp_path):
         "num_upsamples": 56,
         # If the class exposes H5 knobs, they can be passed here (optional):
         # "h5_chunk_size": 1,
-        # "h5_fwbw": True,
+        # "h5_neighbor_gaps": True,
         # "h5_set_attributes": True,
     }
 

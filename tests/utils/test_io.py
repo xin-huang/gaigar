@@ -36,7 +36,7 @@ def test_data():
         "End": "Random",
         "Position": np.array([0, 1, 2, 3, 4]),
         "Position_index": [0, 1, 2, 3, 4],
-        "Forward_relative_position": np.array(
+        "Gap_to_prev": np.array(
             [
                 [0, 1, 1, 1, 1],
                 [0, 1, 1, 1, 1],
@@ -45,7 +45,7 @@ def test_data():
             ],
             dtype=np.int64,
         ),
-        "Backward_relative_position": np.array(
+        "Gap_to_next": np.array(
             [
                 [1, 1, 1, 1, 0],
                 [1, 1, 1, 1, 0],
@@ -103,7 +103,7 @@ def test_write_h5_single_entry_creates_group_and_updates_last_index(
         stepsize=192,
         is_phased=True,
         chunk_size=1,
-        fwbw=True,
+        neighbor_gaps=True,
         start_nr=None,
         set_attributes=True,
     )
@@ -124,7 +124,7 @@ def test_write_h5_single_entry_creates_group_and_updates_last_index(
         ix = g["ix"][()]
 
         # Shapes implied by current writer:
-        # x: (1, 4, n_samples, n_sites)  -> 2 genotype channels + 2 fwbw channels
+        # x: (1, 4, n_samples, n_sites)  -> 2 genotype channels + 2 neighbor_gaps channels
         assert x.shape == (1, 4, 4, 5)
         assert y.shape == (1, 1, 4, 5)
         assert ind.shape == (1, 2, 4, 2)
@@ -134,9 +134,9 @@ def test_write_h5_single_entry_creates_group_and_updates_last_index(
         # Content sanity checks
         assert np.array_equal(x[0, 0], d["Ref_genotype"])
         assert np.array_equal(x[0, 1], d["Tgt_genotype"])
-        assert np.array_equal(x[0, 2], d["Forward_relative_position"].astype(np.uint32))
+        assert np.array_equal(x[0, 2], d["Gap_to_prev"].astype(np.uint32))
         assert np.array_equal(
-            x[0, 3], d["Backward_relative_position"].astype(np.uint32)
+            x[0, 3], d["Gap_to_next"].astype(np.uint32)
         )
         assert np.array_equal(y[0, 0], d["Label"])
 
@@ -187,7 +187,7 @@ def test_write_h5_list_of_entries_appends_multiple_groups(tmp_path, test_data):
         stepsize=192,
         is_phased=True,
         chunk_size=1,
-        fwbw=True,
+        neighbor_gaps=True,
         start_nr=None,
         set_attributes=True,
     )
@@ -214,7 +214,7 @@ def test_write_h5_respects_start_nr(tmp_path, test_data):
         stepsize=192,
         is_phased=True,
         chunk_size=1,
-        fwbw=True,
+        neighbor_gaps=True,
         start_nr=10,
         set_attributes=False,
     )
@@ -325,8 +325,8 @@ def test_pack_hdf_entry_orders_fields_correctly():
         "End": 192,
         "Replicate": 7,
         "Position": [10, 20, 30],
-        "Forward_relative_position": [0.1, 0.2, 0.3],
-        "Backward_relative_position": [0.9, 0.8, 0.7],
+        "Gap_to_prev": [0.1, 0.2, 0.3],
+        "Gap_to_next": [0.9, 0.8, 0.7],
     }
 
     packed = _pack_hdf_entry(d)
@@ -367,8 +367,8 @@ def test_pack_hdf_entry_does_not_modify_input():
         "End": 7,
         "Replicate": 8,
         "Position": [9],
-        "Forward_relative_position": [10],
-        "Backward_relative_position": [11],
+        "Gap_to_prev": [10],
+        "Gap_to_next": [11],
     }
 
     before = dict(d)
@@ -387,8 +387,8 @@ def test_pack_hdf_entry_missing_key_raises_keyerror():
         "End": 7,
         "Replicate": 8,
         "Position": [9],
-        "Forward_relative_position": [10],
-        "Backward_relative_position": [11],
+        "Gap_to_prev": [10],
+        "Gap_to_next": [11],
     }
 
     with pytest.raises(KeyError):
@@ -410,7 +410,7 @@ def _make_packed_entry(
     entry[2] : list of 2 (N,2) arrays -> indices (ref/tgt)
     entry[3] : list of 1 (2,) array/list -> StartEnd
     entry[5] : list of 1 scalar -> replicate/index (ix)
-    entry[-2], entry[-1] : (1,H,W) integer arrays -> fw/bw channels
+    entry[-2], entry[-1] : (1,H,W) integer arrays -> neighbor_gaps channels
     """
     ref = np.arange(H * W, dtype=np.uint32).reshape(H, W)
     tgt = np.arange(H * W, dtype=np.uint32).reshape(H, W) + 100
@@ -420,9 +420,9 @@ def _make_packed_entry(
     ref_idx = np.array([[0, 0], [1, 1]], dtype=np.uint32)[:N]
     tgt_idx = np.array([[2, 0], [3, 1]], dtype=np.uint32)[:N]
 
-    # Forward/backward channels must be integer dtype and shape (1, H, W)
-    fw = np.zeros((1, H, W), dtype=np.int32)
-    bw = np.ones((1, H, W), dtype=np.int32)
+    # neighbor_gaps channels must be integer dtype and shape (1, H, W)
+    prev_gap = np.zeros((1, H, W), dtype=np.int32)
+    next_gap = np.ones((1, H, W), dtype=np.int32)
 
     entry = [
         [ref, tgt],  # 0: base channels (2, H, W) after np.asarray
@@ -432,8 +432,8 @@ def _make_packed_entry(
         [start_end[1]],  # 4: End (unused by writer)
         [rep],  # 5: Replicate -> ix
         [[10, 20, 30]],  # 6: Position (unused by writer)
-        fw,  # 7: Forward_relative_position (used when fwbw=True)
-        bw,  # 8: Backward_relative_position (used when fwbw=True)
+        prev_gap,  # 7: Gap_to_prev (used when neighbor_gaps=True)
+        next_gap,  # 8: Gap_to_next (used when neighbor_gaps=True)
     ]
     return entry
 
@@ -449,7 +449,7 @@ def test_append_hdf_entries_writes_one_entry_and_sets_last_index(tmp_path):
         lock=lock,
         start_nr=None,
         chunk_size=1,
-        fwbw=True,
+        neighbor_gaps=True,
         set_attributes=True,
     )
     assert nxt == 1
@@ -471,7 +471,7 @@ def test_append_hdf_entries_writes_one_entry_and_sets_last_index(tmp_path):
         ix = g["ix"][()]
 
         # Shapes
-        assert x.shape == (1, 4, 3, 4)  # 2 base + 2 fwbw channels
+        assert x.shape == (1, 4, 3, 4)  # 2 base + 2 neighbor_gaps channels
         assert y.shape == (1, 1, 3, 4)
         assert ind.shape == (1, 2, 2, 2)
         assert pos.shape == (1, 1, 1, 2)
@@ -487,13 +487,13 @@ def test_append_hdf_entries_writes_one_entry_and_sets_last_index(tmp_path):
         # Content sanity
         ref = np.asarray(entry[0])[0]
         tgt = np.asarray(entry[0])[1]
-        fw = np.asarray(entry[-2])[0]
-        bw = np.asarray(entry[-1])[0]
+        prev_gap = np.asarray(entry[-2])[0]
+        next_gap = np.asarray(entry[-1])[0]
 
         assert np.array_equal(x[0, 0], ref)
         assert np.array_equal(x[0, 1], tgt)
-        assert np.array_equal(x[0, 2], fw.astype(np.uint32))
-        assert np.array_equal(x[0, 3], bw.astype(np.uint32))
+        assert np.array_equal(x[0, 2], prev_gap.astype(np.uint32))
+        assert np.array_equal(x[0, 3], next_gap.astype(np.uint32))
 
         assert np.array_equal(y[0, 0], np.asarray(entry[1])[0])
 
@@ -512,12 +512,12 @@ def test_append_hdf_entries_appends_second_group(tmp_path):
     entry1 = _make_packed_entry(rep=2)
 
     nxt1 = _append_hdf_entries(
-        str(h5_file), [entry0], lock=lock, chunk_size=1, fwbw=True
+        str(h5_file), [entry0], lock=lock, chunk_size=1, neighbor_gaps=True
     )
     assert nxt1 == 1
 
     nxt2 = _append_hdf_entries(
-        str(h5_file), [entry1], lock=lock, chunk_size=1, fwbw=True
+        str(h5_file), [entry1], lock=lock, chunk_size=1, neighbor_gaps=True
     )
     assert nxt2 == 2
 

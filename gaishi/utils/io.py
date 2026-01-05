@@ -33,7 +33,7 @@ def write_h5(
     stepsize: int = 192,
     is_phased: bool = True,
     chunk_size: int = 1,
-    fwbw: bool = True,
+    neighbor_gaps: bool = True,
     start_nr: Optional[int] = None,
     set_attributes: bool = True,
 ) -> int:
@@ -54,7 +54,7 @@ def write_h5(
         Each entry is expected to contain the fields required by the schema
         normalizer and packer (for example: ``Start``, ``End``, ``Ref_sample``,
         ``Tgt_sample``, ``Ref_genotype``, ``Tgt_genotype``, ``Label``,
-        ``Forward_relative_position``, ``Backward_relative_position``, and
+        ``Gap_to_prev``, ``Gap_to_next``, and
         ``Replicate``).
     lock : multiprocessing.Lock
         Inter-process lock used to serialize HDF5 writes.
@@ -69,9 +69,11 @@ def write_h5(
         Number of packed entries passed to the low-level writer per write call.
         Defaults to 1. Keep ``chunk_size=1`` until chunk semantics in the low-level
         writer are validated.
-    fwbw : bool, optional
-        Whether to include forward/backward information as additional feature
-        channels in the stored feature tensor. Defaults to True.
+    neighbor_gaps : bool, optional
+        Whether to include neighbor-gap information as additional feature channels in the
+        stored feature tensor. When enabled, two channels are included: the distance to the
+        previous variant (gap_to_prev) and the distance to the next variant (gap_to_next).
+        Defaults to True.
     start_nr : int, optional
         Starting group id for writing. If None, the low-level writer determines
         the next id from the file attribute ``last_index`` (defaulting to 0 if
@@ -110,7 +112,7 @@ def write_h5(
         lock=lock,
         start_nr=start_nr,
         chunk_size=chunk_size,
-        fwbw=fwbw,
+        neighbor_gaps=neighbor_gaps,
         set_attributes=set_attributes,
     )
 
@@ -216,7 +218,7 @@ def _pack_hdf_entry(data_dict: dict) -> list:
         A single preprocessed entry. Expected to contain at least the keys:
         ``Ref_genotype``, ``Tgt_genotype``, ``Label``, ``Ref_sample``, ``Tgt_sample``,
         ``StartEnd``, ``End``, ``Replicate``, ``Position``,
-        ``Forward_relative_position``, and ``Backward_relative_position``.
+        ``Gap_to_prev``, and ``Gap_to_next``.
 
     Returns
     -------
@@ -235,8 +237,8 @@ def _pack_hdf_entry(data_dict: dict) -> list:
         ("End",),
         ("Replicate",),
         ("Position",),
-        ("Forward_relative_position",),
-        ("Backward_relative_position",),
+        ("Gap_to_prev",),
+        ("Gap_to_next",),
     )
     return [[data_dict[k] for k in group] for group in keys]
 
@@ -252,7 +254,7 @@ def _append_hdf_entries(
     pos_name: str = "pos",
     ix_name: str = "ix",
     chunk_size: int = 1,
-    fwbw: bool = True,
+    neighbor_gaps: bool = True,
     set_attributes: bool = True,
 ) -> int:
     """
@@ -263,9 +265,9 @@ def _append_hdf_entries(
     under an integer group id (e.g., ``"0/"``, ``"1/"``), and the next available
     id is tracked in the file attribute ``last_index`` when `start_nr` is None.
 
-    When `fwbw` is True, two additional feature channels are appended to the
-    feature tensor (forward and backward information). This function asserts
-    that these channels are integer-valued and have shapes compatible with the
+    When `neighbor_gaps` is True, two additional feature channels are appended to the
+    feature tensor (gap to the previous variant and gap to the next variant). This function
+    asserts that these channels are integer-valued and have shapes compatible with the
     feature tensor.
 
     Parameters
@@ -279,7 +281,8 @@ def _append_hdf_entries(
         - entry[1]: label tensor
         - entry[2]: indices tensor (reference/target sample ids)
         - entry[3]: position tensor (e.g., StartEnd)
-        - entry[-2], entry[-1]: forward/backward channels (only if `fwbw` is True)
+        - entry[-2], entry[-1]: neighbor-gap channels (gap to previous variant, gap to next variant;
+                                only if `neighbor_gaps` is True)
         - entry[5]: replicate/index value for `ix`
     lock : multiprocessing.Lock
         Inter-process lock to serialize HDF5 writes.
@@ -293,9 +296,9 @@ def _append_hdf_entries(
         Number of entries written per loop iteration. The current implementation
         is designed to be used with ``chunk_size=1``. Other values are accepted
         but require careful validation of index semantics.
-    fwbw : bool, optional
-        If True, append forward and backward feature channels to the base feature
-        tensor before writing.
+    neighbor_gaps : bool, optional
+        If True, append two neighbor-gap feature channels to the base feature tensor
+        before writing: the gap to the previous variant and the gap to the next variant.
     set_attributes : bool, optional
         If True, update the file attribute ``last_index`` to the next available
         group id after writing.
@@ -305,7 +308,7 @@ def _append_hdf_entries(
     int
         The next available group id after the final write.
     """
-    additional_x_features = 2 if fwbw else 0
+    additional_x_features = 2 if neighbor_gaps else 0
 
     with lock:
         with h5py.File(hdf_file, "a") as h5f:
@@ -362,7 +365,7 @@ def _append_hdf_entries(
                 for k in range(chunk_size):
                     entry = input_entries[i + k]
 
-                    if fwbw:
+                    if neighbor_gaps:
                         features = np.concatenate([entry[0], entry[-2], entry[-1]])
                     else:
                         features = entry[0]
