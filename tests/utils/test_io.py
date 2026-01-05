@@ -135,9 +135,7 @@ def test_write_h5_single_entry_creates_group_and_updates_last_index(
         assert np.array_equal(x[0, 0], d["Ref_genotype"])
         assert np.array_equal(x[0, 1], d["Tgt_genotype"])
         assert np.array_equal(x[0, 2], d["Gap_to_prev"].astype(np.uint32))
-        assert np.array_equal(
-            x[0, 3], d["Gap_to_next"].astype(np.uint32)
-        )
+        assert np.array_equal(x[0, 3], d["Gap_to_next"].astype(np.uint32))
         assert np.array_equal(y[0, 0], d["Label"])
 
         # is_phased=True => hap is (hap-1)

@@ -154,7 +154,7 @@ class GenotypeMatrixSimulator(GenericSimulator):
 
         # HDF writer configuration (output policy, not per-run state)
         self.h5_chunk_size = h5_chunk_size
-        self.h5_neighbor_gaps  = h5_neighbor_gaps
+        self.h5_neighbor_gaps = h5_neighbor_gaps
         self.h5_set_attributes = h5_set_attributes
 
         os.makedirs(output_dir, exist_ok=True)

@@ -23,6 +23,7 @@ import torch
 
 from gaishi.models.unet import ResidualConcatBlock
 from gaishi.models.unet import UNetPlusPlus
+from gaishi.models.unet import UNetPlusPlusRNNNeighborGapFusion
 
 
 @pytest.mark.parametrize(
@@ -170,3 +171,96 @@ def test_unetplusplus_raises_on_invalid_spatial_size(h, w):
 
     with pytest.raises(RuntimeError):
         _ = model(x)
+
+
+@pytest.mark.parametrize(
+    "batch,h,w,polymorphisms",
+    [
+        (2, 32, 128, 128),
+        (1, 64, 128, 128),
+        (3, 16, 256, 256),
+    ],
+)
+def test_unetplusplus_rnn_neighbor_gap_fusion_output_shape(batch, h, w, polymorphisms):
+    model = UNetPlusPlusRNNNeighborGapFusion(
+        polymorphisms=polymorphisms,
+        hidden_dim=4,
+        gru_layers=1,
+        bidirectional=True,
+    )
+    x = torch.randn(batch, 4, h, w)
+
+    y = model(x)
+
+    assert y.shape == (batch, h, w)
+
+
+def test_unetplusplus_rnn_neighbor_gap_fusion_backward_pass():
+    torch.manual_seed(0)
+
+    model = UNetPlusPlusRNNNeighborGapFusion(
+        polymorphisms=128,
+        hidden_dim=4,
+        gru_layers=1,
+        bidirectional=True,
+    )
+    x = torch.randn(2, 4, 32, 128, requires_grad=True)
+
+    y = model(x)
+    loss = y.mean()
+    loss.backward()
+
+    assert x.grad is not None
+    assert torch.isfinite(x.grad).all()
+
+    grads = [p.grad for p in model.parameters() if p.requires_grad]
+    assert any(g is not None for g in grads)
+    assert all(torch.isfinite(g).all() for g in grads if g is not None)
+
+
+@pytest.mark.parametrize("bidirectional", [True, False])
+def test_unetplusplus_rnn_neighbor_gap_fusion_runs_with_bidirectional_toggle(
+    bidirectional,
+):
+    model = UNetPlusPlusRNNNeighborGapFusion(
+        polymorphisms=128,
+        hidden_dim=4,
+        gru_layers=2,
+        bidirectional=bidirectional,
+    )
+    x = torch.randn(1, 4, 32, 128)
+
+    y = model(x)
+
+    assert y.shape == (1, 32, 128)
+
+
+@pytest.mark.parametrize("bad_channels", [1, 2, 3, 5])
+def test_unetplusplus_rnn_neighbor_gap_fusion_rejects_invalid_channel_count(
+    bad_channels,
+):
+    model = UNetPlusPlusRNNNeighborGapFusion(polymorphisms=128)
+    x = torch.randn(1, bad_channels, 32, 128)
+
+    with pytest.raises(ValueError):
+        _ = model(x)
+
+
+def test_unetplusplus_rnn_neighbor_gap_fusion_rejects_mismatched_width():
+    model = UNetPlusPlusRNNNeighborGapFusion(polymorphisms=128)
+    x = torch.randn(1, 4, 32, 127)
+
+    with pytest.raises(ValueError):
+        _ = model(x)
+
+
+def test_unetplusplus_rnn_neighbor_gap_fusion_is_deterministic_in_eval_mode():
+    torch.manual_seed(0)
+
+    model = UNetPlusPlusRNNNeighborGapFusion(polymorphisms=128).eval()
+    x = torch.randn(1, 4, 32, 128)
+
+    y1 = model(x)
+    y2 = model(x)
+
+    assert torch.allclose(y1, y2)
