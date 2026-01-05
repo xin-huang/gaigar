@@ -133,7 +133,6 @@ def test_GenotypeMatrixSimulator_h5(init_params_h5):
         lock=Lock(),
     )
 
-    # In H5 mode, mp_manager may return dicts or None depending on your integration.
     # This test asserts the on-disk contract, which is the stable source of truth.
     h5_path = f'{init_params_h5["output_dir"]}/{init_params_h5["output_prefix"]}.h5'
 
