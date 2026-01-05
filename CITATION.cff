@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Huang"
+  given-names: "Xin"
+  orcid: "https://orcid.org/0000-0002-9918-9602"
+title: "GAISHI: A Python Package for Genomic Analysis of Introgressed-Site and -Haplotype Identification"
+version: 0.1.0
+doi: 10.5281/zenodo.18150675
+date-released: 2026-01-05
+url: "https://github.com/xin-huang/gaishi"

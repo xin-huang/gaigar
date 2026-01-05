@@ -1,6 +1,6 @@
-site_name: gaigar
-site_url: "https://xin-huang.github.io/gaigar"
-repo_url: "https://github.com/xin-huang/gaigar"
+site_name: gaishi
+site_url: "https://xin-huang.github.io/gaishi"
+repo_url: "https://github.com/xin-huang/gaishi"
 edit_uri: ""
 docs_dir: 'docs'
 theme:
@@ -10,14 +10,14 @@ theme:
     accent: indigo
 plugins:
   - search
-  - mkdocstrings:
-      default_handler: python
-      handlers:
-        python:
-          rendering:
-            show_source: true
-      watch:
-        - gaigar
+#  - mkdocstrings:
+#      default_handler: python
+#      handlers:
+#        python:
+#          rendering:
+#            show_source: true
+#      watch:
+#        - gaishi
 markdown_extensions:
   - extra
   - tables
