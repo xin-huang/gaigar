@@ -168,58 +168,46 @@ def make_h5_collate_fn(
     Tuple[torch.Tensor, Optional[torch.Tensor]],
 ]:
     """
-    PyTorch Dataset for key indexed, chunk based HDF5 training data.
+    Create a DataLoader collate function for key-chunked HDF5 samples.
 
-    Each item corresponds to a single HDF5 group (a "key") and returns a fixed size
-    chunk of samples stored under that key.
+    The Dataset is expected to yield items of the form ``(x, y)``, where each item
+    corresponds to one HDF5 key and contains a chunk of samples:
 
-    Expected HDF5 layout
-    --------------------
-    For each key in `keys`, the HDF5 file is expected to contain at least:
+    - ``x``: ``(chunk_size, channels, n_individuals, n_polymorphisms)``
+    - ``y``: ``(chunk_size, 1, n_individuals, n_polymorphisms)`` or compatible shape,
+      or ``None`` if labels are absent.
 
-    - ``{key}/{x_dataset}``: input tensor with shape
-      ``(chunk_size, n_channels, n_individuals, n_polymorphisms)``.
-    - ``{key}/{y_dataset}`` (optional): label tensor with shape compatible with the model,
-      commonly ``(chunk_size, 1, n_individuals, n_polymorphisms)``.
+    The returned collate function concatenates all ``x`` arrays (and all non-None
+    ``y`` arrays) along axis 0 to form a single batch tensor. This matches the
+    "key-based" batching pattern where a DataLoader batch groups multiple keys and
+    the final batch size equals the sum of their chunk sizes.
 
-    This dataset slices the channel dimension as ``x[:, :channels, ...]`` so that
-    the caller can choose between using only the base channels or including extra
-    feature channels (for example neighbor gap channels).
+    Label smoothing
+    --------------
+    If ``label_smooth`` is True, labels are perturbed elementwise as:
 
-    Notes
-    -----
-    - The HDF5 file is opened lazily on first access. This avoids sharing an h5py
-      handle across DataLoader worker processes.
-    - With ``num_workers > 0``, each worker process should get its own dataset
-      instance and therefore its own file handle. This pattern is commonly used
-      with h5py. Avoid sharing one Dataset instance across processes manually.
-    - ``x`` is returned as a NumPy array with dtype ``x_dtype``. Conversion to
-      ``torch.Tensor`` is performed in the collate function.
+    ``Y_smooth = Y * (1 - e) + 0.5 * e``
+
+    where ``e ~ Uniform(0, label_noise)``. This is intended for training only;
+    validation labels should remain unchanged.
 
     Parameters
     ----------
-    h5_path : str
-        Path to the HDF5 file.
-    keys : Sequence[str]
-        HDF5 group names to use as dataset items.
-    channels : int, optional
-        Number of input channels to read from ``x_dataset`` by taking the first
-        ``channels`` channels. Defaults to 2.
-    require_labels : bool, optional
-        If True, require that ``{key}/{y_dataset}`` exists for every key.
-        If False, missing labels return ``None``. Defaults to True.
-    x_dataset : str, optional
-        Dataset name under each key for inputs. Defaults to "x_0".
-    y_dataset : str, optional
-        Dataset name under each key for labels. Defaults to "y".
-    x_dtype : np.dtype, optional
-        NumPy dtype used for returned input arrays. Defaults to ``np.int32``.
+    label_smooth : bool, optional
+        Whether to apply label smoothing to labels in the batch. Defaults to False.
+    label_noise : float, optional
+        Maximum noise value for the uniform distribution used in label smoothing.
+        Defaults to 0.01.
+    rng : np.random.Generator, optional
+        RNG used for label smoothing. If None, a new default RNG is created.
 
     Returns
     -------
-    (x, y) : Tuple[np.ndarray, Optional[np.ndarray]]
-        - x : Input array with shape ``(chunk_size, channels, n_individuals, n_polymorphisms)``.
-        - y : Label array, or None if labels are absent and ``require_labels`` is False.
+    Callable
+        A collate function ``collate(batch) -> (x_out, y_out)`` where:
+        - ``x_out`` is a ``torch.FloatTensor`` produced from concatenated inputs.
+        - ``y_out`` is a ``torch.FloatTensor`` from concatenated labels, or ``None``
+          if no labels were provided in the batch.
     """
     if rng is None:
         rng = np.random.default_rng()
