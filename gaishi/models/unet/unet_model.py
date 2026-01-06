@@ -16,3 +16,22 @@
 # along with this program. If not, please see
 #
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
+
+
+from gaishi.models import MlModel
+from gaishi.registries.model_registry import MODEL_REGISTRY
+
+
+@MODEL_REGISTRY.register("unet")
+class UNetModel(MlModel):
+    """
+    """
+
+    @staticmethod
+    def train():
+        pass
+
+
+    @staticmethod
+    def infer():
+        pass
