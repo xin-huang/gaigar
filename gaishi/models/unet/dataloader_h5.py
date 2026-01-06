@@ -360,3 +360,45 @@ def build_dataloaders_from_h5(
     )
 
     return train_loader, val_loader
+
+
+def split_keys(
+    keys: Sequence[str],
+    val_prop: float = 0.05,
+    seed: int = 0,
+) -> Tuple[List[str], List[str]]:
+    """
+    Split HDF5 group keys into training and validation subsets.
+
+    The split is deterministic given the same input `keys` and `seed`. Keys are
+    shuffled using a NumPy random generator and then partitioned such that the
+    first ``int(len(keys) * val_prop)`` keys form the validation set and the
+    remaining keys form the training set.
+
+    Parameters
+    ----------
+    keys : Sequence[str]
+        Iterable of HDF5 group names (each key typically corresponds to one data chunk).
+    val_prop : float, optional
+        Fraction of keys assigned to validation. Defaults to 0.05.
+    seed : int, optional
+        Seed for the random number generator used to shuffle keys. Defaults to 0.
+
+    Returns
+    -------
+    (train_keys, val_keys) : Tuple[List[str], List[str]]
+        Two lists containing the training keys and validation keys, respectively.
+
+    Notes
+    -----
+    - The split is performed at the key level. All samples within a key are kept together.
+    - If ``val_prop`` is too small relative to the number of keys, ``n_val`` may be 0.
+    """
+    keys = list(keys)
+    rng = np.random.default_rng(seed)
+    rng.shuffle(keys)
+    n_val = int(len(keys) * float(val_prop))
+    val_keys = keys[:n_val]
+    train_keys = keys[n_val:]
+
+    return train_keys, val_keys
