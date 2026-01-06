@@ -24,13 +24,11 @@ from gaishi.registries.model_registry import MODEL_REGISTRY
 
 @MODEL_REGISTRY.register("unet")
 class UNetModel(MlModel):
-    """
-    """
+    """ """
 
     @staticmethod
     def train():
         pass
-
 
     @staticmethod
     def infer():

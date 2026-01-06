@@ -42,6 +42,7 @@ class H5BatchSpec:
 
     This class provides a single place to encode and validate this relationship.
     """
+
     chunk_size: int
     batch_size: int
 
@@ -143,7 +144,9 @@ class H5KeyChunkDataset(Dataset):
         key = self.keys[idx]
         h5 = self._get_h5()
 
-        x = np.asarray(h5[key][self.x_dataset])[:, : self.channels].astype(self.x_dtype, copy=False)
+        x = np.asarray(h5[key][self.x_dataset])[:, : self.channels].astype(
+            self.x_dtype, copy=False
+        )
 
         if self.y_dataset in h5[key]:
             y = np.asarray(h5[key][self.y_dataset])
@@ -160,7 +163,10 @@ def make_h5_collate_fn(
     label_smooth: bool = False,
     label_noise: float = 0.01,
     rng: Optional[np.random.Generator] = None,
-) -> Callable[[List[Tuple[np.ndarray, Optional[np.ndarray]]]], Tuple[torch.Tensor, Optional[torch.Tensor]]]:
+) -> Callable[
+    [List[Tuple[np.ndarray, Optional[np.ndarray]]]],
+    Tuple[torch.Tensor, Optional[torch.Tensor]],
+]:
     """
     PyTorch Dataset for key indexed, chunk based HDF5 training data.
 
@@ -229,7 +235,9 @@ def make_h5_collate_fn(
             if y is not None:
                 ys.append(y)
 
-        x_out = torch.from_numpy(np.concatenate(xs, axis=0).astype(np.float32, copy=False))
+        x_out = torch.from_numpy(
+            np.concatenate(xs, axis=0).astype(np.float32, copy=False)
+        )
 
         if len(ys) == 0:
             return x_out, None
@@ -238,7 +246,9 @@ def make_h5_collate_fn(
 
         if label_smooth:
             # y = y*(1-e) + 0.5*e  with e~U(0, label_noise)
-            e = rng.uniform(0.0, float(label_noise), size=y_np.shape).astype(np.float32, copy=False)
+            e = rng.uniform(0.0, float(label_noise), size=y_np.shape).astype(
+                np.float32, copy=False
+            )
             y_np = y_np * (1.0 - e) + 0.5 * e
 
         y_out = torch.from_numpy(y_np)
@@ -315,7 +325,7 @@ def build_dataloaders_from_h5(
           label smoothing optionally applied.
         - val_loader yields ``(x, y)`` with labels unchanged.
     """
-    # Separate RNGs so train/val behavior is deterministic if you want
+    # Separate RNGs so train/val behavior is deterministic
     train_rng = np.random.default_rng(seed)
     val_rng = np.random.default_rng(seed + 1)
 
