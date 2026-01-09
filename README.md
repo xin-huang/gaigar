@@ -9,8 +9,10 @@
 
 A Python Package for **G**enomic **A**nalysis of **I**ntrogressed-**S**ite and -**H**aplotype **I**dentification
 
-The **OFFICIAL** repository: https://github.com/xin-huang/gaishi
+Main repository: https://github.com/xin-huang/gaishi
 
-Contributions, bug reports, and feature requests should be directed to [the official repository](https://github.com/xin-huang/gaishi). If you are viewing a fork, please note that it may diverge from **the official repository** and is not maintained by the official maintainers. Please refer to **the official repository** for current releases, documentation, and contribution guidelines. When citing this software, cite **the official repository**, and use **official releases** for production or reproducible analyses.
+Please direct contributions, bug reports, and feature requests to the main repository. If you are viewing a fork, it may diverge from [the main repository](https://github.com/xin-huang/gaishi) and may not be kept up to date.
+
+For current releases, documentation, and contribution guidelines, please refer to the main repository. When citing this software, cite the main repository, and use tagged releases for production or reproducible analyses.
 
 The manual can be found [here](https://xin-huang.github.io/gaishi).
