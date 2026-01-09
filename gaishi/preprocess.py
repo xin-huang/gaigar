@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +22,7 @@ import os, yaml
 import pandas as pd
 from gaishi.utils import parse_ind_file
 from gaishi.multiprocessing import mp_manager
-from gaishi.generators import GenomicDataGenerator
+from gaishi.generators import WindowDataGenerator
 from gaishi.preprocessors import FeatureVectorPreprocessor
 
 
@@ -80,12 +81,11 @@ def preprocess_feature_vectors(
     ------
     ValueError
         If any of the provided parameters are invalid, such as negative window lengths or step sizes.
-
     """
     if nprocess <= 0:
         raise ValueError("Number of processes must be greater than 0.")
 
-    generator = GenomicDataGenerator(
+    generator = WindowDataGenerator(
         vcf_file=vcf_file,
         ref_ind_file=ref_ind_file,
         tgt_ind_file=tgt_ind_file,
