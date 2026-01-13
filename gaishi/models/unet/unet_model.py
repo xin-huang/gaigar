@@ -23,18 +23,24 @@ import logging
 import os
 import pickle
 import time
-import torch
+from typing import Optional
+
 import numpy as np
 import pandas as pd
+import torch
 import torch.optim as optim
 from scipy.special import expit
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 from torch.nn import BCEWithLogitsLoss
-from typing import Optional
+
 from gaishi.models import MlModel
 from gaishi.models.unet import UNetPlusPlus, UNetPlusPlusRNNNeighborGapFusion
 from gaishi.registries.model_registry import MODEL_REGISTRY
-from gaishi.utils.dataloader_h5 import split_keys, H5BatchSpec, build_dataloaders_from_h5
+from gaishi.models.unet import (
+    split_keys,
+    H5BatchSpec,
+    build_dataloaders_from_h5,
+)
 
 
 @MODEL_REGISTRY.register("unet")
@@ -55,6 +61,9 @@ class UNetModel(MlModel):
     - The best model weights are selected by minimum validation loss and written
       to ``{model_dir}/best.weights``.
     - Validation keys are saved to ``{model_dir}/val_keys.pkl`` for reproducibility.
+    - Model selection:
+        * add_channels == False -> UNetPlusPlus(num_classes=n_classes, input_channels=2)
+        * add_channels == True  -> UNetPlusPlusRNNNeighborGapFusion(polymorphisms=W) with 4-channel input
     """
 
     @staticmethod
@@ -67,7 +76,6 @@ class UNetModel(MlModel):
         n_classes: int = 1,
         learning_rate: float = 0.001,
         batch_size: int = 32,
-        filter_multiplier: float = 1.0,
         label_noise: float = 0.01,
         n_early: int = 10,
         n_epochs: int = 100,
@@ -75,62 +83,74 @@ class UNetModel(MlModel):
         compute_prec_rec: bool = True,
     ) -> None:
         """
-        Train a UNet model on an HDF5 dataset and save the best performing weights.
-        Write outputs to disk:
+        Train a UNet model on a key chunked HDF5 dataset and save the best weights.
 
-            - ``{model_dir}/best.weights``: best model state dict by validation loss.
-            - ``{model_dir}/train.log``: training log.
-            - ``{model_dir}/training_history.csv``: training history.
-            - ``{model_dir}/val_keys.pkl``: validation keys used for the split.
+        The input HDF5 file must contain multiple top level groups (keys). Each key stores
+        a fixed size chunk under ``x_0`` and labels under ``y``. Training batches are formed
+        by concatenating multiple key chunks along the sample axis. The number of keys per
+        batch is derived from ``batch_size`` and the per key ``chunk_size`` read from the file.
 
-        The HDF5 file is expected to contain multiple top level groups (keys). Each key
-        stores one chunk of samples under ``x_0`` and the corresponding labels under ``y``.
-        A training batch is assembled by concatenating multiple key chunks along the
-        sample axis. The number of keys per batch is derived from ``batch_size`` and the
-        per key ``chunk_size`` read from the file.
+        Outputs written to ``model_dir``
+
+        1. ``best.weights``: model weights with the lowest validation loss
+        2. ``train.log``: training log
+        3. ``training_history.csv``: per epoch history
+        4. ``val_keys.pkl``: validation keys used for the split
+
+        Model selection
+
+        1. If ``add_channels`` is False, train ``UNetPlusPlus(num_classes=n_classes, input_channels=2)``
+        2. If ``add_channels`` is True, train ``UNetPlusPlusRNNNeighborGapFusion(polymorphisms=W)``
+           and require that ``x_0`` has exactly 4 channels and ``n_classes == 1``
 
         Parameters
         ----------
         training_data : str
-            Path to an HDF5 file containing training data.
+            Path to the HDF5 training file.
         model_dir : str
-            Output directory for logs, history, validation keys, and best weights.
+            Directory where logs, history, validation keys, and best weights are saved.
         trained_model_file : Optional[str], optional
-            Path to an existing model weights file to initialize training. Defaults to None.
+            Path to a weights file to initialize the model before training. If None, training
+            starts from random initialization. Defaults to None.
         net : str, optional
-            Network architecture identifier. Currently only "default" is supported. Defaults to "default".
+            Network identifier. Only "default" is supported. Defaults to "default".
         add_channels : bool, optional
-            If True, use all channels present in ``x_0``. If False, use only the first two channels.
-            Defaults to False.
+            If False, use only the first two channels from ``x_0``. If True, use all channels
+            and select the neighbor gap fusion model. Defaults to False.
         n_classes : int, optional
             Number of output classes. For binary classification this is typically 1. Defaults to 1.
         learning_rate : float, optional
-            Learning rate for the Adam optimizer. Defaults to 0.001.
+            Learning rate for Adam. Defaults to 0.001.
         batch_size : int, optional
             Total number of samples per optimization step after concatenation across keys.
-            Must be divisible by the per key chunk size stored in the HDF5 file. Defaults to 32.
-        filter_multiplier : float, optional
-            Multiplier applied to the base number of convolutional filters in the network. Defaults to 1.0.
+            Must be divisible by the per key ``chunk_size`` stored in the file. Defaults to 32.
         label_noise : float, optional
-            Noise magnitude used for label smoothing. Only applied when ``label_smooth`` is True.
-            Defaults to 0.01.
+            Noise magnitude used for label smoothing during training. Defaults to 0.01.
         n_early : int, optional
-            Early stopping patience in epochs. Training stops if validation loss does not improve
-            for more than this number of epochs. Defaults to 10.
+            Early stopping patience in epochs. Training stops after more than this many epochs
+            without validation loss improvement. Defaults to 10.
         n_epochs : int, optional
-            Maximum number of training epochs. Defaults to 100.
+            Maximum number of epochs. Defaults to 100.
         label_smooth : bool, optional
             Whether to apply label smoothing to training labels. Defaults to True.
         compute_prec_rec : bool, optional
-            Whether to compute precision and recall scores during training and validation.
-            These metrics are computed on CPU and can be expensive. Defaults to True.
+            Whether to compute precision and recall during training and validation. This is
+            computed on CPU and can be expensive. Defaults to True.
 
         Raises
         ------
         ValueError
-            If the HDF5 file contains no keys, if the net identifier is unsupported,
-            if the training labels contain no positive class, or if batching constraints
-            cannot be satisfied.
+            If the HDF5 file contains no keys.
+        ValueError
+            If ``net`` is not supported.
+        ValueError
+            If the training labels contain no positive class.
+        ValueError
+            If ``batch_size`` is not divisible by ``chunk_size``.
+        ValueError
+            If ``add_channels`` is True but the input does not have 4 channels.
+        ValueError
+            If ``add_channels`` is True but ``n_classes`` is not 1.
         """
         start_time = time.time()
 
@@ -139,7 +159,9 @@ class UNetModel(MlModel):
 
         if torch.cuda.is_available():
             device = torch.device("cuda:{}".format(0))
-            print(f"CUDA is available: version {torch.version.cuda}. Training on GPU ...")
+            print(
+                f"CUDA is available: version {torch.version.cuda}. Training on GPU ..."
+            )
         else:
             device = torch.device("cpu")
             print("CUDA is not available. Training on CPU ...")
@@ -157,6 +179,7 @@ class UNetModel(MlModel):
         print(f"Shape of input entries: {load_file[first_key]['x_0'].shape}")
         chunk_size = int(load_file[first_key]["x_0"].shape[0])
         channel_size = int(load_file[first_key]["x_0"].shape[1])
+        polymorphisms = int(load_file[first_key]["x_0"].shape[3])
 
         if add_channels:
             input_channels = channel_size
@@ -183,22 +206,39 @@ class UNetModel(MlModel):
             all_counts1 += value_to_count.get(1, 0)
 
         if all_counts1 == 0:
-            raise ValueError("Training labels contain no positive class, all_counts1 is 0.")
+            raise ValueError(
+                "Training labels contain no positive class, all_counts1 is 0."
+            )
 
         ratio = all_counts0 / all_counts1
         print(f"negative to positive ratio in training data set: {ratio}")
 
         # Initialize model
-        if net == "default":
-            print(f"default model with {input_channels} input channels trained")
-            model = UNetPlusPlus(
-                int(n_classes),
-                input_channels,
-                filter_multiplier=float(filter_multiplier),
-                small=False,
-            )
-        else:
+        if net != "default":
             raise ValueError(f"Unknown net architecture: {net}")
+
+        if add_channels:
+            if channel_size != 4:
+                raise ValueError(
+                    f"add_channels=True expects 4 input channels in x_0, got {channel_size}."
+                )
+            if int(n_classes) != 1:
+                raise ValueError(
+                    "UNetPlusPlusRNNNeighborGapFusion currently supports n_classes == 1 only."
+                )
+
+            print("default model: UNetPlusPlusRNNNeighborGapFusion (4-channel input)")
+            model = UNetPlusPlusRNNNeighborGapFusion(polymorphisms=polymorphisms)
+        else:
+            if channel_size < 2:
+                raise ValueError(
+                    f"Expected at least 2 input channels in x_0, got {channel_size}."
+                )
+
+            print(
+                f"default model: UNetPlusPlus (2-channel input), n_classes={int(n_classes)}"
+            )
+            model = UNetPlusPlus(num_classes=int(n_classes), input_channels=2)
 
         print(model, file=log_file, flush=True)
         model = model.to(device)
@@ -268,7 +308,9 @@ class UNetModel(MlModel):
                 accuracies.append(accuracy_score(y_bin.flatten(), y_pred_bin.flatten()))
 
                 if compute_prec_rec:
-                    precisions.append(precision_score(y_bin.flatten(), y_pred_bin.flatten()))
+                    precisions.append(
+                        precision_score(y_bin.flatten(), y_pred_bin.flatten())
+                    )
                     recalls.append(recall_score(y_bin.flatten(), y_pred_bin.flatten()))
 
                 if (step_ix + 1) % 1000 == 0:
@@ -310,15 +352,23 @@ class UNetModel(MlModel):
                     y_pred = model(x)
                     loss = criterion(y_pred, y)
 
-                    y_pred_bin = np.round(expit(y_pred.detach().cpu().numpy().flatten()))
+                    y_pred_bin = np.round(
+                        expit(y_pred.detach().cpu().numpy().flatten())
+                    )
                     y_bin = np.round(y.detach().cpu().numpy().flatten())
 
-                    val_accs.append(accuracy_score(y_bin.flatten(), y_pred_bin.flatten()))
+                    val_accs.append(
+                        accuracy_score(y_bin.flatten(), y_pred_bin.flatten())
+                    )
                     val_losses.append(loss.detach().item())
 
                     if compute_prec_rec:
-                        val_precisions.append(precision_score(y_bin.flatten(), y_pred_bin.flatten()))
-                        val_recalls.append(recall_score(y_bin.flatten(), y_pred_bin.flatten()))
+                        val_precisions.append(
+                            precision_score(y_bin.flatten(), y_pred_bin.flatten())
+                        )
+                        val_recalls.append(
+                            recall_score(y_bin.flatten(), y_pred_bin.flatten())
+                        )
 
             val_loss = float(np.mean(val_losses))
 
@@ -356,7 +406,10 @@ class UNetModel(MlModel):
             if val_loss < min_val_loss:
                 min_val_loss = val_loss
                 logging.info("saving weights...")
-                torch.save(model.state_dict(), os.path.join(model_dir, "{0}.weights".format("best")))
+                torch.save(
+                    model.state_dict(),
+                    os.path.join(model_dir, "{0}.weights".format("best")),
+                )
                 early_count = 0
             else:
                 early_count += 1
@@ -367,7 +420,10 @@ class UNetModel(MlModel):
                 lr_scheduler.step()
 
             df = pd.DataFrame(history)
-            df.to_csv(os.path.join(model_dir, "{}_history.csv".format("training")), index=False)
+            df.to_csv(
+                os.path.join(model_dir, "{}_history.csv".format("training")),
+                index=False,
+            )
 
         total = time.time() - start_time
         log_file.write("training complete! \n")
