@@ -23,11 +23,11 @@ import pytest
 import torch
 import numpy as np
 from dataclasses import FrozenInstanceError
-from gaishi.models.unet import H5BatchSpec
-from gaishi.models.unet import H5KeyChunkDataset
-from gaishi.models.unet import make_h5_collate_fn
-from gaishi.models.unet import build_dataloaders_from_h5
-from gaishi.models.unet import split_keys
+from gaishi.models.unet.dataloader_h5 import H5BatchSpec
+from gaishi.models.unet.dataloader_h5 import H5KeyChunkDataset
+from gaishi.models.unet.dataloader_h5 import make_h5_collate_fn
+from gaishi.models.unet.dataloader_h5 import build_dataloaders_from_h5
+from gaishi.models.unet.dataloader_h5 import split_keys
 
 
 # unit tests for H5BatchSpec
