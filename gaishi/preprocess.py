@@ -112,3 +112,24 @@ def preprocess_feature_vectors(
     os.makedirs(output_dir, exist_ok=True)
     output_file = os.path.join(output_dir, f"{output_prefix}.features")
     pd.DataFrame(res).to_csv(output_file, sep="\t", index=False)
+
+
+def preprocess_genotype_matrix():
+    """
+    """
+    if nprocess <= 0
+        raise ValueError("Number of processes must be greater than 0.")
+
+    generator = PolymorphismDataGenerator(
+        vcf_file=vcf_file,
+        chr_name=chr_name,
+        ref_ind_file=ref_ind_file,
+        tgt_ind_file=tgt_ind_file,
+        num_polymorphisms=num_polymorphisms,
+        step_size=step_size,
+        anc_allele_file=anc_allele_file,
+        ploidy=ploidy,
+        is_phased=is_phased,
+        random_polymorphisms=False,
+        num_upsamples=num_upsamples,
+    )

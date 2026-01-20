@@ -46,7 +46,6 @@ class PolymorphismDataGenerator(GenericGenerator):
         random_polymorphisms: bool = False,
         seed: int = None,
         num_upsamples: int = None,
-        window_based: bool = False,
     ):
         """
         Initializes the PolymorphismDataGenerator with the given parameters.
@@ -123,7 +122,7 @@ class PolymorphismDataGenerator(GenericGenerator):
             chr_name=chr_name,
             polymorphism_size=num_polymorphisms,
             step_size=step_size,
-            window_based=window_based,
+            window_based=False,
             random_polymorphisms=random_polymorphisms,
             seed=seed,
         )
