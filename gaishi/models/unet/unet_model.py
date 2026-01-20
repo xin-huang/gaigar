@@ -71,7 +71,6 @@ class UNetModel(MlModel):
         training_data: str,
         model_dir: str,
         trained_model_file: Optional[str] = None,
-        net: str = "default",
         add_channels: bool = False,
         n_classes: int = 1,
         learning_rate: float = 0.001,
@@ -79,8 +78,8 @@ class UNetModel(MlModel):
         label_noise: float = 0.01,
         n_early: int = 10,
         n_epochs: int = 100,
+        min_delta: float = 1e-4,
         label_smooth: bool = True,
-        compute_prec_rec: bool = True,
     ) -> None:
         """
         Train a UNet model on a key chunked HDF5 dataset and save the best weights.
@@ -111,31 +110,32 @@ class UNetModel(MlModel):
             Directory where logs, history, validation keys, and best weights are saved.
         trained_model_file : Optional[str], optional
             Path to a weights file to initialize the model before training. If None, training
-            starts from random initialization. Defaults to None.
-        net : str, optional
-            Network identifier. Only "default" is supported. Defaults to "default".
+            starts from random initialization. Default: None.
         add_channels : bool, optional
             If False, use only the first two channels from ``x_0``. If True, use all channels
-            and select the neighbor gap fusion model. Defaults to False.
+            and select the neighbor gap fusion model. Default: False.
         n_classes : int, optional
-            Number of output classes. For binary classification this is typically 1. Defaults to 1.
+            Number of output classes. For binary classification this is typically 1. Default: 1.
         learning_rate : float, optional
-            Learning rate for Adam. Defaults to 0.001.
+            Learning rate for Adam. Default: 0.001.
         batch_size : int, optional
             Total number of samples per optimization step after concatenation across keys.
-            Must be divisible by the per key ``chunk_size`` stored in the file. Defaults to 32.
+            Must be divisible by the per key ``chunk_size`` stored in the file. Default: 32.
         label_noise : float, optional
-            Noise magnitude used for label smoothing during training. Defaults to 0.01.
+            Noise magnitude used for label smoothing during training. Default: 0.01.
         n_early : int, optional
             Early stopping patience in epochs. Training stops after more than this many epochs
-            without validation loss improvement. Defaults to 10.
+            without validation loss improvement. Default: 10.
         n_epochs : int, optional
-            Maximum number of epochs. Defaults to 100.
+            Maximum number of epochs. Default: 100.
+        min_delta : float, optional
+            Minimum required decrease in validation loss to be considered an improvement
+            for early stopping and best-checkpoint saving. If the validation loss does
+            not decrease by more than ``min_delta`` compared to the current best, the
+            epoch is treated as "no improvement" and the early-stopping patience
+            counter is incremented. Set to 0.0 to disable this threshold. Default: 1e-4
         label_smooth : bool, optional
-            Whether to apply label smoothing to training labels. Defaults to True.
-        compute_prec_rec : bool, optional
-            Whether to compute precision and recall during training and validation. This is
-            computed on CPU and can be expensive. Defaults to True.
+            Whether to apply label smoothing to training labels. Default: True.
 
         Raises
         ------
@@ -213,10 +213,6 @@ class UNetModel(MlModel):
         ratio = all_counts0 / all_counts1
         print(f"negative to positive ratio in training data set: {ratio}")
 
-        # Initialize model
-        if net != "default":
-            raise ValueError(f"Unknown net architecture: {net}")
-
         if add_channels:
             if channel_size != 4:
                 raise ValueError(
@@ -265,20 +261,11 @@ class UNetModel(MlModel):
         criterion = BCEWithLogitsLoss(pos_weight=torch.FloatTensor([ratio]).to(device))
         optimizer = optim.Adam(model.parameters(), lr=float(learning_rate))
 
-        lr_scheduler = None
         min_val_loss = np.inf
         early_count = 0
 
-        history = {
-            "epoch": [],
-            "loss": [],
-            "val_loss": [],
-            "val_acc": [],
-            "epoch_time": [],
-        }
-
         print("training...")
-        for epoch_ix in range(int(n_epochs)):
+        for epoch_idx in range(1, int(n_epochs) + 1):
             t0 = time.time()
 
             model.train()
@@ -287,7 +274,7 @@ class UNetModel(MlModel):
             precisions = []
             recalls = []
 
-            for step_ix, (x, y) in enumerate(train_loader):
+            for batch_idx, (x, y) in enumerate(train_loader, start=1):
                 optimizer.zero_grad()
 
                 y = torch.squeeze(y)
@@ -307,34 +294,13 @@ class UNetModel(MlModel):
 
                 accuracies.append(accuracy_score(y_bin.flatten(), y_pred_bin.flatten()))
 
-                if compute_prec_rec:
-                    precisions.append(
-                        precision_score(y_bin.flatten(), y_pred_bin.flatten())
-                    )
-                    recalls.append(recall_score(y_bin.flatten(), y_pred_bin.flatten()))
+                mean_loss = np.mean(losses)
+                mean_acc = np.mean(accuracies)
 
-                if (step_ix + 1) % 1000 == 0:
+                if batch_idx % 1000 == 0:
                     logging.info(
-                        "root: Epoch {0}, step {3}: got loss of {1}, acc: {2}".format(
-                            epoch_ix, np.mean(losses), np.mean(accuracies), step_ix + 1
-                        )
+                        f"Epoch {epoch_idx}, batch {batch_idx + 1}: loss = {mean_loss}, accuracy = {mean_acc}"
                     )
-                    print(
-                        "root: Epoch {0}, step {3}: got loss of {1}, acc: {2}".format(
-                            epoch_ix, np.mean(losses), np.mean(accuracies), step_ix + 1
-                        ),
-                        file=log_file,
-                        flush=True,
-                    )
-                    if compute_prec_rec:
-                        print(
-                            "and precision: "
-                            + str(np.mean(precisions))
-                            + ", recall: "
-                            + str(np.mean(recalls)),
-                            file=log_file,
-                            flush=True,
-                        )
 
             model.eval()
             val_losses = []
@@ -362,68 +328,30 @@ class UNetModel(MlModel):
                     )
                     val_losses.append(loss.detach().item())
 
-                    if compute_prec_rec:
-                        val_precisions.append(
-                            precision_score(y_bin.flatten(), y_pred_bin.flatten())
-                        )
-                        val_recalls.append(
-                            recall_score(y_bin.flatten(), y_pred_bin.flatten())
-                        )
-
-            val_loss = float(np.mean(val_losses))
+            val_loss = np.mean(val_losses)
+            val_acc = np.mean(val_accs)
 
             logging.info(
-                "root: Epoch {0}, got val loss of {1}, acc: {2} ".format(
-                    epoch_ix, val_loss, np.mean(val_accs)
-                )
-            )
-            print(
-                "root: Epoch {0}, got val loss of {1}, acc: {2} ".format(
-                    epoch_ix, val_loss, np.mean(val_accs)
-                ),
-                file=log_file,
-                flush=True,
+                f"Epoch {epoch_idx}: validation loss = {val_loss}, validation accuracy = {val_acc}"
             )
 
-            if compute_prec_rec:
-                print(
-                    "and valprecision: "
-                    + str(np.mean(val_precisions))
-                    + ", valrecall: "
-                    + str(np.mean(val_recalls)),
-                    file=log_file,
-                    flush=True,
-                )
+            best_path = os.path.join(model_dir, "best.weights")
+            min_val_loss = float("inf")
+            early_count = 0
 
-            history["epoch"].append(epoch_ix)
-            history["loss"].append(float(np.mean(losses)))
-            history["val_loss"].append(float(np.mean(val_losses)))
+            improved = (min_val_loss - val_loss) > min_delta
 
-            e_time = time.time() - t0
-            history["epoch_time"].append(e_time)
-            history["val_acc"].append(float(np.mean(val_accs)))
-
-            if val_loss < min_val_loss:
+            if improved:
                 min_val_loss = val_loss
                 logging.info("saving weights...")
-                torch.save(
-                    model.state_dict(),
-                    os.path.join(model_dir, "{0}.weights".format("best")),
-                )
+                torch.save(model.state_dict(), best_path)
                 early_count = 0
             else:
                 early_count += 1
-                if early_count > int(n_early):
+                if early_count >= int(n_early):
+                    logging.info("early stopping; reloading best weights...")
+                    model.load_state_dict(torch.load(best_path, map_location="cpu"))
                     break
-
-            if lr_scheduler is not None:
-                lr_scheduler.step()
-
-            df = pd.DataFrame(history)
-            df.to_csv(
-                os.path.join(model_dir, "{}_history.csv".format("training")),
-                index=False,
-            )
 
         total = time.time() - start_time
         log_file.write("training complete! \n")

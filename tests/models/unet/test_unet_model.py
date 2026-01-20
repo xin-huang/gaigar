@@ -146,7 +146,6 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
         training_data=training_data,
         model_dir=str(model_dir),
         trained_model_file=None,
-        net="default",
         add_channels=False,  # -> UNetPlusPlus
         n_classes=1,
         learning_rate=0.001,
@@ -155,7 +154,6 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
         n_early=0,
         n_epochs=1,
         label_smooth=False,
-        compute_prec_rec=False,
     )
 
     assert DummyUNetPlusPlus.last_init is not None
@@ -164,7 +162,6 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
     assert DummyUNetPlusPlusRNNNeighborGapFusion.last_init is None
 
     assert (model_dir / "train.log").exists()
-    assert (model_dir / "training_history.csv").exists()
     assert (model_dir / "best.weights").exists()
     assert (model_dir / "val_keys.pkl").exists()
 
@@ -199,14 +196,12 @@ def test_train_branch_neighbor_gap_fusion_four_channel(tmp_path, monkeypatch) ->
     unet_mod.UNetModel.train(
         training_data=training_data,
         model_dir=str(model_dir),
-        net="default",
         add_channels=True,  # -> UNetPlusPlusRNNNeighborGapFusion
         n_classes=1,
         batch_size=2,
         n_epochs=1,
         n_early=0,
         label_smooth=False,
-        compute_prec_rec=False,
     )
 
     assert DummyUNetPlusPlus.last_init is None
@@ -238,14 +233,12 @@ def test_train_raises_when_add_channels_true_but_not_4_channels(
         unet_mod.UNetModel.train(
             training_data=training_data,
             model_dir=str(model_dir),
-            net="default",
             add_channels=True,
             n_classes=1,
             batch_size=2,
             n_epochs=1,
             n_early=0,
             label_smooth=False,
-            compute_prec_rec=False,
         )
 
 
@@ -273,14 +266,12 @@ def test_train_raises_when_add_channels_true_but_n_classes_not_1(
         unet_mod.UNetModel.train(
             training_data=training_data,
             model_dir=str(model_dir),
-            net="default",
             add_channels=True,
             n_classes=2,  # invalid
             batch_size=2,
             n_epochs=1,
             n_early=0,
             label_smooth=False,
-            compute_prec_rec=False,
         )
 
 
@@ -307,12 +298,10 @@ def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
         unet_mod.UNetModel.train(
             training_data=training_data,
             model_dir=str(model_dir),
-            net="default",
             add_channels=False,
             n_classes=1,
             batch_size=2,
             n_epochs=1,
             n_early=0,
             label_smooth=False,
-            compute_prec_rec=False,
         )
