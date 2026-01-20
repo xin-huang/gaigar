@@ -236,7 +236,7 @@ def test_write_h5_creates_dummy_label_and_replicate_when_missing(tmp_path):
         "Tgt_sample": ["Tgt_0_1"],
         "Ref_genotype": np.zeros((h, w), dtype=np.uint32),
         "Tgt_genotype": np.ones((h, w), dtype=np.uint32),
-        "Position": np.zeros((h, w), dtype=np.uint32),
+        "Position": np.zeros(w, dtype=np.uint32),
         "Gap_to_prev": np.zeros((h, w), dtype=np.uint32),
         "Gap_to_next": np.zeros((h, w), dtype=np.uint32),
         # no "Label"
