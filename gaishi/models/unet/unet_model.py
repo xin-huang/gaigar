@@ -329,7 +329,9 @@ class UNetModel(MlModel):
             else:
                 early_count += 1
                 if early_count >= int(n_early):
-                    log_file.write("Early stopping; best weights at epoch {best_epoch} reloaded.\n")
+                    log_file.write(
+                        "Early stopping; best weights at epoch {best_epoch} reloaded.\n"
+                    )
                     model.load_state_dict(torch.load(best_path, map_location="cpu"))
                     break
 
