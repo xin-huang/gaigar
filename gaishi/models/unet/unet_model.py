@@ -202,6 +202,8 @@ class UNetModel(MlModel):
                 "Training labels contain no positive class, all_counts1 is 0."
             )
 
+        ratio = all_counts0 / all_counts1
+
         if add_channels:
             if channel_size != 4:
                 raise ValueError(
