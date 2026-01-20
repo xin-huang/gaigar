@@ -156,7 +156,7 @@ class UNetModel(MlModel):
         os.makedirs(model_dir, exist_ok=True)
 
         if torch.cuda.is_available():
-            device = torch.device("cuda:{}".format(0))
+            device = torch.device("cuda:0")
         else:
             device = torch.device("cpu")
 
@@ -327,7 +327,7 @@ class UNetModel(MlModel):
             else:
                 early_count += 1
                 if early_count >= int(n_early):
-                    log_file.write("Early stopping; reloading best weights at epoch {best_epoch}.\n")
+                    log_file.write("Early stopping; best weights at epoch {best_epoch} reloaded.\n")
                     model.load_state_dict(torch.load(best_path, map_location="cpu"))
                     break
 
