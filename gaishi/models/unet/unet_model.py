@@ -324,7 +324,9 @@ class UNetModel(MlModel):
             if improved:
                 min_val_loss = val_loss
                 best_epoch = epoch_idx
-                validation_log_file.write(f"Best weights saved at epoch {best_epoch}.\n")
+                validation_log_file.write(
+                    f"Best weights saved at epoch {best_epoch}.\n"
+                )
                 validation_log_file.flush()
                 torch.save(model.state_dict(), best_path)
                 early_count = 0
@@ -339,7 +341,9 @@ class UNetModel(MlModel):
                     break
 
         total = time.time() - start_time
-        training_log_file.write(f"Training finished. Total time: {total:.2f} seconds.\n")
+        training_log_file.write(
+            f"Training finished. Total time: {total:.2f} seconds.\n"
+        )
         training_log_file.flush()
         training_log_file.close()
         validation_log_file.close()

@@ -71,7 +71,8 @@ def test_preprocess_feature_vectors(feature_vector_init_params):
 
     df = pd.read_csv(
         os.path.join(
-            feature_vector_init_params["output_dir"], f"{feature_vector_init_params['output_prefix']}.features"
+            feature_vector_init_params["output_dir"],
+            f"{feature_vector_init_params['output_prefix']}.features",
         ),
         sep="\t",
     )

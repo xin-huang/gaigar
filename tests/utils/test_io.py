@@ -252,7 +252,7 @@ def test_write_h5_creates_dummy_label_and_replicate_when_missing(tmp_path):
         assert y.shape == (1, h, w)
         assert y.dtype == np.uint8
         assert np.all(y[...] == 0)
-        
+
         # dummy replicate
         assert int(h5f["0/ix"][0, 0, 0]) == 0
 
