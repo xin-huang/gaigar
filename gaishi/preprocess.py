@@ -116,7 +116,7 @@ def preprocess_feature_vectors(
     pd.DataFrame(res).to_csv(output_file, sep="\t", index=False)
 
 
-def preprocess_genotype_matrix(
+def preprocess_genotype_matrices(
     vcf_file: str,
     chr_name: str,
     ref_ind_file: str,
@@ -124,10 +124,12 @@ def preprocess_genotype_matrix(
     anc_allele_file: str,
     output_file: str,
     num_polymorphisms: int,
-    step_size: int,
-    ploidy: int,
-    is_phased: bool,
     num_upsamples: int,
+    step_size: int,
+    ploidy: int = 2,
+    is_phased: bool = True,
+    is_sorted: bool = True,
+    nprocess: int = 1,
 ) -> None:
     """
     Preprocess a VCF into fixed-size genotype matrices and write them to an HDF5 file.
@@ -153,14 +155,19 @@ def preprocess_genotype_matrix(
         Path to the output HDF5 file to write.
     num_polymorphisms : int
         Number of polymorphic sites per window (matrix width).
-    step_size : int
-        Step size between consecutive windows along the chromosome.
-    ploidy : int
-        Ploidy of the samples (for example, 2 for diploid).
-    is_phased : bool
-        Whether genotypes and sample identifiers should be treated as phased haplotypes.
     num_upsamples : int
         Number of additional stochastic upsampled copies generated per window.
+    step_size : int
+        Step size between consecutive windows along the chromosome.
+    ploidy : int, optional
+        Ploidy of the samples (for example, 2 for diploid). Default: 2
+    is_phased : bool, optional
+        Whether genotypes and sample identifiers should be treated as phased haplotypes.
+        Default: True.
+    is_sorted : bool, optional
+        Indicates whether the genotype matrices should be sorted. Default: True.
+    nprocess : int, optional
+        Number of worker processes to use for parallel processing. Default: 1.
 
     Raises
     ------
