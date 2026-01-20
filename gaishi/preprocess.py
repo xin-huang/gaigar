@@ -130,8 +130,44 @@ def preprocess_genotype_matrix(
     num_upsamples: int,
 ) -> None:
     """
+    Preprocess a VCF into fixed-size genotype matrices and write them to an HDF5 file.
+
+    This function iterates over polymorphism windows generated from `vcf_file`, builds
+    per-window genotype matrices for reference and target samples, optionally produces
+    additional upsampled copies, runs preprocessing in parallel via `mp_manager`, and
+    writes the resulting entries to `output_file` using `write_h5`.
+
+    Parameters
+    ----------
+    vcf_file : str
+        Path to the input VCF (optionally compressed) containing variants for `chr_name`.
+    chr_name : str
+        Chromosome name to process (must match the contig naming in the VCF).
+    ref_ind_file : str
+        Path to a file listing reference individual identifiers to extract from the VCF.
+    tgt_ind_file : str
+        Path to a file listing target individual identifiers to extract from the VCF.
+    anc_allele_file : str
+        Path to an ancestral-allele file used by the generator for allele polarization.
+    output_file : str
+        Path to the output HDF5 file to write.
+    num_polymorphisms : int
+        Number of polymorphic sites per window (matrix width).
+    step_size : int
+        Step size between consecutive windows along the chromosome.
+    ploidy : int
+        Ploidy of the samples (for example, 2 for diploid).
+    is_phased : bool
+        Whether genotypes and sample identifiers should be treated as phased haplotypes.
+    num_upsamples : int
+        Number of additional stochastic upsampled copies generated per window.
+
+    Raises
+    ------
+    ValueError
+        If `nprocess` is not a positive integer.
     """
-    if nprocess <= 0
+    if nprocess <= 0:
         raise ValueError("Number of processes must be greater than 0.")
 
     generator = PolymorphismDataGenerator(
