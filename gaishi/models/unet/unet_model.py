@@ -91,9 +91,9 @@ class UNetModel(MlModel):
 
         Outputs written to ``model_dir``
 
-        1. ``best.weights``: model weights with the lowest validation loss
-        2. ``train.log``: training log
-        3. ``training_history.csv``: per epoch history
+        1. ``best.pth``: model weights with the lowest validation loss
+        2. ``training.log``: training log
+        3. ``validation.log``: validation log per epoch history
         4. ``val_keys.pkl``: validation keys used for the split
 
         Model selection
@@ -246,7 +246,7 @@ class UNetModel(MlModel):
         criterion = BCEWithLogitsLoss(pos_weight=torch.FloatTensor([ratio]).to(device))
         optimizer = optim.Adam(model.parameters(), lr=float(learning_rate))
 
-        best_path = os.path.join(model_dir, "best.weights")
+        best_path = os.path.join(model_dir, "best.pth")
         min_val_loss = np.inf
         early_count = 0
         best_epoch = 0
