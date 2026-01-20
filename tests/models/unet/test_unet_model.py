@@ -163,7 +163,7 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
 
     assert (model_dir / "training.log").exists()
     assert (model_dir / "validation.log").exists()
-    assert (model_dir / "best.weights").exists()
+    assert (model_dir / "best.pth").exists()
     assert (model_dir / "val_keys.pkl").exists()
 
     with open(model_dir / "val_keys.pkl", "rb") as f:
