@@ -153,9 +153,7 @@ class UNetModel(MlModel):
             If ``add_channels`` is True but ``n_classes`` is not 1.
         """
         start_time = time.time()
-
-        if not os.path.exists(model_dir):
-            os.system("mkdir -p {}".format(model_dir))
+        os.makedirs(model_dir, exist_ok=True)
 
         if torch.cuda.is_available():
             device = torch.device("cuda:{}".format(0))
@@ -163,7 +161,6 @@ class UNetModel(MlModel):
             device = torch.device("cpu")
 
         log_file = open(os.path.join(model_dir, "train.log"), "w")
-        log_file.write("\n")
 
         load_file = h5py.File(training_data, "r")
         keys = list(load_file.keys())
@@ -204,8 +201,6 @@ class UNetModel(MlModel):
             raise ValueError(
                 "Training labels contain no positive class, all_counts1 is 0."
             )
-
-        ratio = all_counts0 / all_counts1
 
         if add_channels:
             if channel_size != 4:
@@ -248,8 +243,10 @@ class UNetModel(MlModel):
         criterion = BCEWithLogitsLoss(pos_weight=torch.FloatTensor([ratio]).to(device))
         optimizer = optim.Adam(model.parameters(), lr=float(learning_rate))
 
+        best_path = os.path.join(model_dir, "best.weights")
         min_val_loss = np.inf
         early_count = 0
+        best_epoch = 0
 
         for epoch_idx in range(1, int(n_epochs) + 1):
             t0 = time.time()
@@ -283,7 +280,7 @@ class UNetModel(MlModel):
 
                 if batch_idx % 1000 == 0:
                     log_file.write(
-                        f"Epoch {epoch_idx}, batch {batch_idx}: loss = {mean_loss}, accuracy = {mean_acc}"
+                        f"Epoch {epoch_idx}, batch {batch_idx}: loss = {mean_loss}, accuracy = {mean_acc}.\n"
                     )
                     log_file.flush()
 
@@ -315,25 +312,22 @@ class UNetModel(MlModel):
             val_acc = np.mean(val_accs)
 
             log_file.write(
-                f"Epoch {epoch_idx}: validation loss = {val_loss}, validation accuracy = {val_acc}"
+                f"Epoch {epoch_idx}: validation loss = {val_loss}, validation accuracy = {val_acc}.\n"
             )
             log_file.flush()
-
-            best_path = os.path.join(model_dir, "best.weights")
-            min_val_loss = float("inf")
-            early_count = 0
 
             improved = (min_val_loss - val_loss) > min_delta
 
             if improved:
                 min_val_loss = val_loss
-                logging.info("saving weights...")
+                best_epoch = epoch_idx
+                log_file.write(f"Best weights saved at epoch {best_epoch}.\n")
                 torch.save(model.state_dict(), best_path)
                 early_count = 0
             else:
                 early_count += 1
                 if early_count >= int(n_early):
-                    logging.info("early stopping; reloading best weights...")
+                    log_file.write("Early stopping; reloading best weights at epoch {best_epoch}.\n")
                     model.load_state_dict(torch.load(best_path, map_location="cpu"))
                     break
 
