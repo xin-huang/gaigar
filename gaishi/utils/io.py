@@ -60,11 +60,11 @@ def write_h5(
         Inter-process lock used to serialize HDF5 writes.
     stepsize : int, optional
         Window length used when an entry has ``Start == "Random"``. In that case,
-        ``Start`` is set to 0 and ``End`` is set to ``stepsize``. Defaults to 192.
+        ``Start`` is set to 0 and ``End`` is set to ``stepsize``. Default: 192.
     is_phased : bool, optional
         Whether the sample identifiers encode phased haplotypes. If True, haplotype
         indices are preserved but converted to 0-based indexing (hap-1). If False,
-        haplotype indices are set to 0. Defaults to True.
+        haplotype indices are set to 0. Default: True.
     chunk_size : int, optional
         Number of packed entries passed to the low-level writer per write call.
         Defaults to 1. Keep ``chunk_size=1`` until chunk semantics in the low-level
@@ -73,14 +73,14 @@ def write_h5(
         Whether to include neighbor-gap information as additional feature channels in the
         stored feature tensor. When enabled, two channels are included: the distance to the
         previous variant (gap_to_prev) and the distance to the next variant (gap_to_next).
-        Defaults to True.
+        Default: True.
     start_nr : int, optional
         Starting group id for writing. If None, the low-level writer determines
         the next id from the file attribute ``last_index`` (defaulting to 0 if
-        missing). Defaults to None.
+        missing). Default: None.
     set_attributes : bool, optional
         Whether to update the file attribute ``last_index`` after writing.
-        Defaults to True.
+        Default: True.
 
     Returns
     -------
@@ -183,11 +183,11 @@ def _normalize_hdf_entry(
         ``Ref_sample``, and ``Tgt_sample``.
     stepsize : int, optional
         Window length used to derive ``End`` when ``Start`` is ``"Random"``.
-        Defaults to 192.
+        Default: 192.
     is_phased : bool, optional
         Whether the data are phased. If True, haplotype indices are preserved
         (converted to 0-based). If False, haplotype indices are set to 0.
-        Defaults to True.
+        Default: True.
 
     Returns
     -------

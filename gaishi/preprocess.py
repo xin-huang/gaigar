@@ -18,12 +18,14 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import os, yaml
+import os, multiprocessing, yaml
 import pandas as pd
-from gaishi.utils import parse_ind_file
+from gaishi.utils import parse_ind_file, write_h5
 from gaishi.multiprocessing import mp_manager
 from gaishi.generators import WindowDataGenerator
+from gaishi.generators import PolymorphismDataGenerator
 from gaishi.preprocessors import FeatureVectorPreprocessor
+from gaishi.preprocessors import GenotypeMatrixPreprocessor
 
 
 def preprocess_feature_vectors(
@@ -114,7 +116,19 @@ def preprocess_feature_vectors(
     pd.DataFrame(res).to_csv(output_file, sep="\t", index=False)
 
 
-def preprocess_genotype_matrix():
+def preprocess_genotype_matrix(
+    vcf_file: str,
+    chr_name: str,
+    ref_ind_file: str,
+    tgt_ind_file: str,
+    anc_allele_file: str,
+    output_file: str,
+    num_polymorphisms: int,
+    step_size: int,
+    ploidy: int,
+    is_phased: bool,
+    num_upsamples: int,
+) -> None:
     """
     """
     if nprocess <= 0
@@ -132,4 +146,22 @@ def preprocess_genotype_matrix():
         is_phased=is_phased,
         random_polymorphisms=False,
         num_upsamples=num_upsamples,
+    )
+
+    preprocessor = GenotypeMatrixPreprocessor(
+        ref_ind_file=ref_ind_file,
+        tgt_ind_file=tgt_ind_file,
+        ref_rdm_spl_idx=generator.ref_rdm_spl_idx,
+        tgt_rdm_spl_idx=generator.tgt_rdm_spl_idx,
+        is_sorted=is_sorted,
+    )
+
+    res = mp_manager(job=preprocessor, data_generator=generator, nprocess=nprocess)
+
+    write_h5(
+        file_name=output_file,
+        entries=res,
+        lock=multiprocessing.Lock(),
+        stepsize=num_polymorphisms,
+        is_phased=is_phased,
     )
