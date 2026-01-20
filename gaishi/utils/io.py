@@ -106,14 +106,17 @@ def write_h5(
         d_norm = _normalize_hdf_entry(dict(d), stepsize=stepsize, is_phased=is_phased)
 
         # If Label is missing (real data), create a dummy label with the expected shape.
-        if ("Label" not in d_norm) or (d_norm["Label"] is None):
+        if "Label" not in d_norm:
             tgt_g = np.asarray(d_norm["Tgt_genotype"])
             if tgt_g.ndim != 2:
                 raise ValueError(
-                    f"Cannot infer dummy Label shape from Tgt_genotype with shape {tgt_g.shape}."
+                    f"Tgt_genotype must be 2D (H, W) to infer dummy Label; got shape {tgt_g.shape}."
                 )
             h, w = tgt_g.shape
-            d_norm["Label"] = np.zeros((1, h, w), dtype=np.uint8)
+            d_norm["Label"] = np.zeros((h, w), dtype=np.uint8)
+
+        if "Replicate" not in d_norm:
+            d_norm["Replicate"] = np.array([[0]], dtype=np.uint32)
 
         packed_entries.append(_pack_hdf_entry(d_norm))
 

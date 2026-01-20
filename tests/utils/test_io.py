@@ -224,6 +224,40 @@ def test_write_h5_respects_start_nr(tmp_path, test_data):
         assert "last_index" not in f.attrs
 
 
+def test_write_h5_creates_dummy_label_and_replicate_when_missing(tmp_path):
+    h5_path = tmp_path / "out.h5"
+    lock = multiprocessing.Lock()
+
+    h, w = 112, 128
+    entry = {
+        "Start": 0,
+        "End": 192,
+        "Ref_sample": ["Ref_0_1"],
+        "Tgt_sample": ["Tgt_0_1"],
+        "Ref_genotype": np.zeros((h, w), dtype=np.uint32),
+        "Tgt_genotype": np.ones((h, w), dtype=np.uint32),
+        "Position": np.zeros((h, w), dtype=np.uint32),
+        "Gap_to_prev": np.zeros((h, w), dtype=np.uint32),
+        "Gap_to_next": np.zeros((h, w), dtype=np.uint32),
+        # no "Label"
+        # no "Replicate"
+    }
+
+    next_id = write_h5(str(h5_path), entry, lock, neighbor_gaps=True)
+    assert next_id == 1
+
+    with h5py.File(h5_path, "r") as h5f:
+        y = h5f["0/y"][0]
+        assert y.shape == (1, h, w)
+        assert y.dtype == np.uint8
+        assert np.all(y[...] == 0)
+
+        ix = h5f["0/ix"][0]
+        assert ix.shape == (1, 1)
+        assert ix.dtype == np.uint32
+        assert int(ix[0, 0]) == 0
+
+
 def test_write_tsv_appends_rows(tmp_path):
     tsv_file = tmp_path / "out.tsv"
     lock = multiprocessing.Lock()
