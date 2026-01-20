@@ -107,12 +107,12 @@ def write_h5(
 
         # If Label is missing (real data), create a dummy label with the expected shape.
         if ("Label" not in d_norm) or (d_norm["Label"] is None):
-            ref_g = np.asarray(d_norm["Ref_genotype"])
-            if ref_g.ndim != 2:
+            tgt_g = np.asarray(d_norm["Tgt_genotype"])
+            if tgt_g.ndim != 2:
                 raise ValueError(
-                    f"Cannot infer dummy Label shape from Ref_genotype with shape {ref_g.shape}."
+                    f"Cannot infer dummy Label shape from Tgt_genotype with shape {tgt_g.shape}."
                 )
-            h, w = ref_g.shape
+            h, w = tgt_g.shape
             d_norm["Label"] = np.zeros((1, h, w), dtype=np.uint8)
 
         packed_entries.append(_pack_hdf_entry(d_norm))
