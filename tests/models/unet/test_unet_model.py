@@ -161,7 +161,8 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
     assert DummyUNetPlusPlus.last_init["input_channels"] == 2
     assert DummyUNetPlusPlusRNNNeighborGapFusion.last_init is None
 
-    assert (model_dir / "train.log").exists()
+    assert (model_dir / "training.log").exists()
+    assert (model_dir / "validation.log").exists()
     assert (model_dir / "best.weights").exists()
     assert (model_dir / "val_keys.pkl").exists()
 
