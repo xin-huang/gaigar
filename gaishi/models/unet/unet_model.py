@@ -160,7 +160,8 @@ class UNetModel(MlModel):
         else:
             device = torch.device("cpu")
 
-        log_file = open(os.path.join(model_dir, "train.log"), "w")
+        training_log_file = open(os.path.join(model_dir, "training.log"), "w")
+        validation_log_file = open(os.path.join(model_dir, "validation.log"), "w")
 
         load_file = h5py.File(training_data, "r")
         keys = list(load_file.keys())
@@ -281,10 +282,10 @@ class UNetModel(MlModel):
                 mean_acc = np.mean(accuracies)
 
                 if batch_idx % 1000 == 0:
-                    log_file.write(
+                    training_log_file.write(
                         f"Epoch {epoch_idx}, batch {batch_idx}: loss = {mean_loss}, accuracy = {mean_acc}.\n"
                     )
-                    log_file.flush()
+                    training_log_file.flush()
 
             model.eval()
             val_losses = []
@@ -313,32 +314,35 @@ class UNetModel(MlModel):
             val_loss = np.mean(val_losses)
             val_acc = np.mean(val_accs)
 
-            log_file.write(
+            validation_log_file.write(
                 f"Epoch {epoch_idx}: validation loss = {val_loss}, validation accuracy = {val_acc}.\n"
             )
-            log_file.flush()
+            validation_log_file.flush()
 
             improved = (min_val_loss - val_loss) > min_delta
 
             if improved:
                 min_val_loss = val_loss
                 best_epoch = epoch_idx
-                log_file.write(f"Best weights saved at epoch {best_epoch}.\n")
+                validation_log_file.write(f"Best weights saved at epoch {best_epoch}.\n")
+                validation_log_file.flush()
                 torch.save(model.state_dict(), best_path)
                 early_count = 0
             else:
                 early_count += 1
                 if early_count >= int(n_early):
-                    log_file.write(
+                    validation_log_file.write(
                         "Early stopping; best weights at epoch {best_epoch} reloaded.\n"
                     )
+                    validation_log_file.flush()
                     model.load_state_dict(torch.load(best_path, map_location="cpu"))
                     break
 
         total = time.time() - start_time
-        log_file.write(f"Training finished. Total time: {total:.2f} seconds.\n")
-        log_file.flush()
-        log_file.close()
+        training_log_file.write(f"Training finished. Total time: {total:.2f} seconds.\n")
+        training_log_file.flush()
+        training_log_file.close()
+        validation_log_file.close()
         load_file.close()
 
     @staticmethod
