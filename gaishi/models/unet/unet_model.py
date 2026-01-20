@@ -159,14 +159,10 @@ class UNetModel(MlModel):
 
         if torch.cuda.is_available():
             device = torch.device("cuda:{}".format(0))
-            print(
-                f"CUDA is available: version {torch.version.cuda}. Training on GPU ..."
-            )
         else:
             device = torch.device("cpu")
-            print("CUDA is not available. Training on CPU ...")
 
-        log_file = open(os.path.join(model_dir, "{}.log".format("train")), "w")
+        log_file = open(os.path.join(model_dir, "train.log"), "w")
         log_file.write("\n")
 
         load_file = h5py.File(training_data, "r")
@@ -176,7 +172,6 @@ class UNetModel(MlModel):
 
         first_key = keys[0]
 
-        print(f"Shape of input entries: {load_file[first_key]['x_0'].shape}")
         chunk_size = int(load_file[first_key]["x_0"].shape[0])
         channel_size = int(load_file[first_key]["x_0"].shape[1])
         polymorphisms = int(load_file[first_key]["x_0"].shape[3])
@@ -211,7 +206,6 @@ class UNetModel(MlModel):
             )
 
         ratio = all_counts0 / all_counts1
-        print(f"negative to positive ratio in training data set: {ratio}")
 
         if add_channels:
             if channel_size != 4:
@@ -222,21 +216,14 @@ class UNetModel(MlModel):
                 raise ValueError(
                     "UNetPlusPlusRNNNeighborGapFusion currently supports n_classes == 1 only."
                 )
-
-            print("default model: UNetPlusPlusRNNNeighborGapFusion (4-channel input)")
             model = UNetPlusPlusRNNNeighborGapFusion(polymorphisms=polymorphisms)
         else:
             if channel_size < 2:
                 raise ValueError(
                     f"Expected at least 2 input channels in x_0, got {channel_size}."
                 )
-
-            print(
-                f"default model: UNetPlusPlus (2-channel input), n_classes={int(n_classes)}"
-            )
             model = UNetPlusPlus(num_classes=int(n_classes), input_channels=2)
 
-        print(model, file=log_file, flush=True)
         model = model.to(device)
 
         if trained_model_file is not None:
@@ -264,15 +251,12 @@ class UNetModel(MlModel):
         min_val_loss = np.inf
         early_count = 0
 
-        print("training...")
         for epoch_idx in range(1, int(n_epochs) + 1):
             t0 = time.time()
 
             model.train()
             losses = []
             accuracies = []
-            precisions = []
-            recalls = []
 
             for batch_idx, (x, y) in enumerate(train_loader, start=1):
                 optimizer.zero_grad()
@@ -298,15 +282,14 @@ class UNetModel(MlModel):
                 mean_acc = np.mean(accuracies)
 
                 if batch_idx % 1000 == 0:
-                    logging.info(
-                        f"Epoch {epoch_idx}, batch {batch_idx + 1}: loss = {mean_loss}, accuracy = {mean_acc}"
+                    log_file.write(
+                        f"Epoch {epoch_idx}, batch {batch_idx}: loss = {mean_loss}, accuracy = {mean_acc}"
                     )
+                    log_file.flush()
 
             model.eval()
             val_losses = []
             val_accs = []
-            val_precisions = []
-            val_recalls = []
 
             for _, (x, y) in enumerate(val_loader):
                 with torch.no_grad():
@@ -331,9 +314,10 @@ class UNetModel(MlModel):
             val_loss = np.mean(val_losses)
             val_acc = np.mean(val_accs)
 
-            logging.info(
+            log_file.write(
                 f"Epoch {epoch_idx}: validation loss = {val_loss}, validation accuracy = {val_acc}"
             )
+            log_file.flush()
 
             best_path = os.path.join(model_dir, "best.weights")
             min_val_loss = float("inf")
@@ -354,8 +338,8 @@ class UNetModel(MlModel):
                     break
 
         total = time.time() - start_time
-        log_file.write("training complete! \n")
-        log_file.write("training took {} seconds... \n".format(total))
+        log_file.write(f"Training finished. Total time: {total:.2f} seconds.\n")
+        log_file.flush()
         log_file.close()
         load_file.close()
 
