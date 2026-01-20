@@ -116,7 +116,7 @@ def write_h5(
             d_norm["Label"] = np.zeros((h, w), dtype=np.uint8)
 
         if "Replicate" not in d_norm:
-            d_norm["Replicate"] = np.array([[0]], dtype=np.uint32)
+            d_norm["Replicate"] = np.uint32(0)
 
         packed_entries.append(_pack_hdf_entry(d_norm))
 

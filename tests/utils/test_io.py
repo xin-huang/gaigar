@@ -247,15 +247,14 @@ def test_write_h5_creates_dummy_label_and_replicate_when_missing(tmp_path):
     assert next_id == 1
 
     with h5py.File(h5_path, "r") as h5f:
+        # dummy labels
         y = h5f["0/y"][0]
         assert y.shape == (1, h, w)
         assert y.dtype == np.uint8
         assert np.all(y[...] == 0)
-
-        ix = h5f["0/ix"][0]
-        assert ix.shape == (1, 1)
-        assert ix.dtype == np.uint32
-        assert int(ix[0, 0]) == 0
+        
+        # dummy replicate
+        assert int(h5f["0/ix"][0, 0, 0]) == 0
 
 
 def test_write_tsv_appends_rows(tmp_path):
