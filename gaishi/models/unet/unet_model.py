@@ -18,19 +18,15 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import h5py
-import logging
-import os
-import pickle
-import time
+import h5py, os, pickle
+import shutil, time
 from typing import Optional
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.optim as optim
 from scipy.special import expit
-from sklearn.metrics import accuracy_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score
 from torch.nn import BCEWithLogitsLoss
 
 from gaishi.models import MlModel
@@ -252,8 +248,6 @@ class UNetModel(MlModel):
         best_epoch = 0
 
         for epoch_idx in range(1, int(n_epochs) + 1):
-            t0 = time.time()
-
             model.train()
             losses = []
             accuracies = []
@@ -350,5 +344,139 @@ class UNetModel(MlModel):
         load_file.close()
 
     @staticmethod
-    def infer():
-        pass
+    def infer(
+        test_data: str,
+        trained_model_weights: str,
+        output_path: str,
+        add_channels: bool = False,
+        n_classes: int = 1,
+        x_dataset: str = "x_0",
+        y_pred_dataset: str = "y_pred",
+        output_h5_name: Optional[str] = None,
+        device: Optional[str] = None,
+    ) -> None:
+        """
+        Run inference on a key-chunked HDF5 file and write predictions into a new HDF5 file.
+
+        This function copies ``test_data`` to an output file and adds a dataset
+        ``{key}/{y_pred_dataset}`` for every top-level key.
+
+        Parameters
+        ----------
+        test_data : str
+            Path to the input HDF5 file. Each top-level key must contain ``x_dataset``.
+        trained_model_weights : str
+            Path to a PyTorch ``state_dict`` file (e.g. ``best.pth``).
+        output_path : str
+            Output directory where the prediction HDF5 will be written.
+        add_channels : bool, optional
+            If False, use only the first two channels and ``UNetPlusPlus``.
+            If True, require 4 channels and use ``UNetPlusPlusRNNNeighborGapFusion``.
+            Default: False.
+        n_classes : int, optional
+            Number of output classes for ``UNetPlusPlus``. Default: 1.
+            Must be 1 when ``add_channels`` is True.
+        x_dataset : str, optional
+            Dataset name under each key for inputs. Default: "x_0".
+        y_pred_dataset : str, optional
+            Dataset name under each key where predictions will be stored. Default: "y_pred".
+        output_h5_name : Optional[str], optional
+            Output HDF5 filename. If None, use ``<input_basename>.preds.h5``. Default: None.
+        device : Optional[str], optional
+            Force device string like "cuda:0" or "cpu". Default: auto-detect.
+
+        Raises
+        ------
+        KeyError
+            If required datasets are missing under the first key.
+        """
+        os.makedirs(output_path, exist_ok=True)
+
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        dev = torch.device(device)
+
+        in_base = os.path.basename(test_data)
+        if output_h5_name is None:
+            out_h5 = os.path.join(
+                output_path, os.path.splitext(in_base)[0] + ".preds.h5"
+            )
+        else:
+            out_h5 = os.path.join(output_path, output_h5_name)
+
+        # Copy input -> output (do not modify input in-place)
+        shutil.copyfile(test_data, out_h5)
+
+        with h5py.File(out_h5, "r+") as f:
+            keys = list(f.keys())
+            if len(keys) == 0:
+                raise ValueError(f"No keys found in HDF5 file: {out_h5}")
+
+            k0 = keys[0]
+            if x_dataset not in f[k0]:
+                raise KeyError(f"Missing '{k0}/{x_dataset}' in {out_h5}")
+
+            x0 = f[k0][x_dataset]
+            channel_size = int(x0.shape[1])
+            polymorphisms = int(x0.shape[3])
+
+            # Build model
+            if add_channels:
+                if channel_size != 4:
+                    raise ValueError(
+                        f"add_channels=True expects 4 input channels, got {channel_size}."
+                    )
+                if int(n_classes) != 1:
+                    raise ValueError(
+                        "NeighborGapFusion model supports n_classes == 1 only."
+                    )
+                model = UNetPlusPlusRNNNeighborGapFusion(polymorphisms=polymorphisms)
+                input_channels = 4
+            else:
+                if channel_size < 2:
+                    raise ValueError(
+                        f"Expected at least 2 input channels, got {channel_size}."
+                    )
+                model = UNetPlusPlus(num_classes=int(n_classes), input_channels=2)
+                input_channels = 2
+
+            ckpt = torch.load(trained_model_weights, map_location=dev)
+            model.load_state_dict(ckpt)
+            model.to(dev)
+            model.eval()
+
+            for key in keys:
+                x_np = np.asarray(f[key][x_dataset])[:, :input_channels].astype(
+                    np.float32, copy=False
+                )
+                x = torch.from_numpy(x_np).to(dev)
+
+                with torch.no_grad():
+                    logits = model(x)
+
+                # Standardize to (chunk, 1, H, W) when binary output returns (chunk, H, W)
+                if logits.ndim == 3:
+                    pred_np = (
+                        logits.detach()
+                        .cpu()
+                        .numpy()[:, None, :, :]
+                        .astype(np.float32, copy=False)
+                    )
+                elif logits.ndim == 4:
+                    pred_np = (
+                        logits.detach().cpu().numpy().astype(np.float32, copy=False)
+                    )
+                else:
+                    raise ValueError(
+                        f"Unexpected model output shape: {tuple(logits.shape)}"
+                    )
+
+                if y_pred_dataset in f[key]:
+                    f[key][y_pred_dataset][...] = pred_np
+                else:
+                    f[key].create_dataset(
+                        y_pred_dataset,
+                        data=pred_np,
+                        dtype=np.float32,
+                        compression="lzf",
+                    )
