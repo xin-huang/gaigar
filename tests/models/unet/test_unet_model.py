@@ -18,11 +18,9 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import pickle
-import h5py
+import h5py, pickle
 import numpy as np
-import pytest
-import torch
+import os, pytest, torch
 import torch.nn as nn
 import gaishi.models.unet.unet_model as unet_mod
 
@@ -78,7 +76,7 @@ class DummyUNetPlusPlusRNNNeighborGapFusion(nn.Module):
         return self.scale * x[:, 0, :, :]  # (B, H, W)
 
 
-def _make_training_h5(
+def _make_h5(
     tmp_path,
     *,
     n_keys: int,
@@ -88,7 +86,7 @@ def _make_training_h5(
     polymorphisms: int,
     force_no_positive: bool = False,
 ) -> tuple[str, list[str]]:
-    h5_path = tmp_path / "train.h5"
+    h5_path = tmp_path / "data.h5"
     keys = [str(i) for i in range(n_keys)]
     rng = np.random.default_rng(0)
 
@@ -132,7 +130,7 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
     DummyUNetPlusPlus.last_init = None
     DummyUNetPlusPlusRNNNeighborGapFusion.last_init = None
 
-    training_data, keys = _make_training_h5(
+    training_data, keys = _make_h5(
         tmp_path,
         n_keys=20,
         chunk_size=2,
@@ -184,7 +182,7 @@ def test_train_branch_neighbor_gap_fusion_four_channel(tmp_path, monkeypatch) ->
     DummyUNetPlusPlus.last_init = None
     DummyUNetPlusPlusRNNNeighborGapFusion.last_init = None
 
-    training_data, _ = _make_training_h5(
+    training_data, _ = _make_h5(
         tmp_path,
         n_keys=20,
         chunk_size=2,
@@ -220,7 +218,7 @@ def test_train_raises_when_add_channels_true_but_not_4_channels(
         DummyUNetPlusPlusRNNNeighborGapFusion,
     )
 
-    training_data, _ = _make_training_h5(
+    training_data, _ = _make_h5(
         tmp_path,
         n_keys=20,
         chunk_size=2,
@@ -253,7 +251,7 @@ def test_train_raises_when_add_channels_true_but_n_classes_not_1(
         DummyUNetPlusPlusRNNNeighborGapFusion,
     )
 
-    training_data, _ = _make_training_h5(
+    training_data, _ = _make_h5(
         tmp_path,
         n_keys=20,
         chunk_size=2,
@@ -284,7 +282,7 @@ def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
         DummyUNetPlusPlusRNNNeighborGapFusion,
     )
 
-    training_data, _ = _make_training_h5(
+    training_data, _ = _make_h5(
         tmp_path,
         n_keys=20,
         chunk_size=2,
@@ -305,4 +303,182 @@ def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
             n_epochs=1,
             n_early=0,
             label_smooth=False,
+        )
+
+
+def _save_weights(tmp_path, model, filename) -> str:
+    weights_path = tmp_path / filename
+    torch.save(model.state_dict(), str(weights_path))
+    return str(weights_path)
+
+
+def test_infer_unetplusplus_two_channel_writes_y_pred(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
+    monkeypatch.setattr(
+        unet_mod,
+        "UNetPlusPlusRNNNeighborGapFusion",
+        DummyUNetPlusPlusRNNNeighborGapFusion,
+    )
+
+    test_data, keys = _make_h5(
+        tmp_path,
+        n_keys=5,
+        chunk_size=2,
+        n_channels=2,
+        individuals=3,
+        polymorphisms=7,
+    )
+
+    # weights must match the model created in infer (UNetPlusPlus(num_classes=1, input_channels=2))
+    dummy = DummyUNetPlusPlus(num_classes=1, input_channels=2)
+    weights = _save_weights(tmp_path, dummy, filename="unet2.weights")
+
+    out_dir = tmp_path / "infer_out_2ch"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    unet_mod.UNetModel.infer(
+        test_data=test_data,
+        trained_model_weights=weights,
+        output_path=str(out_dir),
+        add_channels=False,
+        n_classes=1,
+        x_dataset="x_0",
+        y_pred_dataset="y_pred",
+        device="cpu",
+    )
+
+    out_h5 = os.path.join(out_dir, "data.preds.h5")
+
+    assert os.path.exists(out_h5)
+
+    with h5py.File(out_h5, "r") as f:
+        for k in keys:
+            assert "y_pred" in f[k]
+            y_pred = f[k]["y_pred"]
+            assert y_pred.shape == (2, 1, 3, 7)
+            assert y_pred.dtype == np.float32
+
+
+def test_infer_neighbor_gap_fusion_four_channel_writes_y_pred(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
+    monkeypatch.setattr(
+        unet_mod,
+        "UNetPlusPlusRNNNeighborGapFusion",
+        DummyUNetPlusPlusRNNNeighborGapFusion,
+    )
+
+    test_data, keys = _make_h5(
+        tmp_path,
+        n_keys=5,
+        chunk_size=2,
+        n_channels=4,
+        individuals=4,
+        polymorphisms=11,
+    )
+
+    # weights must match the model created in infer (NeighborGapFusion(polymorphisms=11))
+    dummy = DummyUNetPlusPlusRNNNeighborGapFusion(polymorphisms=11)
+    weights = _save_weights(tmp_path, dummy, filename="unet4.weights")
+
+    out_dir = tmp_path / "infer_out_4ch"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    unet_mod.UNetModel.infer(
+        test_data=test_data,
+        trained_model_weights=weights,
+        output_path=str(out_dir),
+        add_channels=True,
+        n_classes=1,
+        x_dataset="x_0",
+        y_pred_dataset="y_pred",
+        device="cpu",
+    )
+
+    out_h5 = os.path.join(out_dir, "data.preds.h5")
+
+    assert os.path.exists(out_h5)
+
+    with h5py.File(out_h5, "r") as f:
+        for k in keys:
+            assert "y_pred" in f[k]
+            y_pred = f[k]["y_pred"]
+            assert y_pred.shape == (2, 1, 4, 11)
+            assert y_pred.dtype == np.float32
+
+
+def test_infer_raises_when_add_channels_true_but_not_4_channels(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
+    monkeypatch.setattr(
+        unet_mod,
+        "UNetPlusPlusRNNNeighborGapFusion",
+        DummyUNetPlusPlusRNNNeighborGapFusion,
+    )
+
+    test_data, _ = _make_h5(
+        tmp_path,
+        n_keys=5,
+        chunk_size=2,
+        n_channels=3,  # invalid
+        individuals=2,
+        polymorphisms=7,
+    )
+
+    dummy = DummyUNetPlusPlusRNNNeighborGapFusion(polymorphisms=7)
+    weights = _save_weights(tmp_path, dummy, filename="bad.weights")
+
+    out_dir = tmp_path / "infer_out_bad"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    with pytest.raises(ValueError, match="4"):
+        unet_mod.UNetModel.infer(
+            test_data=test_data,
+            trained_model_weights=weights,
+            output_path=str(out_dir),
+            add_channels=True,
+            n_classes=1,
+            x_dataset="x_0",
+            y_pred_dataset="y_pred",
+            device="cpu",
+        )
+
+
+def test_infer_raises_when_add_channels_true_but_n_classes_not_1(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
+    monkeypatch.setattr(
+        unet_mod,
+        "UNetPlusPlusRNNNeighborGapFusion",
+        DummyUNetPlusPlusRNNNeighborGapFusion,
+    )
+
+    test_data, _ = _make_h5(
+        tmp_path,
+        n_keys=5,
+        chunk_size=2,
+        n_channels=4,
+        individuals=2,
+        polymorphisms=7,
+    )
+
+    dummy = DummyUNetPlusPlusRNNNeighborGapFusion(polymorphisms=7)
+    weights = _save_weights(tmp_path, dummy, filename="bad_ncls.weights")
+
+    out_dir = tmp_path / "infer_out_bad_ncls"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    with pytest.raises(ValueError, match="n_classes|classes|supports"):
+        unet_mod.UNetModel.infer(
+            test_data=test_data,
+            trained_model_weights=weights,
+            output_path=str(out_dir),
+            add_channels=True,
+            n_classes=2,  # invalid for fusion
+            x_dataset="x_0",
+            y_pred_dataset="y_pred",
+            device="cpu",
         )
