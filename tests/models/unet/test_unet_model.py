@@ -26,7 +26,7 @@ import gaishi.models.unet.unet_model as unet_mod
 
 
 class DummyUNetPlusPlus(nn.Module):
-    """Dummy replacement for UNetPlusPlus(num_classes, input_channels=3)."""
+    """Dummy replacement for UNetPlusPlus."""
 
     last_init = None
 
@@ -46,8 +46,8 @@ class DummyUNetPlusPlus(nn.Module):
         return logits
 
 
-class DummyUNetPlusPlusRNNNeighborGapFusion(nn.Module):
-    """Dummy replacement for UNetPlusPlusRNNNeighborGapFusion(polymorphisms=...)."""
+class DummyUNetPlusPlusRNN(nn.Module):
+    """Dummy replacement for UNetPlusPlusRNN."""
 
     last_init = None
 
@@ -60,7 +60,7 @@ class DummyUNetPlusPlusRNNNeighborGapFusion(nn.Module):
     ):
         super().__init__()
         self.polymorphisms = int(polymorphisms)
-        DummyUNetPlusPlusRNNNeighborGapFusion.last_init = {
+        DummyUNetPlusPlusRNN.last_init = {
             "polymorphisms": int(polymorphisms),
             "hidden_dim": int(hidden_dim),
             "gru_layers": int(gru_layers),
@@ -123,12 +123,12 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
     monkeypatch.setattr(
         unet_mod,
-        "UNetPlusPlusRNNNeighborGapFusion",
-        DummyUNetPlusPlusRNNNeighborGapFusion,
+        "UNetPlusPlusRNN",
+        DummyUNetPlusPlusRNN,
     )
 
     DummyUNetPlusPlus.last_init = None
-    DummyUNetPlusPlusRNNNeighborGapFusion.last_init = None
+    DummyUNetPlusPlusRNN.last_init = None
 
     training_data, keys = _make_h5(
         tmp_path,
@@ -157,7 +157,7 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
     assert DummyUNetPlusPlus.last_init is not None
     assert DummyUNetPlusPlus.last_init["num_classes"] == 1
     assert DummyUNetPlusPlus.last_init["input_channels"] == 2
-    assert DummyUNetPlusPlusRNNNeighborGapFusion.last_init is None
+    assert DummyUNetPlusPlusRNN.last_init is None
 
     assert (model_dir / "training.log").exists()
     assert (model_dir / "validation.log").exists()
@@ -175,12 +175,12 @@ def test_train_branch_neighbor_gap_fusion_four_channel(tmp_path, monkeypatch) ->
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
     monkeypatch.setattr(
         unet_mod,
-        "UNetPlusPlusRNNNeighborGapFusion",
-        DummyUNetPlusPlusRNNNeighborGapFusion,
+        "UNetPlusPlusRNN",
+        DummyUNetPlusPlusRNN,
     )
 
     DummyUNetPlusPlus.last_init = None
-    DummyUNetPlusPlusRNNNeighborGapFusion.last_init = None
+    DummyUNetPlusPlusRNN.last_init = None
 
     training_data, _ = _make_h5(
         tmp_path,
@@ -195,7 +195,7 @@ def test_train_branch_neighbor_gap_fusion_four_channel(tmp_path, monkeypatch) ->
     unet_mod.UNetModel.train(
         training_data=training_data,
         model_dir=str(model_dir),
-        add_channels=True,  # -> UNetPlusPlusRNNNeighborGapFusion
+        add_channels=True,  # -> UNetPlusPlusRNN
         n_classes=1,
         batch_size=2,
         n_epochs=1,
@@ -204,8 +204,8 @@ def test_train_branch_neighbor_gap_fusion_four_channel(tmp_path, monkeypatch) ->
     )
 
     assert DummyUNetPlusPlus.last_init is None
-    assert DummyUNetPlusPlusRNNNeighborGapFusion.last_init is not None
-    assert DummyUNetPlusPlusRNNNeighborGapFusion.last_init["polymorphisms"] == 11
+    assert DummyUNetPlusPlusRNN.last_init is not None
+    assert DummyUNetPlusPlusRNN.last_init["polymorphisms"] == 11
 
 
 def test_train_raises_when_add_channels_true_but_not_4_channels(
@@ -214,8 +214,8 @@ def test_train_raises_when_add_channels_true_but_not_4_channels(
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
     monkeypatch.setattr(
         unet_mod,
-        "UNetPlusPlusRNNNeighborGapFusion",
-        DummyUNetPlusPlusRNNNeighborGapFusion,
+        "UNetPlusPlusRNN",
+        DummyUNetPlusPlusRNN,
     )
 
     training_data, _ = _make_h5(
@@ -247,8 +247,8 @@ def test_train_raises_when_add_channels_true_but_n_classes_not_1(
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
     monkeypatch.setattr(
         unet_mod,
-        "UNetPlusPlusRNNNeighborGapFusion",
-        DummyUNetPlusPlusRNNNeighborGapFusion,
+        "UNetPlusPlusRNN",
+        DummyUNetPlusPlusRNN,
     )
 
     training_data, _ = _make_h5(
@@ -278,8 +278,8 @@ def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
     monkeypatch.setattr(
         unet_mod,
-        "UNetPlusPlusRNNNeighborGapFusion",
-        DummyUNetPlusPlusRNNNeighborGapFusion,
+        "UNetPlusPlusRNN",
+        DummyUNetPlusPlusRNN,
     )
 
     training_data, _ = _make_h5(
@@ -316,8 +316,8 @@ def test_infer_unetplusplus_two_channel_writes_y_pred(tmp_path, monkeypatch) -> 
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
     monkeypatch.setattr(
         unet_mod,
-        "UNetPlusPlusRNNNeighborGapFusion",
-        DummyUNetPlusPlusRNNNeighborGapFusion,
+        "UNetPlusPlusRNN",
+        DummyUNetPlusPlusRNN,
     )
 
     test_data, keys = _make_h5(
@@ -359,14 +359,14 @@ def test_infer_unetplusplus_two_channel_writes_y_pred(tmp_path, monkeypatch) -> 
             assert y_pred.dtype == np.float32
 
 
-def test_infer_neighbor_gap_fusion_four_channel_writes_y_pred(
+def test_infer_unet_plus_plus_rnn_four_channel_writes_y_pred(
     tmp_path, monkeypatch
 ) -> None:
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
     monkeypatch.setattr(
         unet_mod,
-        "UNetPlusPlusRNNNeighborGapFusion",
-        DummyUNetPlusPlusRNNNeighborGapFusion,
+        "UNetPlusPlusRNN",
+        DummyUNetPlusPlusRNN,
     )
 
     test_data, keys = _make_h5(
@@ -378,8 +378,8 @@ def test_infer_neighbor_gap_fusion_four_channel_writes_y_pred(
         polymorphisms=11,
     )
 
-    # weights must match the model created in infer (NeighborGapFusion(polymorphisms=11))
-    dummy = DummyUNetPlusPlusRNNNeighborGapFusion(polymorphisms=11)
+    # weights must match the model created in infer
+    dummy = DummyUNetPlusPlusRNN(polymorphisms=11)
     weights = _save_weights(tmp_path, dummy, filename="unet4.weights")
 
     out_dir = tmp_path / "infer_out_4ch"
@@ -414,8 +414,8 @@ def test_infer_raises_when_add_channels_true_but_not_4_channels(
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
     monkeypatch.setattr(
         unet_mod,
-        "UNetPlusPlusRNNNeighborGapFusion",
-        DummyUNetPlusPlusRNNNeighborGapFusion,
+        "UNetPlusPlusRNN",
+        DummyUNetPlusPlusRNN,
     )
 
     test_data, _ = _make_h5(
@@ -427,7 +427,7 @@ def test_infer_raises_when_add_channels_true_but_not_4_channels(
         polymorphisms=7,
     )
 
-    dummy = DummyUNetPlusPlusRNNNeighborGapFusion(polymorphisms=7)
+    dummy = DummyUNetPlusPlusRNN(polymorphisms=7)
     weights = _save_weights(tmp_path, dummy, filename="bad.weights")
 
     out_dir = tmp_path / "infer_out_bad"
@@ -452,8 +452,8 @@ def test_infer_raises_when_add_channels_true_but_n_classes_not_1(
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
     monkeypatch.setattr(
         unet_mod,
-        "UNetPlusPlusRNNNeighborGapFusion",
-        DummyUNetPlusPlusRNNNeighborGapFusion,
+        "UNetPlusPlusRNN",
+        DummyUNetPlusPlusRNN,
     )
 
     test_data, _ = _make_h5(
@@ -465,7 +465,7 @@ def test_infer_raises_when_add_channels_true_but_n_classes_not_1(
         polymorphisms=7,
     )
 
-    dummy = DummyUNetPlusPlusRNNNeighborGapFusion(polymorphisms=7)
+    dummy = DummyUNetPlusPlusRNN(polymorphisms=7)
     weights = _save_weights(tmp_path, dummy, filename="bad_ncls.weights")
 
     out_dir = tmp_path / "infer_out_bad_ncls"

@@ -30,7 +30,7 @@ from sklearn.metrics import accuracy_score
 from torch.nn import BCEWithLogitsLoss
 
 from gaishi.models import MlModel
-from gaishi.models.unet import UNetPlusPlus, UNetPlusPlusRNNNeighborGapFusion
+from gaishi.models.unet.layers import UNetPlusPlus, UNetPlusPlusRNN
 from gaishi.registries.model_registry import MODEL_REGISTRY
 from gaishi.models.unet.dataloader_h5 import (
     split_keys,
@@ -59,7 +59,7 @@ class UNetModel(MlModel):
     - Validation keys are saved to ``{model_dir}/val_keys.pkl`` for reproducibility.
     - Model selection:
         * add_channels == False -> UNetPlusPlus(num_classes=n_classes, input_channels=2)
-        * add_channels == True  -> UNetPlusPlusRNNNeighborGapFusion(polymorphisms=W) with 4-channel input
+        * add_channels == True  -> UNetPlusPlusRNN(polymorphisms=W) with 4-channel input
     """
 
     @staticmethod
@@ -95,7 +95,7 @@ class UNetModel(MlModel):
         Model selection
 
         1. If ``add_channels`` is False, train ``UNetPlusPlus(num_classes=n_classes, input_channels=2)``
-        2. If ``add_channels`` is True, train ``UNetPlusPlusRNNNeighborGapFusion(polymorphisms=W)``
+        2. If ``add_channels`` is True, train ``UNetPlusPlusRNN(polymorphisms=W)``
            and require that ``x_0`` has exactly 4 channels and ``n_classes == 1``
 
         Parameters
@@ -208,9 +208,9 @@ class UNetModel(MlModel):
                 )
             if int(n_classes) != 1:
                 raise ValueError(
-                    "UNetPlusPlusRNNNeighborGapFusion currently supports n_classes == 1 only."
+                    "UNetPlusPlusRNN currently supports n_classes == 1 only."
                 )
-            model = UNetPlusPlusRNNNeighborGapFusion(polymorphisms=polymorphisms)
+            model = UNetPlusPlusRNN(polymorphisms=polymorphisms)
         else:
             if channel_size < 2:
                 raise ValueError(
@@ -371,7 +371,7 @@ class UNetModel(MlModel):
             Output directory where the prediction HDF5 will be written.
         add_channels : bool, optional
             If False, use only the first two channels and ``UNetPlusPlus``.
-            If True, require 4 channels and use ``UNetPlusPlusRNNNeighborGapFusion``.
+            If True, require 4 channels and use ``UNetPlusPlusRNN``.
             Default: False.
         n_classes : int, optional
             Number of output classes for ``UNetPlusPlus``. Default: 1.
@@ -428,9 +428,9 @@ class UNetModel(MlModel):
                     )
                 if int(n_classes) != 1:
                     raise ValueError(
-                        "NeighborGapFusion model supports n_classes == 1 only."
+                        "UNetPlusPlusRNN currently supports n_classes == 1 only."
                     )
-                model = UNetPlusPlusRNNNeighborGapFusion(polymorphisms=polymorphisms)
+                model = UNetPlusPlusRNN(polymorphisms=polymorphisms)
                 input_channels = 4
             else:
                 if channel_size < 2:
