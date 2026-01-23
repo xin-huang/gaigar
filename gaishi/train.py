@@ -21,6 +21,7 @@ import yaml
 from gaishi.configs import GlobalConfig
 from gaishi.registries.model_registry import MODEL_REGISTRY
 from gaishi.simulate import simulate_feature_vectors
+from gaishi.simulate import simulate_genotype_matrices
 from gaishi.utils import UniqueKeyLoader
 
 
@@ -51,12 +52,21 @@ def train(
         raise ValueError(f"Error parsing YAML configuration file '{config}': {e}")
 
     global_config = GlobalConfig(**config_dict)
-    simulate_feature_vectors(
-        demo_model_file=demes,
-        **global_config.simulation.model_dump(),
-    )
+    if global_config.simulation.sim_type == "feature_vector":
+        simulate_feature_vectors(
+            demo_model_file=demes,
+            **global_config.simulation.model_dump(),
+        )
 
-    data = f"{global_config.simulation.output_dir}/{global_config.simulation.output_prefix}.features"
+        data = f"{global_config.simulation.output_dir}/{global_config.simulation.output_prefix}.features"
+    elif global_config.simulation.sim_type == "genotype_matrix":
+        simulate_genotype_matrices(
+            demo_model_file=demes,
+            **global_config.simulation.model_dump(),
+        )
+    else:
+        raise ValueError("")
+
     model_name = global_config.model.name
     model_params = global_config.model.params
     model_cls = MODEL_REGISTRY.get(model_name)
