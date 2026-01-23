@@ -1,4 +1,5 @@
 simulation:
+  sim_type: "feature_vector"
   nrep: 100
   nref: 50
   ntgt: 50

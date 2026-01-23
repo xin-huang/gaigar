@@ -79,7 +79,7 @@ class SimulationConfig(BaseModel):
 
 
 class FeatureVectorSimulationConfig(SimulationConfig):
-    sim_type: Literal["feature_vector"] = "feature_vector"
+    sim_type: Literal["feature_vector"] = Field("feature_vector", exclude=True)
 
     feature_config_file: Path = Field(
         ..., description="Path to feature config YAML/JSON"
@@ -106,7 +106,7 @@ class FeatureVectorSimulationConfig(SimulationConfig):
 
 
 class GenotypeMatrixSimulationConfig(SimulationConfig):
-    sim_type: Literal["genotype_matrix"] = "genotype_matrix"
+    sim_type: Literal["genotype_matrix"] = Field("genotype_matrix", exclude=True)
 
     num_polymorphisms: int = Field(..., gt=0, description="")
 
