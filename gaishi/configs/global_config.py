@@ -18,10 +18,18 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated, Union
 from gaishi.configs import ModelConfig
-from gaishi.configs import SimulationConfig
+from gaishi.configs import FeatureVectorSimulationConfig
+from gaishi.configs import GenotypeMatrixSimulationConfig
 from gaishi.configs import PreprocessConfig
+
+
+SimulationConfigUnion = Annotated[
+    Union[FeatureVectorSimulationConfig, GenotypeMatrixSimulationConfig],
+    Field(discriminator="sim_type"),
+]
 
 
 class GlobalConfig(BaseModel):
@@ -32,8 +40,10 @@ class GlobalConfig(BaseModel):
     - infer: preprocess + model details.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     # Simulation block
-    simulation: SimulationConfig
+    simulation: SimulationConfigUnion
 
     # Preprocess block
     preprocess: PreprocessConfig

@@ -257,8 +257,7 @@ def simulate_genotype_matrices(
     keep_sim_data: bool = False,
     seed: int = None,
 ):
-    """
-    """
+    """ """
     simulator = GenotypeMatrixSimulator(
         demo_model_file=demo_model_file,
         nref=nref,
