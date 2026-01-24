@@ -313,7 +313,7 @@ class UNetModel(MlModel):
             )
             validation_log_file.flush()
 
-            improved = (min_val_loss - val_loss) > min_delta
+            improved = (min_val_loss - val_loss) > float(min_delta)
 
             if improved:
                 min_val_loss = val_loss
@@ -328,7 +328,7 @@ class UNetModel(MlModel):
                 early_count += 1
                 if early_count >= int(n_early):
                     validation_log_file.write(
-                        "Early stopping; best weights at epoch {best_epoch} reloaded.\n"
+                        f"Early stopping; best weights at epoch {best_epoch} reloaded.\n"
                     )
                     validation_log_file.flush()
                     model.load_state_dict(torch.load(output, map_location="cpu"))
