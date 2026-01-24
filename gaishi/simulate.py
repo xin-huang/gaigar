@@ -254,6 +254,7 @@ def simulate_genotype_matrices(
     output_h5: bool = True,
     is_phased: bool = True,
     is_sorted: bool = True,
+    force_balanced: bool = False,
     keep_sim_data: bool = False,
     seed: int = None,
 ):
@@ -298,7 +299,7 @@ def simulate_genotype_matrices(
             data_generator=generator,
             nprocess=nprocess,
             nfeature=nfeature,
-            force_balanced=False,
+            force_balanced=force_balanced,
             nintro=num_intro,
             nnonintro=num_nonintro,
             only_intro=False,
