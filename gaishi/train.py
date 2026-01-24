@@ -64,6 +64,8 @@ def train(
             demo_model_file=demes,
             **global_config.simulation.model_dump(),
         )
+
+        data = f"{global_config.simulation.output_dir}/{global_config.simulation.output_prefix}.h5"
     else:
         raise ValueError("")
 

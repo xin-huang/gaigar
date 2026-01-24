@@ -64,8 +64,8 @@ class UNetModel(MlModel):
 
     @staticmethod
     def train(
-        training_data: str,
-        model_dir: str,
+        data: str,
+        output: str,
         trained_model_file: Optional[str] = None,
         add_channels: bool = False,
         n_classes: int = 1,
@@ -85,7 +85,7 @@ class UNetModel(MlModel):
         by concatenating multiple key chunks along the sample axis. The number of keys per
         batch is derived from ``batch_size`` and the per key ``chunk_size`` read from the file.
 
-        Outputs written to ``model_dir``
+        Outputs:
 
         1. ``best.pth``: model weights with the lowest validation loss
         2. ``training.log``: training log
@@ -100,10 +100,10 @@ class UNetModel(MlModel):
 
         Parameters
         ----------
-        training_data : str
+        data : str
             Path to the HDF5 training file.
-        model_dir : str
-            Directory where logs, history, validation keys, and best weights are saved.
+        output : str
+            Path to the best weight file.
         trained_model_file : Optional[str], optional
             Path to a weights file to initialize the model before training. If None, training
             starts from random initialization. Default: None.
@@ -149,17 +149,18 @@ class UNetModel(MlModel):
             If ``add_channels`` is True but ``n_classes`` is not 1.
         """
         start_time = time.time()
-        os.makedirs(model_dir, exist_ok=True)
+        output_dir = os.path.dirname(output)
+        os.makedirs(output_dir, exist_ok=True)
 
         if torch.cuda.is_available():
             device = torch.device("cuda:0")
         else:
             device = torch.device("cpu")
 
-        training_log_file = open(os.path.join(model_dir, "training.log"), "w")
-        validation_log_file = open(os.path.join(model_dir, "validation.log"), "w")
+        training_log_file = open(os.path.join(output_dir, "training.log"), "w")
+        validation_log_file = open(os.path.join(output_dir, "validation.log"), "w")
 
-        load_file = h5py.File(training_data, "r")
+        load_file = h5py.File(data, "r")
         keys = list(load_file.keys())
         if len(keys) == 0:
             raise ValueError(f"No keys found in HDF5 file: {training_data}")
@@ -181,7 +182,7 @@ class UNetModel(MlModel):
         train_keys, val_keys = split_keys(keys, val_prop=val_prop, seed=split_seed)
 
         # Save validation keys for reproducibility
-        pickle.dump(val_keys, open(os.path.join(model_dir, "val_keys.pkl"), "wb"))
+        pickle.dump(val_keys, open(os.path.join(output_dir, "val_keys.pkl"), "wb"))
 
         # Compute negative to positive ratio on training keys only
         all_counts0 = 0
@@ -227,7 +228,7 @@ class UNetModel(MlModel):
         # Build DataLoaders that preserve the original key chunk batching semantics
         spec = H5BatchSpec(chunk_size=chunk_size, batch_size=batch_size)
         train_loader, val_loader = build_dataloaders_from_h5(
-            h5_path=training_data,
+            h5_path=data,
             train_keys=train_keys,
             val_keys=val_keys,
             channels=input_channels,
@@ -242,7 +243,6 @@ class UNetModel(MlModel):
         criterion = BCEWithLogitsLoss(pos_weight=torch.FloatTensor([ratio]).to(device))
         optimizer = optim.Adam(model.parameters(), lr=float(learning_rate))
 
-        best_path = os.path.join(model_dir, "best.pth")
         min_val_loss = np.inf
         early_count = 0
         best_epoch = 0
@@ -322,7 +322,7 @@ class UNetModel(MlModel):
                     f"Best weights saved at epoch {best_epoch}.\n"
                 )
                 validation_log_file.flush()
-                torch.save(model.state_dict(), best_path)
+                torch.save(model.state_dict(), output)
                 early_count = 0
             else:
                 early_count += 1
@@ -331,7 +331,7 @@ class UNetModel(MlModel):
                         "Early stopping; best weights at epoch {best_epoch} reloaded.\n"
                     )
                     validation_log_file.flush()
-                    model.load_state_dict(torch.load(best_path, map_location="cpu"))
+                    model.load_state_dict(torch.load(output, map_location="cpu"))
                     break
 
         total = time.time() - start_time

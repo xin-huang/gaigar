@@ -139,11 +139,11 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
         polymorphisms=7,
     )
     model_dir = tmp_path / "model_out"
+    model = tmp_path / "model_out/best.pth" 
 
     unet_mod.UNetModel.train(
-        training_data=training_data,
-        model_dir=str(model_dir),
-        trained_model_file=None,
+        data=training_data,
+        output=str(model),
         add_channels=False,  # -> UNetPlusPlus
         n_classes=1,
         learning_rate=0.001,
@@ -191,10 +191,11 @@ def test_train_branch_neighbor_gap_fusion_four_channel(tmp_path, monkeypatch) ->
         polymorphisms=11,
     )
     model_dir = tmp_path / "model_out2"
+    model = tmp_path / "model_out2/best.pth"
 
     unet_mod.UNetModel.train(
-        training_data=training_data,
-        model_dir=str(model_dir),
+        data=training_data,
+        output=str(model),
         add_channels=True,  # -> UNetPlusPlusRNN
         n_classes=1,
         batch_size=2,
@@ -227,11 +228,12 @@ def test_train_raises_when_add_channels_true_but_not_4_channels(
         polymorphisms=7,
     )
     model_dir = tmp_path / "model_out3"
+    model = tmp_path / "model_out3/best.pth"
 
     with pytest.raises(ValueError, match="expects 4 input channels"):
         unet_mod.UNetModel.train(
-            training_data=training_data,
-            model_dir=str(model_dir),
+            data=training_data,
+            output=str(model),
             add_channels=True,
             n_classes=1,
             batch_size=2,
@@ -260,11 +262,12 @@ def test_train_raises_when_add_channels_true_but_n_classes_not_1(
         polymorphisms=7,
     )
     model_dir = tmp_path / "model_out4"
+    model = tmp_path / "model_out4/best.pth"
 
     with pytest.raises(ValueError, match="supports n_classes == 1"):
         unet_mod.UNetModel.train(
-            training_data=training_data,
-            model_dir=str(model_dir),
+            data=training_data,
+            output=str(model),
             add_channels=True,
             n_classes=2,  # invalid
             batch_size=2,
@@ -292,11 +295,12 @@ def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
         force_no_positive=True,
     )
     model_dir = tmp_path / "model_out5"
+    model = tmp_path / "model_out5/best.pth"
 
     with pytest.raises(ValueError, match="no positive class"):
         unet_mod.UNetModel.train(
-            training_data=training_data,
-            model_dir=str(model_dir),
+            data=training_data,
+            output=str(model),
             add_channels=False,
             n_classes=1,
             batch_size=2,
