@@ -24,7 +24,8 @@ from pydantic import ValidationError
 from gaishi.configs import GlobalConfig
 from gaishi.configs import ModelConfig
 from gaishi.configs import PreprocessConfig
-from gaishi.configs import SimulationConfig
+from gaishi.configs import FeatureVectorSimulationConfig
+from gaishi.configs import GenotypeMatrixSimulationConfig
 
 
 def _valid_simulation_kwargs():
@@ -91,7 +92,7 @@ def _valid_model_config_extra_trees():
 
 
 def test_global_config_valid_with_logistic_regression():
-    sim_cfg = SimulationConfig(**_valid_simulation_kwargs())
+    sim_cfg = FeatureVectorSimulationConfig(**_valid_simulation_kwargs())
     preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
     model_cfg = _valid_model_config_logreg()
 
@@ -116,7 +117,7 @@ def test_global_config_valid_with_logistic_regression():
 
 
 def test_global_config_valid_with_extra_trees():
-    sim_cfg = SimulationConfig(**_valid_simulation_kwargs())
+    sim_cfg = FeatureVectorSimulationConfig(**_valid_simulation_kwargs())
     preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
     model_cfg = _valid_model_config_extra_trees()
 
@@ -143,7 +144,7 @@ def test_global_config_missing_simulation_raises():
 
 
 def test_infer_config_missing_preprocess_raises():
-    sim_cfg = SimulationConfig(**_valid_simulation_kwargs())
+    sim_cfg = FeatureVectorSimulationConfig(**_valid_simulation_kwargs())
     model_cfg = _valid_model_config_logreg()
 
     with pytest.raises(ValidationError):
@@ -154,7 +155,7 @@ def test_infer_config_missing_preprocess_raises():
 
 
 def test_global_config_missing_model_type_raises():
-    sim_cfg = SimulationConfig(**_valid_simulation_kwargs())
+    sim_cfg = FeatureVectorSimulationConfig(**_valid_simulation_kwargs())
     preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
 
     with pytest.raises(ValidationError):
@@ -165,7 +166,7 @@ def test_global_config_missing_model_type_raises():
 
 
 def test_global_config_invalid_model_name_raises():
-    sim_cfg = SimulationConfig(**_valid_simulation_kwargs())
+    sim_cfg = FeatureVectorSimulationConfig(**_valid_simulation_kwargs())
     preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
 
     with pytest.raises(ValidationError):
@@ -177,3 +178,65 @@ def test_global_config_invalid_model_name_raises():
                 params={"n_estimators": 100},
             ),
         )
+
+
+def test_global_config_simulation_discriminates_feature_vector():
+    cfg = GlobalConfig(
+        simulation={
+            "sim_type": "feature_vector",
+            "nrep": 10,
+            "nref": 20,
+            "ntgt": 20,
+            "ref_id": "REF",
+            "tgt_id": "TGT",
+            "src_id": "SRC",
+            "ploidy": 2,
+            "is_phased": True,
+            "seq_len": 1_000_000,
+            "mut_rate": 1e-8,
+            "rec_rate": 1e-8,
+            "nfeature": 128,
+            "feature_config_file": Path("config/features.yaml"),
+            "intro_prop": 0.5,
+            "non_intro_prop": 0.5,
+            "output_prefix": "train_sim",
+            "output_dir": Path("results/train"),
+            "seed": 42,
+        },
+        preprocess=PreprocessConfig(**_valid_preprocess_kwargs()),
+        model=_valid_model_config_logreg(),
+    )
+
+    assert cfg.simulation.sim_type == "feature_vector"
+    assert cfg.simulation.feature_config_file.name == "features.yaml"
+
+
+def test_global_config_simulation_discriminates_genotype_matrix():
+    cfg = GlobalConfig(
+        simulation={
+            "sim_type": "genotype_matrix",
+            "nrep": 10,
+            "nref": 20,
+            "ntgt": 20,
+            "ref_id": "REF",
+            "tgt_id": "TGT",
+            "src_id": "SRC",
+            "ploidy": 2,
+            "is_phased": True,
+            "seq_len": 1_000_000,
+            "mut_rate": 1e-8,
+            "rec_rate": 1e-8,
+            "nfeature": 128,
+            "num_polymorphisms": 5000,
+            "num_upsamples": 2,
+            "output_prefix": "train_sim",
+            "output_dir": Path("results/train"),
+            "seed": 42,
+        },
+        preprocess=PreprocessConfig(**_valid_preprocess_kwargs()),
+        model=_valid_model_config_logreg(),
+    )
+
+    assert cfg.simulation.sim_type == "genotype_matrix"
+    assert cfg.simulation.num_polymorphisms == 5000
+    assert cfg.simulation.num_upsamples == 2

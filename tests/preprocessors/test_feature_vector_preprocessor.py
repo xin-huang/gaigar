@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +22,7 @@ import os, pytest, yaml
 import gaishi.stats
 from gaishi.configs import FeatureConfig
 from gaishi.utils import parse_ind_file
-from gaishi.generators import GenomicDataGenerator
+from gaishi.generators import WindowDataGenerator
 from gaishi.preprocessors import FeatureVectorPreprocessor
 
 
@@ -52,7 +53,7 @@ def feature_params():
 
 
 def test_FeatureVectorPreprocessor(data_params, feature_params):
-    generator = GenomicDataGenerator(**data_params)
+    generator = WindowDataGenerator(**data_params)
     preprocessor = FeatureVectorPreprocessor(**feature_params)
 
     items = preprocessor.run(**list(generator.get())[0])
