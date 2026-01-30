@@ -122,10 +122,12 @@ def preprocess_genotype_matrices(
     ref_ind_file: str,
     tgt_ind_file: str,
     anc_allele_file: str,
-    output_file: str,
     num_polymorphisms: int,
     num_upsamples: int,
     step_size: int,
+    output_file: str = None,
+    output_prefix: str = None,
+    output_dir: str = None,
     ploidy: int = 2,
     is_phased: bool = True,
     is_sorted: bool = True,
@@ -176,6 +178,9 @@ def preprocess_genotype_matrices(
     """
     if nprocess <= 0:
         raise ValueError("Number of processes must be greater than 0.")
+
+    if output_dir is not None and output_prefix is not None:
+        output_file = os.path.join(output_dir, f"{output_prefix}.h5")
 
     generator = PolymorphismDataGenerator(
         vcf_file=vcf_file,
