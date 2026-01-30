@@ -23,6 +23,7 @@ simulation:
   seed: 12345
 
 preprocess:
+  process_type: "feature_vector"
   vcf_file: "tests/expected_results/simulators/MsprimeSimulator/0/test.0.vcf"
   chr_name: "1"
   ref_ind_file: "tests/expected_results/simulators/MsprimeSimulator/0/test.0.ref.ind.list"
