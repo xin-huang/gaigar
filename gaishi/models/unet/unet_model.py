@@ -348,12 +348,6 @@ class UNetModel(MlModel):
         data: str,
         model: str,
         output: str,
-        add_channels: bool = False,
-        n_classes: int = 1,
-        x_dataset: str = "x_0",
-        y_pred_dataset: str = "y_pred",
-        output_h5_name: Optional[str] = None,
-        device: Optional[str] = None,
     ) -> None:
         """
         Run inference on a key-chunked HDF5 file and write predictions into a new HDF5 file.
@@ -390,6 +384,12 @@ class UNetModel(MlModel):
         KeyError
             If required datasets are missing under the first key.
         """
+        add_channels = False,
+        n_classes = 1,
+        x_dataset = "x_0",
+        y_pred_dataset = "y_pred",
+        device = None,
+
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         dev = torch.device(device)
