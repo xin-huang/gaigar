@@ -18,12 +18,16 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from pydantic import BaseModel, Field, field_validator
 from pathlib import Path
+from pydantic import BaseModel, ConfigDict
+from pydantic import Field, field_validator
+from typing import Literal
 
 
 class SimulationConfig(BaseModel):
     """Configuration for simulating training data and feature generation."""
+
+    model_config = ConfigDict(extra="forbid")
 
     # Replicates and sample sizes
     nrep: int = Field(..., gt=0, description="Number of replicates")
@@ -50,25 +54,10 @@ class SimulationConfig(BaseModel):
     nprocess: int = Field(1, gt=0, description="Number of processes for simulation")
 
     # Features
-    feature_config_file: Path = Field(
-        ..., description="Path to feature config YAML/JSON"
-    )
     nfeature: int = Field(..., gt=0, description="Number of features to sample/output")
-    is_shuffled: bool = Field(
-        True,
-        description="Whether to shuffle feature rows (e.g. before saving/training)",
-    )
     force_balanced: bool = Field(
         False,
         description="Whether to enforce class balance between intro/non-intro",
-    )
-
-    # Class proportions
-    intro_prop: float = Field(
-        ..., ge=0.0, le=1.0, description="Fraction of introgressed windows"
-    )
-    non_intro_prop: float = Field(
-        ..., ge=0.0, le=1.0, description="Fraction of non-introgressed windows"
     )
 
     # Output
@@ -82,6 +71,32 @@ class SimulationConfig(BaseModel):
     # Randomness
     seed: int = Field(..., description="Base random seed")
 
+    @field_validator("output_dir")
+    @classmethod
+    def _ensure_output_dir(cls, p: Path) -> Path:
+        # Do not create here; just normalize path
+        return p.expanduser().resolve()
+
+
+class FeatureVectorSimulationConfig(SimulationConfig):
+    sim_type: Literal["feature_vector"] = Field("feature_vector", exclude=True)
+
+    feature_config_file: Path = Field(
+        ..., description="Path to feature config YAML/JSON"
+    )
+
+    intro_prop: float = Field(
+        ..., ge=0.0, le=1.0, description="Fraction of introgressed windows"
+    )
+    non_intro_prop: float = Field(
+        ..., ge=0.0, le=1.0, description="Fraction of non-introgressed windows"
+    )
+
+    is_shuffled: bool = Field(
+        True,
+        description="Whether to shuffle feature rows (e.g. before saving/training)",
+    )
+
     # @field_validator("intro_prop", "non_intro_prop")
     # @classmethod
     # def _check_props_range(cls, v: float) -> float:
@@ -89,8 +104,10 @@ class SimulationConfig(BaseModel):
     #        raise ValueError("intro_prop and non_intro_prop must be in [0, 1].")
     #    return v
 
-    @field_validator("output_dir")
-    @classmethod
-    def _ensure_output_dir(cls, p: Path) -> Path:
-        # Do not create here; just normalize path
-        return p.expanduser().resolve()
+
+class GenotypeMatrixSimulationConfig(SimulationConfig):
+    sim_type: Literal["genotype_matrix"] = Field("genotype_matrix", exclude=True)
+
+    num_polymorphisms: int = Field(..., gt=0, description="")
+
+    num_upsamples: int = Field(..., gt=0, description="")
