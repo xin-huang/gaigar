@@ -385,11 +385,11 @@ class UNetModel(MlModel):
         KeyError
             If required datasets are missing under the first key.
         """
-        add_channels = False,
-        n_classes = 1,
-        x_dataset = "x_0",
-        y_pred_dataset = "y_pred",
-        device = None,
+        add_channels = False
+        n_classes = 1
+        x_dataset = "x_0"
+        y_pred_dataset = "y_pred"
+        device = None
 
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
