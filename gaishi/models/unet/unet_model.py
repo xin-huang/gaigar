@@ -348,6 +348,7 @@ class UNetModel(MlModel):
         data: str,
         model: str,
         output: str,
+        **model_params,
     ) -> None:
         """
         Run inference on a key-chunked HDF5 file and write predictions into a new HDF5 file.
