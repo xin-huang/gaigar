@@ -345,9 +345,9 @@ class UNetModel(MlModel):
 
     @staticmethod
     def infer(
-        test_data: str,
-        trained_model_weights: str,
-        output_path: str,
+        data: str,
+        model: str,
+        output: str,
         add_channels: bool = False,
         n_classes: int = 1,
         x_dataset: str = "x_0",
@@ -390,24 +390,16 @@ class UNetModel(MlModel):
         KeyError
             If required datasets are missing under the first key.
         """
-        os.makedirs(output_path, exist_ok=True)
-
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         dev = torch.device(device)
 
-        in_base = os.path.basename(test_data)
-        if output_h5_name is None:
-            out_h5 = os.path.join(
-                output_path, os.path.splitext(in_base)[0] + ".preds.h5"
-            )
-        else:
-            out_h5 = os.path.join(output_path, output_h5_name)
+        trained_model_weights = model
 
         # Copy input -> output (do not modify input in-place)
-        shutil.copyfile(test_data, out_h5)
+        shutil.copyfile(data, output)
 
-        with h5py.File(out_h5, "r+") as f:
+        with h5py.File(output, "r+") as f:
             keys = list(f.keys())
             if len(keys) == 0:
                 raise ValueError(f"No keys found in HDF5 file: {out_h5}")

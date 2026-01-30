@@ -341,9 +341,9 @@ def test_infer_unetplusplus_two_channel_writes_y_pred(tmp_path, monkeypatch) -> 
     out_dir.mkdir(parents=True, exist_ok=True)
 
     unet_mod.UNetModel.infer(
-        test_data=test_data,
-        trained_model_weights=weights,
-        output_path=str(out_dir),
+        data=test_data,
+        model=weights,
+        output=f"{out_dir}/data.preds.h5",
         add_channels=False,
         n_classes=1,
         x_dataset="x_0",
@@ -390,9 +390,9 @@ def test_infer_unet_plus_plus_rnn_four_channel_writes_y_pred(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     unet_mod.UNetModel.infer(
-        test_data=test_data,
-        trained_model_weights=weights,
-        output_path=str(out_dir),
+        data=test_data,
+        model=weights,
+        output=f"{out_dir}/data.preds.h5",
         add_channels=True,
         n_classes=1,
         x_dataset="x_0",
@@ -439,9 +439,9 @@ def test_infer_raises_when_add_channels_true_but_not_4_channels(
 
     with pytest.raises(ValueError, match="4"):
         unet_mod.UNetModel.infer(
-            test_data=test_data,
-            trained_model_weights=weights,
-            output_path=str(out_dir),
+            data=test_data,
+            model=weights,
+            output=f"{out_dir}/test.pred.h5",
             add_channels=True,
             n_classes=1,
             x_dataset="x_0",
@@ -477,9 +477,9 @@ def test_infer_raises_when_add_channels_true_but_n_classes_not_1(
 
     with pytest.raises(ValueError, match="n_classes|classes|supports"):
         unet_mod.UNetModel.infer(
-            test_data=test_data,
-            trained_model_weights=weights,
-            output_path=str(out_dir),
+            data=test_data,
+            model=weights,
+            output=f"{out_dir}/test.pred.h5",
             add_channels=True,
             n_classes=2,  # invalid for fusion
             x_dataset="x_0",
