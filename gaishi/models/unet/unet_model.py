@@ -444,34 +444,34 @@ class UNetModel(MlModel):
                 )
                 x = torch.from_numpy(x_np).to(dev)
 
-            with torch.no_grad():
-                logits = model(x)
+                with torch.no_grad():
+                    logits = model(x)
 
-            # Convert logits -> probabilities
-            if int(n_classes) == 1:
-                pred = torch.sigmoid(logits)          # binary prob in [0, 1]
-            else:
-                pred = torch.softmax(logits, dim=1)   # multiclass prob
+                # Convert logits -> probabilities
+                if int(n_classes) == 1:
+                    pred = torch.sigmoid(logits)          # binary prob in [0, 1]
+                else:
+                    pred = torch.softmax(logits, dim=1)   # multiclass prob
 
-            # Standardize to (chunk, 1, H, W) when binary output returns (chunk, H, W)
-            if pred.ndim == 3:
-                pred_np = (
-                    pred.detach()
-                    .cpu()
-                    .numpy()[:, None, :, :]
-                    .astype(np.float32, copy=False)
-                )
-            elif pred.ndim == 4:
-                pred_np = pred.detach().cpu().numpy().astype(np.float32, copy=False)
-            else:
-                raise ValueError(f"Unexpected model output shape: {tuple(pred.shape)}")
+                # Standardize to (chunk, 1, H, W) when binary output returns (chunk, H, W)
+                if pred.ndim == 3:
+                    pred_np = (
+                        pred.detach()
+                        .cpu()
+                        .numpy()[:, None, :, :]
+                        .astype(np.float32, copy=False)
+                    )
+                elif pred.ndim == 4:
+                    pred_np = pred.detach().cpu().numpy().astype(np.float32, copy=False)
+                else:
+                    raise ValueError(f"Unexpected model output shape: {tuple(pred.shape)}")
 
-            if y_pred_dataset in f[key]:
-                f[key][y_pred_dataset][...] = pred_np
-            else:
-                f[key].create_dataset(
-                    y_pred_dataset,
-                    data=pred_np,
-                    dtype=np.float32,
-                    compression="lzf",
-                )
+                if y_pred_dataset in f[key]:
+                    f[key][y_pred_dataset][...] = pred_np
+                else:
+                    f[key].create_dataset(
+                        y_pred_dataset,
+                        data=pred_np,
+                        dtype=np.float32,
+                        compression="lzf",
+                    )
