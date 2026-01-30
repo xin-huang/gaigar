@@ -19,27 +19,20 @@
 
 
 from pathlib import Path
-from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import Optional, Literal
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PreprocessConfig(BaseModel):
-    """Configuration for preprocessing data into feature vectors."""
+    """Configuration for preprocessing data into features."""
+
+    model_config = ConfigDict(extra="forbid")
 
     # Input
     vcf_file: Path = Field(..., description="Path to input VCF/BCF file")
     chr_name: str = Field(..., description="Chromosome name to process")
     ref_ind_file: Path = Field(..., description="Path to reference individual ID list")
     tgt_ind_file: Path = Field(..., description="Path to target individual ID list")
-
-    # Windowing
-    win_len: int = Field(..., gt=0, description="Window length in bp")
-    win_step: int = Field(..., gt=0, description="Window step size in bp")
-
-    # Features
-    feature_config_file: Path = Field(
-        ..., description="Path to feature configuration YAML/JSON"
-    )
 
     # Output
     output_dir: Path = Field(..., description="Directory for output feature files")
@@ -71,3 +64,26 @@ class PreprocessConfig(BaseModel):
     def _ensure_output_dir(cls, p: Path) -> Path:
         """Normalize output_dir to an absolute path without creating it."""
         return p.expanduser().resolve()
+
+
+class FeatureVectorPreprocessConfig(PreprocessConfig):
+    process_type: Literal["feature_vector"] = Field("feature_vector", exclude=True)
+
+    # Windowing
+    win_len: int = Field(..., gt=0, description="Window length in bp")
+    win_step: int = Field(..., gt=0, description="Window step size in bp")
+
+    # Features
+    feature_config_file: Path = Field(
+        ..., description="Path to feature configuration YAML/JSON"
+    )
+
+
+class GenotypeMatrixPreprocessConfig(PreprocessConfig):
+    process_type: Literal["genotype_matrix"] = Field("genotype_matrix", exclude=True)
+
+    num_polymorphisms: int = Field(..., gt=0, description="")
+
+    num_upsamples: int = Field(..., gt=0, description="")
+
+    step_size: int = Field(..., gt=0, description="")

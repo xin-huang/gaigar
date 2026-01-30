@@ -23,7 +23,7 @@ from pathlib import Path
 from pydantic import ValidationError
 from gaishi.configs import GlobalConfig
 from gaishi.configs import ModelConfig
-from gaishi.configs import PreprocessConfig
+from gaishi.configs import FeatureVectorPreprocessConfig
 from gaishi.configs import FeatureVectorSimulationConfig
 from gaishi.configs import GenotypeMatrixSimulationConfig
 
@@ -93,7 +93,7 @@ def _valid_model_config_extra_trees():
 
 def test_global_config_valid_with_logistic_regression():
     sim_cfg = FeatureVectorSimulationConfig(**_valid_simulation_kwargs())
-    preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
+    preprocess_cfg = FeatureVectorPreprocessConfig(**_valid_preprocess_kwargs())
     model_cfg = _valid_model_config_logreg()
 
     cfg = GlobalConfig(
@@ -118,7 +118,7 @@ def test_global_config_valid_with_logistic_regression():
 
 def test_global_config_valid_with_extra_trees():
     sim_cfg = FeatureVectorSimulationConfig(**_valid_simulation_kwargs())
-    preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
+    preprocess_cfg = FeatureVectorPreprocessConfig(**_valid_preprocess_kwargs())
     model_cfg = _valid_model_config_extra_trees()
 
     cfg = GlobalConfig(
@@ -133,7 +133,7 @@ def test_global_config_valid_with_extra_trees():
 
 
 def test_global_config_missing_simulation_raises():
-    preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
+    preprocess_cfg = FeatureVectorPreprocessConfig(**_valid_preprocess_kwargs())
     model_cfg = _valid_model_config_logreg()
 
     with pytest.raises(ValidationError):
@@ -156,7 +156,7 @@ def test_infer_config_missing_preprocess_raises():
 
 def test_global_config_missing_model_type_raises():
     sim_cfg = FeatureVectorSimulationConfig(**_valid_simulation_kwargs())
-    preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
+    preprocess_cfg = FeatureVectorPreprocessConfig(**_valid_preprocess_kwargs())
 
     with pytest.raises(ValidationError):
         GlobalConfig(
@@ -167,7 +167,7 @@ def test_global_config_missing_model_type_raises():
 
 def test_global_config_invalid_model_name_raises():
     sim_cfg = FeatureVectorSimulationConfig(**_valid_simulation_kwargs())
-    preprocess_cfg = PreprocessConfig(**_valid_preprocess_kwargs())
+    preprocess_cfg = FeatureVectorPreprocessConfig(**_valid_preprocess_kwargs())
 
     with pytest.raises(ValidationError):
         GlobalConfig(
@@ -203,7 +203,7 @@ def test_global_config_simulation_discriminates_feature_vector():
             "output_dir": Path("results/train"),
             "seed": 42,
         },
-        preprocess=PreprocessConfig(**_valid_preprocess_kwargs()),
+        preprocess=FeatureVectorPreprocessConfig(**_valid_preprocess_kwargs()),
         model=_valid_model_config_logreg(),
     )
 
@@ -233,7 +233,7 @@ def test_global_config_simulation_discriminates_genotype_matrix():
             "output_dir": Path("results/train"),
             "seed": 42,
         },
-        preprocess=PreprocessConfig(**_valid_preprocess_kwargs()),
+        preprocess=FeatureVectorPreprocessConfig(**_valid_preprocess_kwargs()),
         model=_valid_model_config_logreg(),
     )
 

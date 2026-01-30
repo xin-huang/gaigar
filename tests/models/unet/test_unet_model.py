@@ -139,7 +139,7 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
         polymorphisms=7,
     )
     model_dir = tmp_path / "model_out"
-    model = tmp_path / "model_out/best.pth" 
+    model = tmp_path / "model_out/best.pth"
 
     unet_mod.UNetModel.train(
         data=training_data,

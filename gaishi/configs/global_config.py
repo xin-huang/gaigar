@@ -23,12 +23,18 @@ from typing import Annotated, Union
 from gaishi.configs import ModelConfig
 from gaishi.configs import FeatureVectorSimulationConfig
 from gaishi.configs import GenotypeMatrixSimulationConfig
-from gaishi.configs import PreprocessConfig
+from gaishi.configs import FeatureVectorPreprocessConfig
+from gaishi.configs import GenotypeMatrixPreprocessConfig
 
 
 SimulationConfigUnion = Annotated[
     Union[FeatureVectorSimulationConfig, GenotypeMatrixSimulationConfig],
     Field(discriminator="sim_type"),
+]
+
+PreprocessConfigUnion = Annotated[
+    Union[FeatureVectorPreprocessConfig, GenotypeMatrixPreprocessConfig],
+    Field(discriminator="process_type"),
 ]
 
 
@@ -46,7 +52,7 @@ class GlobalConfig(BaseModel):
     simulation: SimulationConfigUnion
 
     # Preprocess block
-    preprocess: PreprocessConfig
+    preprocess: PreprocessConfigUnion
 
     # Model choice
     model: ModelConfig
