@@ -449,9 +449,9 @@ class UNetModel(MlModel):
 
                 # Convert logits -> probabilities
                 if int(n_classes) == 1:
-                    pred = torch.sigmoid(logits)          # binary prob in [0, 1]
+                    pred = torch.sigmoid(logits)  # binary prob in [0, 1]
                 else:
-                    pred = torch.softmax(logits, dim=1)   # multiclass prob
+                    pred = torch.softmax(logits, dim=1)  # multiclass prob
 
                 # Standardize to (chunk, 1, H, W) when binary output returns (chunk, H, W)
                 if pred.ndim == 3:
@@ -464,7 +464,9 @@ class UNetModel(MlModel):
                 elif pred.ndim == 4:
                     pred_np = pred.detach().cpu().numpy().astype(np.float32, copy=False)
                 else:
-                    raise ValueError(f"Unexpected model output shape: {tuple(pred.shape)}")
+                    raise ValueError(
+                        f"Unexpected model output shape: {tuple(pred.shape)}"
+                    )
 
                 if y_pred_dataset in f[key]:
                     f[key][y_pred_dataset][...] = pred_np

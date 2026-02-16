@@ -22,113 +22,7 @@ import h5py
 import multiprocessing
 import numpy as np
 import pandas as pd
-from typing import Any, Union, Optional
-
-
-def write_h5(
-    file_name: str,
-    entries: Union[dict[str, Any], list[dict[str, Any]]],
-    lock: multiprocessing.Lock,
-    *,
-    stepsize: int = 192,
-    is_phased: bool = True,
-    chunk_size: int = 1,
-    neighbor_gaps: bool = True,
-    start_nr: Optional[int] = None,
-    set_attributes: bool = True,
-) -> int:
-    """
-    Append one or many entry dictionaries to an HDF5 file.
-
-    This is a high-level convenience wrapper that prepares per-window/per-sample
-    dictionaries for on-disk storage. Each input dictionary is normalized to the
-    expected schema, packed into the writer-specific nested-list representation,
-    and then appended to the HDF5 file using the low-level writer.
-
-    Parameters
-    ----------
-    file_name : str
-        Path to the output HDF5 file.
-    entries : dict[str, Any] or list[dict[str, Any]]
-        Either a single entry dictionary or a list of entry dictionaries.
-        Each entry is expected to contain the fields required by the schema
-        normalizer and packer (for example: ``Start``, ``End``, ``Ref_sample``,
-        ``Tgt_sample``, ``Ref_genotype``, ``Tgt_genotype``, ``Label``,
-        ``Gap_to_prev``, ``Gap_to_next``, and
-        ``Replicate``).
-    lock : multiprocessing.Lock
-        Inter-process lock used to serialize HDF5 writes.
-    stepsize : int, optional
-        Window length used when an entry has ``Start == "Random"``. In that case,
-        ``Start`` is set to 0 and ``End`` is set to ``stepsize``. Default: 192.
-    is_phased : bool, optional
-        Whether the sample identifiers encode phased haplotypes. If True, haplotype
-        indices are preserved but converted to 0-based indexing (hap-1). If False,
-        haplotype indices are set to 0. Default: True.
-    chunk_size : int, optional
-        Number of packed entries passed to the low-level writer per write call.
-        Defaults to 1. Keep ``chunk_size=1`` until chunk semantics in the low-level
-        writer are validated.
-    neighbor_gaps : bool, optional
-        Whether to include neighbor-gap information as additional feature channels in the
-        stored feature tensor. When enabled, two channels are included: the distance to the
-        previous variant (gap_to_prev) and the distance to the next variant (gap_to_next).
-        Default: True.
-    start_nr : int, optional
-        Starting group id for writing. If None, the low-level writer determines
-        the next id from the file attribute ``last_index`` (defaulting to 0 if
-        missing). Default: None.
-    set_attributes : bool, optional
-        Whether to update the file attribute ``last_index`` after writing.
-        Default: True.
-
-    Returns
-    -------
-    int
-        The next available group id after the final write.
-
-    Raises
-    ------
-    KeyError
-        If required keys are missing from an entry dictionary.
-
-    Notes
-    -----
-    - This function normalizes and packs entries into the schema expected by the
-      low-level HDF writer.
-    - Keep `chunk_size=1` until the underlying writer’s chunk semantics are validated.
-    """
-    if isinstance(entries, dict):
-        entries = [entries]
-
-    packed_entries = []
-    for d in entries:
-        d_norm = _normalize_hdf_entry(dict(d), stepsize=stepsize, is_phased=is_phased)
-
-        # If Label is missing (real data), create a dummy label with the expected shape.
-        if "Label" not in d_norm:
-            tgt_g = np.asarray(d_norm["Tgt_genotype"])
-            if tgt_g.ndim != 2:
-                raise ValueError(
-                    f"Tgt_genotype must be 2D (H, W) to infer dummy Label; got shape {tgt_g.shape}."
-                )
-            h, w = tgt_g.shape
-            d_norm["Label"] = np.zeros((h, w), dtype=np.uint8)
-
-        if "Replicate" not in d_norm:
-            d_norm["Replicate"] = np.uint32(0)
-
-        packed_entries.append(_pack_hdf_entry(d_norm))
-
-    return _append_hdf_entries(
-        hdf_file=file_name,
-        input_entries=packed_entries,
-        lock=lock,
-        start_nr=start_nr,
-        chunk_size=chunk_size,
-        neighbor_gaps=neighbor_gaps,
-        set_attributes=set_attributes,
-    )
+from typing import Any, Mapping, Sequence, Union
 
 
 def write_tsv(file_name: str, data_dict: dict, lock: multiprocessing.Lock) -> None:
@@ -159,239 +53,311 @@ def write_tsv(file_name: str, data_dict: dict, lock: multiprocessing.Lock) -> No
             df.to_csv(f, header=False, index=False, sep="\t")
 
 
-def _normalize_hdf_entry(
-    data_dict: dict, stepsize: int = 192, is_phased: bool = True
-) -> dict:
-    """
-    Normalize a single entry dictionary to match the expected HDF5 schema.
-
-    This helper prepares a per-window/per-sample `data_dict` for downstream HDF5
-    writers by enforcing a small set of schema requirements:
-
-    - Ensures numeric start/end coordinates. If ``data_dict["Start"] == "Random"``,
-      the window is forced to start at 0 and the end is set to ``stepsize``.
-    - Adds a combined ``StartEnd`` field as ``[Start, End]``.
-    - Converts ``Ref_sample`` and ``Tgt_sample`` from string identifiers of the
-      form ``"<prefix>_<ind>_<hap>"`` into integer pairs ``[ind, hap]``.
-      For phased data, haplotypes are converted to 0-based indices (hap-1).
-      For unphased data, the haplotype index is always set to 0.
-
-    Parameters
-    ----------
-    data_dict : dict
-        Dictionary containing (at minimum) the keys ``Start``, ``End``,
-        ``Ref_sample``, and ``Tgt_sample``.
-    stepsize : int, optional
-        Window length used to derive ``End`` when ``Start`` is ``"Random"``.
-        Default: 192.
-    is_phased : bool, optional
-        Whether the data are phased. If True, haplotype indices are preserved
-        (converted to 0-based). If False, haplotype indices are set to 0.
-        Default: True.
-
-    Returns
-    -------
-    dict
-        The same dictionary instance, modified in place, with normalized
-        ``Start``, ``End``, ``StartEnd``, ``Ref_sample``, and ``Tgt_sample``.
-
-    Notes
-    -----
-    This function mutates ``data_dict`` in place and returns it for convenience.
-    """
-    if data_dict["Start"] == "Random":
-        data_dict["Start"] = 0
-        data_dict["End"] = stepsize
-
-    data_dict["StartEnd"] = [data_dict["Start"], data_dict["End"]]
-
-    def _parse_sample_id(sample_id: str) -> list[int]:
-        parts = sample_id.split("_")
-        ind = int(parts[1])
-        hap = (int(parts[2]) - 1) if is_phased else 0
-        return [ind, hap]
-
-    data_dict["Ref_sample"] = [_parse_sample_id(s) for s in data_dict["Ref_sample"]]
-    data_dict["Tgt_sample"] = [_parse_sample_id(s) for s in data_dict["Tgt_sample"]]
-
-    return data_dict
-
-
-def _pack_hdf_entry(data_dict: dict) -> list:
-    """
-    Pack a normalized entry dictionary into the ordered nested-list format
-    expected by the HDF5 writer.
-
-    The returned structure is a list of groups, where each group is a list of
-    one or more arrays/scalars in a fixed order. This order is treated as part
-    of the on-disk schema and must stay consistent with the HDF5 writer.
-
-    Parameters
-    ----------
-    data_dict : dict
-        A single preprocessed entry. Expected to contain at least the keys:
-        ``Ref_genotype``, ``Tgt_genotype``, ``Label``, ``Ref_sample``, ``Tgt_sample``,
-        ``StartEnd``, ``End``, ``Replicate``, ``Position``,
-        ``Gap_to_prev``, and ``Gap_to_next``.
-
-    Returns
-    -------
-    list
-        Nested list representation of the entry in the schema-defined order.
-
-    Notes
-    -----
-    This helper does not modify ``data_dict``.
-    """
-    keys = (
-        ("Ref_genotype", "Tgt_genotype"),
-        ("Label",),
-        ("Ref_sample", "Tgt_sample"),
-        ("StartEnd",),
-        ("End",),
-        ("Replicate",),
-        ("Position",),
-        ("Gap_to_prev",),
-        ("Gap_to_next",),
-    )
-    return [[data_dict[k] for k in group] for group in keys]
-
-
-def _append_hdf_entries(
-    hdf_file: str,
-    input_entries: list,
+def write_h5(
+    h5_file: str,
+    entries: Union[Mapping[str, Any], Sequence[Mapping[str, Any]]],
+    ds_type: str,
     lock: multiprocessing.Lock,
-    start_nr: Optional[int] = None,
-    x_name: str = "x_0",
-    y_name: str = "y",
-    ind_name: str = "indices",
-    pos_name: str = "pos",
-    ix_name: str = "ix",
-    chunk_size: int = 1,
-    neighbor_gaps: bool = True,
-    set_attributes: bool = True,
-) -> int:
+    compression: str = "lzf",
+) -> None:
     """
-    Append packed entries to an HDF5 file.
+    Write a single HDF5 file for either training input or inference input.
 
-    This is a low-level writer that assumes `input_entries` are already packed into
-    the nested-list format produced by `_pack_hdf_entry`. Each entry is written
-    under an integer group id (e.g., ``"0/"``, ``"1/"``), and the next available
-    id is tracked in the file attribute ``last_index`` when `start_nr` is None.
+    The file is always overwritten (opened with mode "w"). This function writes only
+    the model inputs and, for training, the supervision targets. Prediction outputs
+    such as logits are not written here.
 
-    When `neighbor_gaps` is True, two additional feature channels are appended to the
-    feature tensor (gap to the previous variant and gap to the next variant). This function
-    asserts that these channels are integer-valued and have shapes compatible with the
-    feature tensor.
+    Data are stored in a unified, slice-friendly layout where the first dimension
+    indexes replicates or windows. Sample order may differ between entries due to
+    per-entry sorting. Therefore, per-entry row identity is stored as integer ids
+    (``/index/ref_ids`` and ``/index/tgt_ids``) that point to global sample tables
+    stored once in ``/meta``.
 
     Parameters
     ----------
-    hdf_file : str
-        Path to the output HDF5 file.
-    input_entries : list
-        A list of packed entries. Each packed entry must follow the order defined
-        by `_pack_hdf_entry`, and must provide:
-        - entry[0]: base feature channels (e.g., ref/tgt genotype channels)
-        - entry[1]: label tensor
-        - entry[2]: indices tensor (reference/target sample ids)
-        - entry[3]: position tensor (e.g., StartEnd)
-        - entry[-2], entry[-1]: neighbor-gap channels (gap to previous variant, gap to next variant;
-                                only if `neighbor_gaps` is True)
-        - entry[5]: replicate/index value for `ix`
-    lock : multiprocessing.Lock
-        Inter-process lock to serialize HDF5 writes.
-    start_nr : int, optional
-        Starting group id. If None, the value is read from the file attribute
-        ``last_index`` (defaulting to 0 if missing).
-    x_name, y_name, ind_name, pos_name, ix_name : str, optional
-        Dataset names created within each group for features, labels, indices,
-        positions, and the replicate/index tracker, respectively.
-    chunk_size : int, optional
-        Number of entries written per loop iteration. The current implementation
-        is designed to be used with ``chunk_size=1``. Other values are accepted
-        but require careful validation of index semantics.
-    neighbor_gaps : bool, optional
-        If True, append two neighbor-gap feature channels to the base feature tensor
-        before writing: the gap to the previous variant and the gap to the next variant.
-    set_attributes : bool, optional
-        If True, update the file attribute ``last_index`` to the next available
-        group id after writing.
+    h5_file : str
+        Output HDF5 path.
+    entries : Mapping[str, Any] or Sequence[Mapping[str, Any]]
+        One entry or a list of entries. Each entry corresponds to one replicate
+        or one inference window.
 
-    Returns
-    -------
-    int
-        The next available group id after the final write.
+        Required keys for both ``ds_type="train"`` and ``ds_type="infer"``:
+        - ``Ref_genotype`` : array_like, shape (N, L)
+        - ``Tgt_genotype`` : array_like, shape (N, L)
+        - ``Gap_to_prev``  : array_like, shape (N, L)
+        - ``Gap_to_next``  : array_like, shape (N, L)
+        - ``Ref_sample``   : sequence of length N, sample names in row order
+        - ``Tgt_sample``   : sequence of length N, sample names in row order
+        - ``Chromosome``   : scalar, stored in ``/meta`` attributes
+
+        Additional required keys for ``ds_type="train"``:
+        - ``Label``     : array_like, shape (N, L)
+        - ``Seed``      : scalar
+        - ``Replicate`` : scalar
+
+        Additional required keys for ``ds_type="infer"``:
+        - ``Position``  : array_like, shape (L,)
+    ds_type : {"train", "infer"}
+        Dataset type. Controls whether training targets or inference coordinates
+        are written.
+    lock : multiprocessing.Lock
+        Inter-process lock that serializes HDF5 writes.
+    compression : str, default "lzf"
+        HDF5 dataset compression filter.
+
+    Notes
+    -----
+    HDF5 schema written by this function.
+
+    Common datasets
+    - ``/data/Ref_genotype``  : uint32, shape (n, N, L)
+    - ``/data/Tgt_genotype``  : uint32, shape (n, N, L)
+    - ``/data/Gap_to_prev``   : int64,  shape (n, N, L)
+    - ``/data/Gap_to_next``   : int64,  shape (n, N, L)
+    - ``/index/ref_ids``      : uint32, shape (n, N)
+    - ``/index/tgt_ids``      : uint32, shape (n, N)
+    - ``/meta/ref_sample_table`` : utf-8 strings, shape (K_ref,)
+    - ``/meta/tgt_sample_table`` : utf-8 strings, shape (K_tgt,)
+    - ``/meta`` attributes: ``N``, ``L``, ``Chromosome``
+
+    Training-only datasets (``ds_type="train"``)
+    - ``/targets/Label``      : uint8,  shape (n, N, L)
+    - ``/index/Seed``         : int64,  shape (n,)
+    - ``/index/Replicate``    : int64,  shape (n,)
+
+    Inference-only datasets (``ds_type="infer"``)
+    - ``/coords/Position``    : int64,  shape (n, L)
+
+    The integer row id arrays map each row in ``Ref_genotype`` and ``Tgt_genotype``
+    back to the global sample tables. This preserves per-entry sorting while still
+    allowing efficient slicing across entries.
     """
-    additional_x_features = 2 if neighbor_gaps else 0
+    if ds_type not in ("train", "infer"):
+        raise ValueError('ds_type must be "train" or "infer"')
+
+    if isinstance(entries, Mapping):
+        entries_list = [entries]
+    else:
+        entries_list = list(entries)
+    if not entries_list:
+        raise ValueError("entries is empty")
+
+    e0 = entries_list[0]
+
+    base_required = (
+        "Ref_genotype",
+        "Tgt_genotype",
+        "Gap_to_prev",
+        "Gap_to_next",
+        "Ref_sample",
+        "Tgt_sample",
+    )
+    for k in base_required:
+        if k not in e0:
+            raise KeyError(f"Missing key in entry[0]: {k}")
+
+    if ds_type == "train":
+        extra_required = ("Label", "Seed", "Replicate")
+    else:
+        extra_required = ("Position",)
+    for k in extra_required:
+        if k not in e0:
+            raise KeyError(f"Missing key in entry[0]: {k}")
+
+    ref0 = np.asarray(e0["Ref_genotype"])
+    tgt0 = np.asarray(e0["Tgt_genotype"])
+    if ref0.ndim != 2 or tgt0.ndim != 2:
+        raise ValueError("Ref_genotype and Tgt_genotype must be 2D arrays (N, L)")
+    if ref0.shape != tgt0.shape:
+        raise ValueError(
+            f"Ref_genotype shape {ref0.shape} != Tgt_genotype shape {tgt0.shape}"
+        )
+    N, L = ref0.shape
+    n = len(entries_list)
+
+    ref_table, tgt_table = [], []
+    ref_seen, tgt_seen = set(), set()
+
+    for i, e in enumerate(entries_list):
+        for k in base_required:
+            if k not in e:
+                raise KeyError(f"Entry {i}: missing {k}")
+
+        ref = np.asarray(e["Ref_genotype"])
+        tgt = np.asarray(e["Tgt_genotype"])
+        if ref.shape != (N, L) or tgt.shape != (N, L):
+            raise ValueError(f"Entry {i}: genotype shape mismatch, expected {(N, L)}")
+
+        gp = np.asarray(e["Gap_to_prev"])
+        gn = np.asarray(e["Gap_to_next"])
+        if gp.shape != (N, L) or gn.shape != (N, L):
+            raise ValueError(f"Entry {i}: gap shape mismatch, expected {(N, L)}")
+
+        if len(e["Ref_sample"]) != N or len(e["Tgt_sample"]) != N:
+            raise ValueError(
+                f"Entry {i}: Ref_sample and Tgt_sample length must be N={N}"
+            )
+
+        if ds_type == "train":
+            for k in extra_required:
+                if k not in e:
+                    raise KeyError(f"Entry {i}: missing {k}")
+            y = np.asarray(e["Label"])
+            if y.shape != (N, L):
+                raise ValueError(f"Entry {i}: Label shape mismatch, expected {(N, L)}")
+        else:
+            pos = np.asarray(e["Position"])
+            if pos.ndim != 1 or pos.shape[0] != L:
+                raise ValueError(f"Entry {i}: Position shape mismatch, expected {(L,)}")
+
+        for s in e["Ref_sample"]:
+            name = str(s)
+            if name not in ref_seen:
+                ref_seen.add(name)
+                ref_table.append(name)
+        for s in e["Tgt_sample"]:
+            name = str(s)
+            if name not in tgt_seen:
+                tgt_seen.add(name)
+                tgt_table.append(name)
+
+    ref_map = {name: idx for idx, name in enumerate(ref_table)}
+    tgt_map = {name: idx for idx, name in enumerate(tgt_table)}
+
+    ref_ids = np.empty((n, N), dtype=np.uint32)
+    tgt_ids = np.empty((n, N), dtype=np.uint32)
+
+    for i, e in enumerate(entries_list):
+        ref_ids[i, :] = np.asarray(
+            [ref_map[str(s)] for s in e["Ref_sample"]], dtype=np.uint32
+        )
+        tgt_ids[i, :] = np.asarray(
+            [tgt_map[str(s)] for s in e["Tgt_sample"]], dtype=np.uint32
+        )
+
+    seeds = None
+    reps = None
+    if ds_type == "train":
+        seeds = np.asarray([int(e["Seed"]) for e in entries_list], dtype=np.int64)
+        reps = np.asarray([int(e["Replicate"]) for e in entries_list], dtype=np.int64)
+
+    str_dt = h5py.string_dtype(encoding="utf-8")
 
     with lock:
-        with h5py.File(hdf_file, "a") as h5f:
-            if start_nr is None:
-                start_nr = h5f.attrs.get("last_index", 0)
+        with h5py.File(h5_file, "w") as h5f:
+            h5f.require_group("/data")
+            h5f.require_group("/index")
+            meta = h5f.require_group("/meta")
 
-            for i in range(0, len(input_entries) - chunk_size + 1, chunk_size):
-                entry = input_entries[i]
-                group_id = start_nr + i
+            if ds_type == "train":
+                h5f.require_group("/targets")
+            else:
+                h5f.require_group("/coords")
 
-                act_shape0, act_shape1, act_shape2, act_shape3 = (
-                    np.array(entry[0]).shape,
-                    np.array(entry[1]).shape,
-                    np.array(entry[2]).shape,
-                    np.array(entry[3]).shape,
-                )
+            meta.attrs["N"] = int(N)
+            meta.attrs["L"] = int(L)
+            meta.attrs["Chromosome"] = str(e0["Chromosome"])
 
-                dset1 = h5f.create_dataset(
-                    f"{i + start_nr}/{x_name}",
-                    (
-                        chunk_size,
-                        act_shape0[0] + additional_x_features,
-                        act_shape0[1],
-                        act_shape0[2],
-                    ),
-                    compression="lzf",
-                    dtype=np.uint32,
-                )
-                dset2 = h5f.create_dataset(
-                    f"{i + start_nr}/{y_name}",
-                    (chunk_size, 1, act_shape1[1], act_shape1[2]),
-                    compression="lzf",
+            h5f.create_dataset(
+                "/meta/ref_sample_table",
+                data=np.asarray(ref_table, dtype=object),
+                dtype=str_dt,
+            )
+            h5f.create_dataset(
+                "/meta/tgt_sample_table",
+                data=np.asarray(tgt_table, dtype=object),
+                dtype=str_dt,
+            )
+
+            h5f.create_dataset(
+                "/data/Ref_genotype",
+                shape=(n, N, L),
+                dtype=np.uint32,
+                chunks=(1, N, L),
+                compression=compression,
+            )
+            h5f.create_dataset(
+                "/data/Tgt_genotype",
+                shape=(n, N, L),
+                dtype=np.uint32,
+                chunks=(1, N, L),
+                compression=compression,
+            )
+            h5f.create_dataset(
+                "/data/Gap_to_prev",
+                shape=(n, N, L),
+                dtype=np.int64,
+                chunks=(1, N, L),
+                compression=compression,
+            )
+            h5f.create_dataset(
+                "/data/Gap_to_next",
+                shape=(n, N, L),
+                dtype=np.int64,
+                chunks=(1, N, L),
+                compression=compression,
+            )
+
+            h5f.create_dataset(
+                "/index/ref_ids",
+                data=ref_ids,
+                dtype=np.uint32,
+                chunks=(min(64, n), N),
+                compression=compression,
+            )
+            h5f.create_dataset(
+                "/index/tgt_ids",
+                data=tgt_ids,
+                dtype=np.uint32,
+                chunks=(min(64, n), N),
+                compression=compression,
+            )
+
+            if ds_type == "train":
+                h5f.create_dataset(
+                    "/targets/Label",
+                    shape=(n, N, L),
                     dtype=np.uint8,
+                    chunks=(1, N, L),
+                    compression=compression,
                 )
-                dset3 = h5f.create_dataset(
-                    f"{i + start_nr}/{ind_name}",
-                    (chunk_size, act_shape2[0], act_shape2[1], act_shape2[2]),
-                    compression="lzf",
-                    dtype=np.uint32,
+                h5f.create_dataset(
+                    "/index/Seed", data=seeds, dtype=np.int64, compression=compression
                 )
-                dset4 = h5f.create_dataset(
-                    f"{i + start_nr}/{pos_name}",
-                    (chunk_size, 1, act_shape3[0], act_shape3[1]),
-                    compression="lzf",
-                    dtype=np.uint32,
+                h5f.create_dataset(
+                    "/index/Replicate",
+                    data=reps,
+                    dtype=np.int64,
+                    compression=compression,
                 )
-                dset5 = h5f.create_dataset(
-                    f"{i + start_nr}/{ix_name}",
-                    (chunk_size, 1, 1),
-                    compression="lzf",
-                    dtype=np.uint32,
+            else:
+                h5f.create_dataset(
+                    "/coords/Position",
+                    shape=(n, L),
+                    dtype=np.int64,
+                    chunks=(1, L),
+                    compression=compression,
                 )
 
-                for k in range(chunk_size):
-                    entry = input_entries[i + k]
+            for i, e in enumerate(entries_list):
+                h5f["/data/Ref_genotype"][i] = np.asarray(
+                    e["Ref_genotype"], dtype=np.uint32
+                )
+                h5f["/data/Tgt_genotype"][i] = np.asarray(
+                    e["Tgt_genotype"], dtype=np.uint32
+                )
+                h5f["/data/Gap_to_prev"][i] = np.asarray(
+                    e["Gap_to_prev"], dtype=np.int64
+                )
+                h5f["/data/Gap_to_next"][i] = np.asarray(
+                    e["Gap_to_next"], dtype=np.int64
+                )
 
-                    if neighbor_gaps:
-                        features = np.concatenate([entry[0], entry[-2], entry[-1]])
-                    else:
-                        features = entry[0]
+                if ds_type == "train":
+                    h5f["/targets/Label"][i] = np.asarray(e["Label"], dtype=np.uint8)
+                else:
+                    h5f["/coords/Position"][i] = np.asarray(
+                        e["Position"], dtype=np.int64
+                    )
 
-                    dset1[k] = features
-                    dset2[k] = entry[1]
-                    dset3[k] = entry[2]
-                    dset4[k] = entry[3]
-                    dset5[k] = entry[5]
-
-            if set_attributes:
-                h5f.attrs["last_index"] = group_id + 1
-                h5f.flush()
-
-            return group_id + 1
+            h5f.flush()
