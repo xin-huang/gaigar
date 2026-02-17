@@ -254,8 +254,9 @@ def write_h5(
             else:
                 h5f.require_group("/coords")
 
-            meta.attrs["N"] = int(N)
-            meta.attrs["L"] = int(L)
+            meta.attrs["n"] = int(n)  # number of replicates or windows
+            meta.attrs["N"] = int(N)  # number of samples
+            meta.attrs["L"] = int(L)  # number of sites
             meta.attrs["Chromosome"] = str(e0["Chromosome"])
 
             h5f.create_dataset(

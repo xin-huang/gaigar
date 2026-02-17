@@ -193,6 +193,7 @@ def test_write_h5_infer_single_entry(tmp_path, test_data):
 
     with h5py.File(h5_file, "r") as f:
         # Meta
+        assert f["/meta"].attrs["n"] == 1
         assert f["/meta"].attrs["N"] == 4
         assert f["/meta"].attrs["L"] == 5
         assert f["/meta"].attrs["Chromosome"] == "213"
