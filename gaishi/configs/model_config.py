@@ -23,5 +23,5 @@ from pydantic import BaseModel, Field
 
 
 class ModelConfig(BaseModel):
-    name: Literal["logistic_regression", "extra_trees_classifier"]
+    name: Literal["logistic_regression", "extra_trees_classifier", "unet"]
     params: dict[str, Any] = Field(default_factory=dict)

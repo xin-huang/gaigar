@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +22,7 @@ import os
 from typing import Any
 from gaishi.simulators import GenericSimulator
 from gaishi.simulators import MsprimeSimulator
-from gaishi.generators import GenomicDataGenerator
+from gaishi.generators import WindowDataGenerator
 from gaishi.labelers import BinaryWindowLabeler
 from gaishi.preprocessors import FeatureVectorPreprocessor
 
@@ -34,7 +35,6 @@ class FeatureVectorSimulator(GenericSimulator):
     This class automates the process of simulating genomic data, labeling the simulated data
     based on introgression, generating genomic features, and merging labels with features to
     create a comprehensive dataset ready for machine learning model training.
-
     """
 
     def __init__(
@@ -102,7 +102,6 @@ class FeatureVectorSimulator(GenericSimulator):
             An instance of BinaryWindowLabeler for labeling simulated genomic data based on introgression events.
         win_len : int
             Length of the sliding window used for feature generation and labeling, in base pairs.
-
         """
         self.simulator = MsprimeSimulator(
             demo_model_file=demo_model_file,
@@ -154,7 +153,6 @@ class FeatureVectorSimulator(GenericSimulator):
             A list of dictionaries, each representing a merged record containing both feature vectors and labels
             for a single sample in the dataset. Each dictionary includes keys for genomic coordinates (`'Chromosome'`,
             `'Start'`, `'End'`), sample identifier (`'Sample'`), statistical features, and the introgression label.
-
         """
         file_paths = self.simulator.run(rep=rep, seed=seed)[0]
 
@@ -164,7 +162,7 @@ class FeatureVectorSimulator(GenericSimulator):
             rep=rep,
         )
 
-        genomic_data_generator = GenomicDataGenerator(
+        window_data_generator = WindowDataGenerator(
             vcf_file=file_paths["vcf_file"],
             ref_ind_file=file_paths["ref_ind_file"],
             tgt_ind_file=file_paths["tgt_ind_file"],
@@ -181,7 +179,7 @@ class FeatureVectorSimulator(GenericSimulator):
             feature_config_file=self.feature_config_file,
         )
 
-        features = preprocessor.run(**list(genomic_data_generator.get())[0])
+        features = preprocessor.run(**list(window_data_generator.get())[0])
 
         lookup = {item["Sample"]: item for item in labels}
         merged_list = [{**item, **lookup[item["Sample"]]} for item in features]
