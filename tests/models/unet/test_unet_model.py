@@ -76,6 +76,231 @@ class DummyUNetPlusPlusRNN(nn.Module):
         return self.scale * x[:, 0, :, :]  # (B, H, W)
 
 
+def _make_training_h5(
+    tmp_path,
+    *,
+    n_reps: int,
+    N: int,
+    L: int,
+    with_gaps: bool = True,
+    force_no_positive: bool = False,
+) -> str:
+    """
+    Create a unified-schema training HDF5 file.
+
+    Layout written:
+      /data/Ref_genotype (n,N,L) uint32
+      /data/Tgt_genotype (n,N,L) uint32
+      /data/Gap_to_prev  (n,N,L) int64   (optional)
+      /data/Gap_to_next  (n,N,L) int64   (optional)
+      /targets/Label     (n,N,L) uint8
+      /meta attrs: n,N,L,Chromosome
+      /meta/ref_sample_table, /meta/tgt_sample_table
+      /index/ref_ids, /index/tgt_ids, /index/Seed, /index/Replicate
+    """
+    h5_path = tmp_path / "data.h5"
+    rng = np.random.default_rng(0)
+
+    ref = rng.integers(0, 2, size=(n_reps, N, L), dtype=np.uint32)
+    tgt = rng.integers(0, 2, size=(n_reps, N, L), dtype=np.uint32)
+
+    if with_gaps:
+        gp = rng.integers(0, 10, size=(n_reps, N, L), dtype=np.int64)
+        gn = rng.integers(0, 10, size=(n_reps, N, L), dtype=np.int64)
+
+    if force_no_positive:
+        y = np.zeros((n_reps, N, L), dtype=np.uint8)
+    else:
+        y = rng.integers(0, 2, size=(n_reps, N, L), dtype=np.uint8)
+        y[0, 0, 0] = 1  # ensure at least one positive overall
+
+    ref_ids = np.tile(np.arange(N, dtype=np.uint32)[None, :], (n_reps, 1))
+    tgt_ids = np.tile(np.arange(N, dtype=np.uint32)[None, :], (n_reps, 1))
+    seeds = np.arange(n_reps, dtype=np.int64)
+    reps = np.arange(n_reps, dtype=np.int64)
+
+    str_dt = h5py.string_dtype(encoding="utf-8")
+    ref_table = np.asarray([f"ref_{i}" for i in range(N)], dtype=object)
+    tgt_table = np.asarray([f"tgt_{i}" for i in range(N)], dtype=object)
+
+    with h5py.File(h5_path, "w") as f:
+        f.create_group("data")
+        f.create_group("targets")
+        f.create_group("meta")
+        f.create_group("index")
+
+        f["/meta"].attrs["n"] = int(n_reps)
+        f["/meta"].attrs["N"] = int(N)
+        f["/meta"].attrs["L"] = int(L)
+        f["/meta"].attrs["Chromosome"] = "213"
+
+        f.create_dataset("/meta/ref_sample_table", data=ref_table, dtype=str_dt)
+        f.create_dataset("/meta/tgt_sample_table", data=tgt_table, dtype=str_dt)
+
+        f.create_dataset("/data/Ref_genotype", data=ref, compression="lzf")
+        f.create_dataset("/data/Tgt_genotype", data=tgt, compression="lzf")
+        if with_gaps:
+            f.create_dataset("/data/Gap_to_prev", data=gp, compression="lzf")
+            f.create_dataset("/data/Gap_to_next", data=gn, compression="lzf")
+
+        f.create_dataset("/targets/Label", data=y, compression="lzf")
+
+        f.create_dataset("/index/ref_ids", data=ref_ids, compression="lzf")
+        f.create_dataset("/index/tgt_ids", data=tgt_ids, compression="lzf")
+        f.create_dataset("/index/Seed", data=seeds, compression="lzf")
+        f.create_dataset("/index/Replicate", data=reps, compression="lzf")
+
+    return str(h5_path)
+
+
+def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
+    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
+
+    DummyUNetPlusPlus.last_init = None
+    DummyUNetPlusPlusRNN.last_init = None
+
+    training_data = _make_training_h5(tmp_path, n_reps=40, N=2, L=7, with_gaps=True)
+
+    model_dir = tmp_path / "model_out"
+    model_path = model_dir / "best.pth"
+
+    unet_mod.UNetModel.train(
+        data=training_data,
+        output=str(model_path),
+        add_channels=False,  # -> UNetPlusPlus
+        n_classes=1,
+        learning_rate=0.001,
+        batch_size=2,
+        label_noise=0.01,
+        n_early=0,
+        n_epochs=1,
+        min_delta=0.0,
+        label_smooth=False,
+        val_prop=0.2,
+        seed=0,
+    )
+
+    assert DummyUNetPlusPlus.last_init is not None
+    assert DummyUNetPlusPlus.last_init["num_classes"] == 1
+    assert DummyUNetPlusPlus.last_init["input_channels"] == 2
+    assert DummyUNetPlusPlusRNN.last_init is None
+
+    assert (model_dir / "training.log").exists()
+    assert (model_dir / "validation.log").exists()
+    assert (model_dir / "best.pth").exists()
+
+
+def test_train_branch_neighbor_gap_fusion_four_channel(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
+    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
+
+    DummyUNetPlusPlus.last_init = None
+    DummyUNetPlusPlusRNN.last_init = None
+
+    training_data = _make_training_h5(tmp_path, n_reps=40, N=3, L=11, with_gaps=True)
+
+    model_dir = tmp_path / "model_out2"
+    model_path = model_dir / "best.pth"
+
+    unet_mod.UNetModel.train(
+        data=training_data,
+        output=str(model_path),
+        add_channels=True,  # -> UNetPlusPlusRNN
+        n_classes=1,
+        batch_size=2,
+        n_epochs=1,
+        n_early=0,
+        min_delta=0.0,
+        label_smooth=False,
+        val_prop=0.2,
+        seed=0,
+    )
+
+    assert DummyUNetPlusPlus.last_init is None
+    assert DummyUNetPlusPlusRNN.last_init is not None
+    assert DummyUNetPlusPlusRNN.last_init["polymorphisms"] == 11
+
+
+def test_train_raises_when_add_channels_true_but_missing_gap_datasets(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
+    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
+
+    training_data = _make_training_h5(tmp_path, n_reps=40, N=2, L=7, with_gaps=False)
+
+    model_dir = tmp_path / "model_out3"
+    model_path = model_dir / "best.pth"
+
+    # Your current pipeline will fail when trying to build 4-channel inputs without gap datasets.
+    with pytest.raises(KeyError, match="Gap_to_prev|Gap_to_next"):
+        unet_mod.UNetModel.train(
+            data=training_data,
+            output=str(model_path),
+            add_channels=True,
+            n_classes=1,
+            batch_size=2,
+            n_epochs=1,
+            n_early=0,
+            label_smooth=False,
+            val_prop=0.2,
+            seed=0,
+        )
+
+
+def test_train_raises_when_add_channels_true_but_n_classes_not_1(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
+    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
+
+    training_data = _make_training_h5(tmp_path, n_reps=40, N=2, L=7, with_gaps=True)
+
+    model_dir = tmp_path / "model_out4"
+    model_path = model_dir / "best.pth"
+
+    with pytest.raises(ValueError, match="supports n_classes == 1"):
+        unet_mod.UNetModel.train(
+            data=training_data,
+            output=str(model_path),
+            add_channels=True,
+            n_classes=2,
+            batch_size=2,
+            n_epochs=1,
+            n_early=0,
+            label_smooth=False,
+            val_prop=0.2,
+            seed=0,
+        )
+
+
+def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
+    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
+
+    training_data = _make_training_h5(
+        tmp_path, n_reps=40, N=2, L=7, with_gaps=True, force_no_positive=True
+    )
+
+    model_dir = tmp_path / "model_out5"
+    model_path = model_dir / "best.pth"
+
+    with pytest.raises(ValueError, match="no positive class"):
+        unet_mod.UNetModel.train(
+            data=training_data,
+            output=str(model_path),
+            add_channels=False,
+            n_classes=1,
+            batch_size=2,
+            n_epochs=1,
+            n_early=0,
+            label_smooth=False,
+            val_prop=0.2,
+            seed=0,
+        )
+
+
 def _make_h5(
     tmp_path,
     *,
@@ -116,198 +341,6 @@ def _make_h5(
             grp.create_dataset("y", data=y)
 
     return str(h5_path), keys
-
-
-def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
-    # Patch the two model classes used by UNetModel
-    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
-    monkeypatch.setattr(
-        unet_mod,
-        "UNetPlusPlusRNN",
-        DummyUNetPlusPlusRNN,
-    )
-
-    DummyUNetPlusPlus.last_init = None
-    DummyUNetPlusPlusRNN.last_init = None
-
-    training_data, keys = _make_h5(
-        tmp_path,
-        n_keys=20,
-        chunk_size=2,
-        n_channels=2,  # >=2, will slice to 2
-        individuals=2,
-        polymorphisms=7,
-    )
-    model_dir = tmp_path / "model_out"
-    model = tmp_path / "model_out/best.pth"
-
-    unet_mod.UNetModel.train(
-        data=training_data,
-        output=str(model),
-        add_channels=False,  # -> UNetPlusPlus
-        n_classes=1,
-        learning_rate=0.001,
-        batch_size=2,  # batch_size == chunk_size => n_keys_per_batch==1
-        label_noise=0.01,
-        n_early=0,
-        n_epochs=1,
-        label_smooth=False,
-    )
-
-    assert DummyUNetPlusPlus.last_init is not None
-    assert DummyUNetPlusPlus.last_init["num_classes"] == 1
-    assert DummyUNetPlusPlus.last_init["input_channels"] == 2
-    assert DummyUNetPlusPlusRNN.last_init is None
-
-    assert (model_dir / "training.log").exists()
-    assert (model_dir / "validation.log").exists()
-    assert (model_dir / "best.pth").exists()
-    assert (model_dir / "val_keys.pkl").exists()
-
-    with open(model_dir / "val_keys.pkl", "rb") as f:
-        val_keys = pickle.load(f)
-
-    expected_n_val = int(len(keys) * 0.05)
-    assert len(val_keys) == expected_n_val
-
-
-def test_train_branch_neighbor_gap_fusion_four_channel(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
-    monkeypatch.setattr(
-        unet_mod,
-        "UNetPlusPlusRNN",
-        DummyUNetPlusPlusRNN,
-    )
-
-    DummyUNetPlusPlus.last_init = None
-    DummyUNetPlusPlusRNN.last_init = None
-
-    training_data, _ = _make_h5(
-        tmp_path,
-        n_keys=20,
-        chunk_size=2,
-        n_channels=4,  # required
-        individuals=3,
-        polymorphisms=11,
-    )
-    model_dir = tmp_path / "model_out2"
-    model = tmp_path / "model_out2/best.pth"
-
-    unet_mod.UNetModel.train(
-        data=training_data,
-        output=str(model),
-        add_channels=True,  # -> UNetPlusPlusRNN
-        n_classes=1,
-        batch_size=2,
-        n_epochs=1,
-        n_early=0,
-        label_smooth=False,
-    )
-
-    assert DummyUNetPlusPlus.last_init is None
-    assert DummyUNetPlusPlusRNN.last_init is not None
-    assert DummyUNetPlusPlusRNN.last_init["polymorphisms"] == 11
-
-
-def test_train_raises_when_add_channels_true_but_not_4_channels(
-    tmp_path, monkeypatch
-) -> None:
-    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
-    monkeypatch.setattr(
-        unet_mod,
-        "UNetPlusPlusRNN",
-        DummyUNetPlusPlusRNN,
-    )
-
-    training_data, _ = _make_h5(
-        tmp_path,
-        n_keys=20,
-        chunk_size=2,
-        n_channels=3,  # invalid for add_channels=True
-        individuals=2,
-        polymorphisms=7,
-    )
-    model_dir = tmp_path / "model_out3"
-    model = tmp_path / "model_out3/best.pth"
-
-    with pytest.raises(ValueError, match="expects 4 input channels"):
-        unet_mod.UNetModel.train(
-            data=training_data,
-            output=str(model),
-            add_channels=True,
-            n_classes=1,
-            batch_size=2,
-            n_epochs=1,
-            n_early=0,
-            label_smooth=False,
-        )
-
-
-def test_train_raises_when_add_channels_true_but_n_classes_not_1(
-    tmp_path, monkeypatch
-) -> None:
-    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
-    monkeypatch.setattr(
-        unet_mod,
-        "UNetPlusPlusRNN",
-        DummyUNetPlusPlusRNN,
-    )
-
-    training_data, _ = _make_h5(
-        tmp_path,
-        n_keys=20,
-        chunk_size=2,
-        n_channels=4,
-        individuals=2,
-        polymorphisms=7,
-    )
-    model_dir = tmp_path / "model_out4"
-    model = tmp_path / "model_out4/best.pth"
-
-    with pytest.raises(ValueError, match="supports n_classes == 1"):
-        unet_mod.UNetModel.train(
-            data=training_data,
-            output=str(model),
-            add_channels=True,
-            n_classes=2,  # invalid
-            batch_size=2,
-            n_epochs=1,
-            n_early=0,
-            label_smooth=False,
-        )
-
-
-def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
-    monkeypatch.setattr(
-        unet_mod,
-        "UNetPlusPlusRNN",
-        DummyUNetPlusPlusRNN,
-    )
-
-    training_data, _ = _make_h5(
-        tmp_path,
-        n_keys=20,
-        chunk_size=2,
-        n_channels=2,
-        individuals=2,
-        polymorphisms=7,
-        force_no_positive=True,
-    )
-    model_dir = tmp_path / "model_out5"
-    model = tmp_path / "model_out5/best.pth"
-
-    with pytest.raises(ValueError, match="no positive class"):
-        unet_mod.UNetModel.train(
-            data=training_data,
-            output=str(model),
-            add_channels=False,
-            n_classes=1,
-            batch_size=2,
-            n_epochs=1,
-            n_early=0,
-            label_smooth=False,
-        )
 
 
 def _save_weights(tmp_path, model, filename) -> str:

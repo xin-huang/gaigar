@@ -33,11 +33,7 @@ from gaishi.models import MlModel
 from gaishi.models.unet.layers import UNetPlusPlus, UNetPlusPlusRNN
 from gaishi.registries.model_registry import MODEL_REGISTRY
 
-# from gaishi.models.unet.dataloader_h5 import (
-#    split_keys,
-#    H5BatchSpec,
-#    build_dataloaders_from_h5,
-# )
+from gaishi.models.unet.dataloader_h5 import build_dataloaders_from_h5
 
 
 @MODEL_REGISTRY.register("unet")
@@ -77,77 +73,105 @@ class UNetModel(MlModel):
         n_epochs: int = 100,
         min_delta: float = 1e-4,
         label_smooth: bool = True,
+        val_prop: float = 0.05,
+        seed: int = None,
     ) -> None:
         """
-        Train a UNet model on a key chunked HDF5 dataset and save the best weights.
+        Train a UNet model on a replicate-indexed HDF5 dataset and save the best weights.
 
-        The input HDF5 file must contain multiple top level groups (keys). Each key stores
-        a fixed size chunk under ``x_0`` and labels under ``y``. Training batches are formed
-        by concatenating multiple key chunks along the sample axis. The number of keys per
-        batch is derived from ``batch_size`` and the per key ``chunk_size`` read from the file.
+        This training routine assumes the unified (replicate-first) HDF5 schema produced by
+        ``write_h5(..., ds_type="train")``. The HDF5 file stores all replicates/windows as
+        dense datasets under fixed paths. Each replicate is one training sample.
 
-        Outputs:
+        HDF5 schema (training)
+        ----------------------
+        Inputs (always required)
+        - ``/data/Ref_genotype`` : uint32, shape (n, N, L)
+        - ``/data/Tgt_genotype`` : uint32, shape (n, N, L)
+        - ``/data/Gap_to_prev``  : int64,  shape (n, N, L)
+        - ``/data/Gap_to_next``  : int64,  shape (n, N, L)
 
-        1. ``best.pth``: model weights with the lowest validation loss
-        2. ``training.log``: training log
-        3. ``validation.log``: validation log per epoch history
-        4. ``val_keys.pkl``: validation keys used for the split
+        Targets (required for training)
+        - ``/targets/Label``     : uint8,  shape (n, N, L)
 
-        Model selection
+        Metadata
+        - ``/meta`` attributes include ``n``, ``N`` and ``L``.
 
-        1. If ``add_channels`` is False, train ``UNetPlusPlus(num_classes=n_classes, input_channels=2)``
-        2. If ``add_channels`` is True, train ``UNetPlusPlusRNN(polymorphisms=W)``
-           and require that ``x_0`` has exactly 4 channels and ``n_classes == 1``
+        Batch semantics
+        --------------
+        The DataLoader draws individual replicates and stacks them into batches. With
+        ``batch_size=B`` and ``add_channels``:
+
+        - If ``add_channels=False``: model inputs are constructed as 2 channels
+          ``[Ref_genotype, Tgt_genotype]`` and the batch tensor has shape ``(B, 2, N, L)``.
+        - If ``add_channels=True``: model inputs are constructed as 4 channels
+          ``[Ref_genotype, Tgt_genotype, Gap_to_prev, Gap_to_next]`` and the batch tensor
+          has shape ``(B, 4, N, L)``.
+
+        Labels are loaded from ``/targets/Label`` and collated as ``(B, 1, N, L)``.
+        During training, the label channel dimension is removed via ``y = y.squeeze(1)``
+        to match a binary-logit output of shape ``(B, N, L)``.
+
+        Train/validation split
+        ----------------------
+        Replicates are split deterministically into training and validation subsets by
+        shuffling replicate indices with ``seed`` and taking ``val_prop`` as validation.
+        The selected indices are returned by ``build_dataloaders_from_h5``.
+
+        Class imbalance
+        ---------------
+        A negative-to-positive ratio is computed over the training replicates only from
+        ``/targets/Label`` and used as ``pos_weight`` in ``BCEWithLogitsLoss``.
+
+        Outputs
+        -------
+        1. ``output``: model weights with the lowest validation loss
+        2. ``training.log``: periodic training loss and accuracy
+        3. ``validation.log``: validation loss and accuracy per epoch
 
         Parameters
         ----------
         data : str
-            Path to the HDF5 training file.
+            Path to the HDF5 training file (unified schema).
         output : str
             Path to the best weight file.
         trained_model_file : Optional[str], optional
-            Path to a weights file to initialize the model before training. If None, training
-            starts from random initialization. Default: None.
+            If provided, initialize model weights from this file before training.
         add_channels : bool, optional
-            If False, use only the first two channels from ``x_0``. If True, use all channels
-            and select the neighbor gap fusion model. Default: False.
+            If False, use 2-channel inputs (ref, tgt). If True, use 4-channel inputs
+            (ref, tgt, gap_to_prev, gap_to_next).
         n_classes : int, optional
-            Number of output classes. For binary classification this is typically 1. Default: 1.
+            Number of output classes. For binary classification this is typically 1.
+            ``UNetPlusPlusRNN`` currently requires ``n_classes == 1``.
         learning_rate : float, optional
-            Learning rate for Adam. Default: 0.001.
+            Learning rate for Adam.
         batch_size : int, optional
-            Total number of samples per optimization step after concatenation across keys.
-            Must be divisible by the per key ``chunk_size`` stored in the file. Default: 32.
+            Number of replicates per optimization step.
         label_noise : float, optional
-            Noise magnitude used for label smoothing during training. Default: 0.01.
+            Noise magnitude used for label smoothing during training.
         n_early : int, optional
-            Early stopping patience in epochs. Training stops after more than this many epochs
-            without validation loss improvement. Default: 10.
+            Early stopping patience in epochs.
         n_epochs : int, optional
-            Maximum number of epochs. Default: 100.
+            Maximum number of epochs.
         min_delta : float, optional
-            Minimum required decrease in validation loss to be considered an improvement
-            for early stopping and best-checkpoint saving. If the validation loss does
-            not decrease by more than ``min_delta`` compared to the current best, the
-            epoch is treated as "no improvement" and the early-stopping patience
-            counter is incremented. Set to 0.0 to disable this threshold. Default: 1e-4
+            Minimum decrease in validation loss to be considered an improvement.
         label_smooth : bool, optional
-            Whether to apply label smoothing to training labels. Default: True.
+            Whether to apply label smoothing to training labels.
+        val_prop : float, optional
+            Fraction of replicates assigned to validation.
+        seed : int, optional
+            Seed used for deterministic train/validation split and for label smoothing.
 
         Raises
         ------
         ValueError
-            If the HDF5 file contains no keys.
+            If the HDF5 file contains no replicates.
         ValueError
-            If ``net`` is not supported.
-        ValueError
-            If the training labels contain no positive class.
-        ValueError
-            If ``batch_size`` is not divisible by ``chunk_size``.
-        ValueError
-            If ``add_channels`` is True but the input does not have 4 channels.
+            If training labels contain no positive class.
         ValueError
             If ``add_channels`` is True but ``n_classes`` is not 1.
+        KeyError
+            If required datasets are missing from the HDF5 file.
         """
         start_time = time.time()
         output_dir = os.path.dirname(output)
@@ -161,40 +185,41 @@ class UNetModel(MlModel):
         training_log_file = open(os.path.join(output_dir, "training.log"), "w")
         validation_log_file = open(os.path.join(output_dir, "validation.log"), "w")
 
-        load_file = h5py.File(data, "r")
-        keys = list(load_file.keys())
-        if len(keys) == 0:
-            raise ValueError(f"No keys found in HDF5 file: {training_data}")
+        # Read shapes from unified schema
+        with h5py.File(data, "r") as f:
+            n_reps = f["/meta"].attrs["n"]
+            N = f["/meta"].attrs["N"]
+            L = f["/meta"].attrs["L"]
 
-        first_key = keys[0]
+        if n_reps == 0:
+            raise ValueError(f"No replicates found in HDF5 file: {data}")
 
-        chunk_size = int(load_file[first_key]["x_0"].shape[0])
-        channel_size = int(load_file[first_key]["x_0"].shape[1])
-        polymorphisms = int(load_file[first_key]["x_0"].shape[3])
+        input_channels = 4 if add_channels else 2
 
-        if add_channels:
-            input_channels = channel_size
-        else:
-            input_channels = 2
+        train_loader, val_loader, train_indices, val_indices = (
+            build_dataloaders_from_h5(
+                h5_file=data,
+                channels=input_channels,
+                batch_size=batch_size,
+                val_prop=val_prop,
+                num_workers=0,
+                pin_memory=torch.cuda.is_available(),
+                seed=seed,
+                train_label_smooth=label_smooth,
+                train_label_noise=float(label_noise),
+            )
+        )
 
-        # Deterministic key split for train and validation
-        val_prop = 0.05
-        split_seed = 0
-        train_keys, val_keys = split_keys(keys, val_prop=val_prop, seed=split_seed)
-
-        # Save validation keys for reproducibility
-        pickle.dump(val_keys, open(os.path.join(output_dir, "val_keys.pkl"), "wb"))
-
-        # Compute negative to positive ratio on training keys only
+        # Compute negative to positive ratio on training indices only
         all_counts0 = 0
         all_counts1 = 0
-
-        for key in train_keys:
-            y_ds = load_file[key]["y"][()]
-            values, counts = np.unique(y_ds, return_counts=True)
-            value_to_count = {int(v): int(c) for v, c in zip(values, counts)}
-            all_counts0 += value_to_count.get(0, 0)
-            all_counts1 += value_to_count.get(1, 0)
+        with h5py.File(data, "r") as f:
+            y_ds = f["/targets/Label"]  # (n, N, L)
+            for r in train_indices:
+                y = np.asarray(y_ds[int(r)], dtype=np.uint8)
+                c1 = int(y.sum())
+                all_counts1 += c1
+                all_counts0 += int(y.size - c1)
 
         if all_counts1 == 0:
             raise ValueError(
@@ -204,20 +229,12 @@ class UNetModel(MlModel):
         ratio = all_counts0 / all_counts1
 
         if add_channels:
-            if channel_size != 4:
-                raise ValueError(
-                    f"add_channels=True expects 4 input channels in x_0, got {channel_size}."
-                )
             if int(n_classes) != 1:
                 raise ValueError(
                     "UNetPlusPlusRNN currently supports n_classes == 1 only."
                 )
-            model = UNetPlusPlusRNN(polymorphisms=polymorphisms)
+            model = UNetPlusPlusRNN(polymorphisms=L)
         else:
-            if channel_size < 2:
-                raise ValueError(
-                    f"Expected at least 2 input channels in x_0, got {channel_size}."
-                )
             model = UNetPlusPlus(num_classes=int(n_classes), input_channels=2)
 
         model = model.to(device)
@@ -225,21 +242,6 @@ class UNetModel(MlModel):
         if trained_model_file is not None:
             checkpoint = torch.load(trained_model_file, map_location=device)
             model.load_state_dict(checkpoint)
-
-        # Build DataLoaders that preserve the original key chunk batching semantics
-        spec = H5BatchSpec(chunk_size=chunk_size, batch_size=batch_size)
-        train_loader, val_loader = build_dataloaders_from_h5(
-            h5_path=data,
-            train_keys=train_keys,
-            val_keys=val_keys,
-            channels=input_channels,
-            spec=spec,
-            num_workers=0,
-            pin_memory=torch.cuda.is_available(),
-            seed=split_seed,
-            train_label_smooth=label_smooth,
-            train_label_noise=float(label_noise),
-        )
 
         criterion = BCEWithLogitsLoss(pos_weight=torch.FloatTensor([ratio]).to(device))
         optimizer = optim.Adam(model.parameters(), lr=float(learning_rate))
@@ -256,7 +258,7 @@ class UNetModel(MlModel):
             for batch_idx, (x, y) in enumerate(train_loader, start=1):
                 optimizer.zero_grad()
 
-                y = torch.squeeze(y)
+                y = y.squeeze(1)
                 x = x.to(device)
                 y = y.to(device)
 
@@ -342,7 +344,6 @@ class UNetModel(MlModel):
         training_log_file.flush()
         training_log_file.close()
         validation_log_file.close()
-        load_file.close()
 
     @staticmethod
     def infer(
