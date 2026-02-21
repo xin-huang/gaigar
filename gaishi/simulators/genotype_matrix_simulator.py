@@ -28,7 +28,7 @@ from gaishi.simulators import MsprimeSimulator
 from gaishi.generators import PolymorphismDataGenerator
 from gaishi.labelers import BinaryAlleleLabeler
 from gaishi.preprocessors import GenotypeMatrixPreprocessor
-from gaishi.utils import write_h5, write_tsv
+from gaishi.utils import initialize_h5, write_h5, write_tsv
 
 
 class GenotypeMatrixSimulator(GenericSimulator):
@@ -67,9 +67,7 @@ class GenotypeMatrixSimulator(GenericSimulator):
         keep_sim_data: bool,
         num_polymorphisms: int,
         num_upsamples: int,
-        h5_chunk_size: int = 1,
-        h5_neighbor_gaps: bool = True,
-        h5_set_attributes: bool = True,
+        num_genotype_matrices: int,
     ):
         """
         Initialize a new instance of the GenotypeMatrixSimulator class.
@@ -112,14 +110,8 @@ class GenotypeMatrixSimulator(GenericSimulator):
             Number of polymorphic sites to simulate.
         num_upsamples : int
             Number of samples after upsampling to generate.
-        h5_chunk_size : int, optional
-            Chunk size passed to the HDF5 writer. Keep at 1 until chunk semantics are validated.
-        h5_neighbor_gaps : bool, optional
-            Whether to store neighbor-gap information as additional feature channels in HDF5.
-            When enabled, two channels are saved for each position: the distance to the previous
-            variant (gap_to_prev) and the distance to the next variant (gap_to_next).
-        h5_set_attributes : bool, optional
-            Whether to update the HDF5 attribute ``last_index`` after writing.
+        num_genotype_matrices: int
+            Number of genotype matrices for training.
         """
 
         self.simulator = MsprimeSimulator(
@@ -150,18 +142,22 @@ class GenotypeMatrixSimulator(GenericSimulator):
         self.keep_sim_data = keep_sim_data
         self.num_polymorphisms = num_polymorphisms
         self.num_upsamples = num_upsamples
+        self.num_genotype_matrices = num_genotype_matrices
         self.output_h5 = output_h5
-
-        # HDF writer configuration (output policy, not per-run state)
-        self.h5_chunk_size = h5_chunk_size
-        self.h5_neighbor_gaps = h5_neighbor_gaps
-        self.h5_set_attributes = h5_set_attributes
 
         os.makedirs(output_dir, exist_ok=True)
         if self.output_h5:
             self.output = os.path.join(output_dir, f"{output_prefix}.h5")
-            with h5py.File(self.output, "w"):
-                pass
+            initialize_h5(
+                file_name=self.output,
+                ds_type="train",
+                num_genotype_matrices=self.num_genotype_matrices,
+                N=nref * self.ploidy,
+                L=self.num_polymorphisms,
+                chromosome="1",
+                ref_table=[f"tsk_{i}" for i in range(nref)],
+                tgt_table=[f"tsk_{i}" for i in range(nref, nref + ntgt)],
+            )
         else:
             self.output = os.path.join(output_dir, f"{output_prefix}.tsv")
             with open(self.output, "w") as f:
@@ -245,7 +241,7 @@ class GenotypeMatrixSimulator(GenericSimulator):
             group_name_prefix="unet.training",
             data_dict=data_dict,
             rep=rep,
-            nfeature=kwargs["nfeature"],
+            num_genotype_matrices=self.num_genotype_matrices,
             force_balanced=kwargs["force_balanced"],
             nintro=kwargs["nintro"],
             nnonintro=kwargs["nnonintro"],
@@ -264,7 +260,7 @@ class GenotypeMatrixSimulator(GenericSimulator):
         group_name_prefix: str,
         data_dict: dict,
         rep: int,
-        nfeature: int,
+        num_genotype_matrices: int,
         force_balanced: bool,
         nintro: multiprocessing.Value,
         nnonintro: multiprocessing.Value,
@@ -287,8 +283,8 @@ class GenotypeMatrixSimulator(GenericSimulator):
             Dictionary containing the data to be written to the file.
         rep : int
             Replicate number.
-        nfeature : int
-            Maximum number of features to write.
+        number_genotype_matrices : int
+            Maximum number of genotype matrices to write.
         force_balanced : bool
             Flag to enable balancing of introgressed and non-introgressed regions.
         nintro : multiprocessing.Value
@@ -310,12 +306,17 @@ class GenotypeMatrixSimulator(GenericSimulator):
 
         write_data = False
         with lock:
-            if nintro.value + nnonintro.value < nfeature:
+            if nintro.value + nnonintro.value < num_genotype_matrices:
                 if force_balanced:
-                    if label_sum == 0 and nnonintro.value < int(nfeature / 2):
+                    if label_sum == 0 and nnonintro.value < int(
+                        num_genotype_matrices / 2
+                    ):
                         write_data = True
                         nnonintro.value += 1
-                    elif label_sum != 0 and nintro.value < int(nfeature / 2) + 1:
+                    elif (
+                        label_sum != 0
+                        and nintro.value < int(num_genotype_matrices / 2) + 1
+                    ):
                         write_data = True
                         nintro.value += 1
                 else:
@@ -330,12 +331,8 @@ class GenotypeMatrixSimulator(GenericSimulator):
                 write_h5(
                     file_name=file_name,
                     entries=data_dict,
+                    ds_type="train",
                     lock=lock,
-                    stepsize=self.num_polymorphisms,
-                    is_phased=self.is_phased,
-                    chunk_size=self.h5_chunk_size,
-                    neighbor_gaps=self.h5_neighbor_gaps,
-                    set_attributes=self.h5_set_attributes,
                 )
             else:
                 write_tsv(

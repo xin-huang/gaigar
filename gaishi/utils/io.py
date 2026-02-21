@@ -54,32 +54,34 @@ def write_tsv(file_name: str, data_dict: dict, lock: multiprocessing.Lock) -> No
 
 
 def write_h5(
-    h5_file: str,
+    file_name: str,
     entries: Union[Mapping[str, Any], Sequence[Mapping[str, Any]]],
     ds_type: str,
     lock: multiprocessing.Lock,
-    compression: str = "lzf",
 ) -> None:
     """
-    Write a single HDF5 file for either training input or inference input.
+    Write inputs (and optional targets/coordinates) into an existing unified-schema HDF5 file.
 
-    The file is always overwritten (opened with mode "w"). This function writes only
-    the model inputs and, for training, the supervision targets. Prediction outputs
-    such as logits are not written here.
+    This function appends one or more entries into a pre-initialized HDF5 file opened in
+    append/update mode by the caller (typically mode "a" inside the function). It writes
+    only model inputs and, for ``ds_type="train"``, the supervision targets. Prediction
+    outputs such as logits are not written here.
 
-    Data are stored in a unified, slice-friendly layout where the first dimension
-    indexes replicates or windows. Sample order may differ between entries due to
-    per-entry sorting. Therefore, per-entry row identity is stored as integer ids
-    (``/index/ref_ids`` and ``/index/tgt_ids``) that point to global sample tables
-    stored once in ``/meta``.
+    Data are stored in a unified, slice-friendly layout where the first dimension indexes
+    replicates or windows. Sample order may differ between entries due to per-entry sorting.
+    Therefore, per-entry row identity is stored as integer ids (``/index/ref_ids`` and
+    ``/index/tgt_ids``) that point to global sample tables stored once in ``/meta``.
+
+    This function assumes the file has already been initialized (datasets created and
+    ``/meta`` attributes present, including ``n`` and ``n_written``). New entries are written
+    starting at ``row = /meta.attrs["n_written"]`` and ``n_written`` is incremented accordingly.
 
     Parameters
     ----------
-    h5_file : str
-        Output HDF5 path.
+    file_name : str
+        Output HDF5 path. The file must already exist and follow the unified schema.
     entries : Mapping[str, Any] or Sequence[Mapping[str, Any]]
-        One entry or a list of entries. Each entry corresponds to one replicate
-        or one inference window.
+        One entry or a list of entries. Each entry corresponds to one replicate/window.
 
         Required keys for both ``ds_type="train"`` and ``ds_type="infer"``:
         - ``Ref_genotype`` : array_like, shape (N, L)
@@ -88,7 +90,6 @@ def write_h5(
         - ``Gap_to_next``  : array_like, shape (N, L)
         - ``Ref_sample``   : sequence of length N, sample names in row order
         - ``Tgt_sample``   : sequence of length N, sample names in row order
-        - ``Chromosome``   : scalar, stored in ``/meta`` attributes
 
         Additional required keys for ``ds_type="train"``:
         - ``Label``     : array_like, shape (N, L)
@@ -98,16 +99,13 @@ def write_h5(
         Additional required keys for ``ds_type="infer"``:
         - ``Position``  : array_like, shape (L,)
     ds_type : {"train", "infer"}
-        Dataset type. Controls whether training targets or inference coordinates
-        are written.
+        Dataset type. Controls whether training targets or inference coordinates are written.
     lock : multiprocessing.Lock
         Inter-process lock that serializes HDF5 writes.
-    compression : str, default "lzf"
-        HDF5 dataset compression filter.
 
     Notes
     -----
-    HDF5 schema written by this function.
+    Expected HDF5 schema (created elsewhere, e.g. by ``initialize_h5``).
 
     Common datasets
     - ``/data/Ref_genotype``  : uint32, shape (n, N, L)
@@ -118,7 +116,7 @@ def write_h5(
     - ``/index/tgt_ids``      : uint32, shape (n, N)
     - ``/meta/ref_sample_table`` : utf-8 strings, shape (K_ref,)
     - ``/meta/tgt_sample_table`` : utf-8 strings, shape (K_tgt,)
-    - ``/meta`` attributes: ``N``, ``L``, ``Chromosome``
+    - ``/meta`` attributes: ``n``, ``N``, ``L``, ``Chromosome``, ``n_written``
 
     Training-only datasets (``ds_type="train"``)
     - ``/targets/Label``      : uint8,  shape (n, N, L)
@@ -128,9 +126,9 @@ def write_h5(
     Inference-only datasets (``ds_type="infer"``)
     - ``/coords/Position``    : int64,  shape (n, L)
 
-    The integer row id arrays map each row in ``Ref_genotype`` and ``Tgt_genotype``
-    back to the global sample tables. This preserves per-entry sorting while still
-    allowing efficient slicing across entries.
+    The integer row id arrays map each row in ``Ref_genotype`` and ``Tgt_genotype`` back to
+    the global sample tables. This preserves per-entry sorting while still allowing efficient
+    slicing across entries.
     """
     if ds_type not in ("train", "infer"):
         raise ValueError('ds_type must be "train" or "infer"')
@@ -173,16 +171,9 @@ def write_h5(
             f"Ref_genotype shape {ref0.shape} != Tgt_genotype shape {tgt0.shape}"
         )
     N, L = ref0.shape
-    n = len(entries_list)
-
-    ref_table, tgt_table = [], []
-    ref_seen, tgt_seen = set(), set()
+    n_new = len(entries_list)
 
     for i, e in enumerate(entries_list):
-        for k in base_required:
-            if k not in e:
-                raise KeyError(f"Entry {i}: missing {k}")
-
         ref = np.asarray(e["Ref_genotype"])
         tgt = np.asarray(e["Tgt_genotype"])
         if ref.shape != (N, L) or tgt.shape != (N, L):
@@ -199,9 +190,6 @@ def write_h5(
             )
 
         if ds_type == "train":
-            for k in extra_required:
-                if k not in e:
-                    raise KeyError(f"Entry {i}: missing {k}")
             y = np.asarray(e["Label"])
             if y.shape != (N, L):
                 raise ValueError(f"Entry {i}: Label shape mismatch, expected {(N, L)}")
@@ -210,155 +198,212 @@ def write_h5(
             if pos.ndim != 1 or pos.shape[0] != L:
                 raise ValueError(f"Entry {i}: Position shape mismatch, expected {(L,)}")
 
-        for s in e["Ref_sample"]:
-            name = str(s)
-            if name not in ref_seen:
-                ref_seen.add(name)
-                ref_table.append(name)
-        for s in e["Tgt_sample"]:
-            name = str(s)
-            if name not in tgt_seen:
-                tgt_seen.add(name)
-                tgt_table.append(name)
-
-    ref_map = {name: idx for idx, name in enumerate(ref_table)}
-    tgt_map = {name: idx for idx, name in enumerate(tgt_table)}
-
-    ref_ids = np.empty((n, N), dtype=np.uint32)
-    tgt_ids = np.empty((n, N), dtype=np.uint32)
-
-    for i, e in enumerate(entries_list):
-        ref_ids[i, :] = np.asarray(
-            [ref_map[str(s)] for s in e["Ref_sample"]], dtype=np.uint32
-        )
-        tgt_ids[i, :] = np.asarray(
-            [tgt_map[str(s)] for s in e["Tgt_sample"]], dtype=np.uint32
-        )
-
-    seeds = None
-    reps = None
-    if ds_type == "train":
-        seeds = np.asarray([int(e["Seed"]) for e in entries_list], dtype=np.int64)
-        reps = np.asarray([int(e["Replicate"]) for e in entries_list], dtype=np.int64)
-
-    str_dt = h5py.string_dtype(encoding="utf-8")
+    def _read_str_table(ds: h5py.Dataset) -> list[str]:
+        arr = np.asarray(ds[()])
+        out: list[str] = []
+        for x in arr:
+            if isinstance(x, (bytes, np.bytes_)):
+                out.append(x.decode("utf-8"))
+            else:
+                out.append(str(x))
+        return out
 
     with lock:
-        with h5py.File(h5_file, "w") as h5f:
-            h5f.require_group("/data")
-            h5f.require_group("/index")
-            meta = h5f.require_group("/meta")
-
-            if ds_type == "train":
-                h5f.require_group("/targets")
-            else:
-                h5f.require_group("/coords")
-
-            meta.attrs["n"] = int(n)  # number of replicates or windows
-            meta.attrs["N"] = int(N)  # number of samples
-            meta.attrs["L"] = int(L)  # number of sites
-            meta.attrs["Chromosome"] = str(e0["Chromosome"])
-
-            h5f.create_dataset(
-                "/meta/ref_sample_table",
-                data=np.asarray(ref_table, dtype=object),
-                dtype=str_dt,
-            )
-            h5f.create_dataset(
-                "/meta/tgt_sample_table",
-                data=np.asarray(tgt_table, dtype=object),
-                dtype=str_dt,
-            )
-
-            h5f.create_dataset(
-                "/data/Ref_genotype",
-                shape=(n, N, L),
-                dtype=np.uint32,
-                chunks=(1, N, L),
-                compression=compression,
-            )
-            h5f.create_dataset(
-                "/data/Tgt_genotype",
-                shape=(n, N, L),
-                dtype=np.uint32,
-                chunks=(1, N, L),
-                compression=compression,
-            )
-            h5f.create_dataset(
-                "/data/Gap_to_prev",
-                shape=(n, N, L),
-                dtype=np.int64,
-                chunks=(1, N, L),
-                compression=compression,
-            )
-            h5f.create_dataset(
-                "/data/Gap_to_next",
-                shape=(n, N, L),
-                dtype=np.int64,
-                chunks=(1, N, L),
-                compression=compression,
-            )
-
-            h5f.create_dataset(
-                "/index/ref_ids",
-                data=ref_ids,
-                dtype=np.uint32,
-                chunks=(min(64, n), N),
-                compression=compression,
-            )
-            h5f.create_dataset(
-                "/index/tgt_ids",
-                data=tgt_ids,
-                dtype=np.uint32,
-                chunks=(min(64, n), N),
-                compression=compression,
-            )
-
-            if ds_type == "train":
-                h5f.create_dataset(
-                    "/targets/Label",
-                    shape=(n, N, L),
-                    dtype=np.uint8,
-                    chunks=(1, N, L),
-                    compression=compression,
-                )
-                h5f.create_dataset(
-                    "/index/Seed", data=seeds, dtype=np.int64, compression=compression
-                )
-                h5f.create_dataset(
-                    "/index/Replicate",
-                    data=reps,
-                    dtype=np.int64,
-                    compression=compression,
-                )
-            else:
-                h5f.create_dataset(
-                    "/coords/Position",
-                    shape=(n, L),
-                    dtype=np.int64,
-                    chunks=(1, L),
-                    compression=compression,
+        with h5py.File(file_name, "a") as h5f:
+            meta = h5f["/meta"]
+            i0 = int(meta.attrs["n_written"])
+            n_cap = int(meta.attrs["n"])
+            if i0 + n_new > n_cap:
+                raise ValueError(
+                    f"HDF5 capacity exceeded: n_written={i0}, adding={n_new}, n={n_cap}"
                 )
 
-            for i, e in enumerate(entries_list):
-                h5f["/data/Ref_genotype"][i] = np.asarray(
+            ref_table = _read_str_table(h5f["/meta/ref_sample_table"])
+            tgt_table = _read_str_table(h5f["/meta/tgt_sample_table"])
+            ref_map = {name: idx for idx, name in enumerate(ref_table)}
+            tgt_map = {name: idx for idx, name in enumerate(tgt_table)}
+
+            for j, e in enumerate(entries_list):
+                row = i0 + j
+
+                h5f["/data/Ref_genotype"][row] = np.asarray(
                     e["Ref_genotype"], dtype=np.uint32
                 )
-                h5f["/data/Tgt_genotype"][i] = np.asarray(
+                h5f["/data/Tgt_genotype"][row] = np.asarray(
                     e["Tgt_genotype"], dtype=np.uint32
                 )
-                h5f["/data/Gap_to_prev"][i] = np.asarray(
+                h5f["/data/Gap_to_prev"][row] = np.asarray(
                     e["Gap_to_prev"], dtype=np.int64
                 )
-                h5f["/data/Gap_to_next"][i] = np.asarray(
+                h5f["/data/Gap_to_next"][row] = np.asarray(
                     e["Gap_to_next"], dtype=np.int64
                 )
 
+                h5f["/index/ref_ids"][row, :] = np.asarray(
+                    [ref_map[str(s)] for s in e["Ref_sample"]], dtype=np.uint32
+                )
+                h5f["/index/tgt_ids"][row, :] = np.asarray(
+                    [tgt_map[str(s)] for s in e["Tgt_sample"]], dtype=np.uint32
+                )
+
                 if ds_type == "train":
-                    h5f["/targets/Label"][i] = np.asarray(e["Label"], dtype=np.uint8)
+                    h5f["/targets/Label"][row] = np.asarray(e["Label"], dtype=np.uint8)
+                    h5f["/index/Seed"][row] = int(e["Seed"])
+                    h5f["/index/Replicate"][row] = int(e["Replicate"])
                 else:
-                    h5f["/coords/Position"][i] = np.asarray(
+                    h5f["/coords/Position"][row] = np.asarray(
                         e["Position"], dtype=np.int64
                     )
 
+            meta.attrs["n_written"] = i0 + n_new
             h5f.flush()
+
+
+def initialize_h5(
+    file_name: str,
+    *,
+    ds_type: str,
+    num_genotype_matrices: int,
+    N: int,
+    L: int,
+    chromosome: str,
+    ref_table: list[str],
+    tgt_table: list[str],
+    compression: str = "lzf",
+) -> None:
+    """
+    Initialize an HDF5 file in the unified schema.
+
+    Parameters
+    ----------
+    file_name : str
+        Path to the HDF5 file.
+    ds_type : {"train", "infer"}
+        Dataset type. "train" creates /targets/Label and /index/{Seed,Replicate}.
+        "infer" creates /coords/Position.
+    num_genotype_matrices : int
+        Total number of genotype matrices (preallocated capacity).
+    N : int
+        Number of samples/rows per genotype matrix.
+    L : int
+        Number of sites/columns per genotype matrix.
+    chromosome : str
+        Chromosome identifier stored in /meta attrs.
+    ref_table : list[str]
+        Reference sample name table written once to /meta/ref_sample_table.
+    tgt_table : list[str]
+        Target sample name table written once to /meta/tgt_sample_table.
+    compression : str, default "lzf"
+        HDF5 dataset compression filter.
+
+    Raises
+    ------
+    ValueError
+        If ds_type is invalid or existing file metadata does not match inputs.
+    """
+    if ds_type not in ("train", "infer"):
+        raise ValueError('ds_type must be "train" or "infer"')
+
+    with h5py.File(file_name, "w") as h5f:
+        h5f.require_group("/data")
+        h5f.require_group("/index")
+        meta = h5f.require_group("/meta")
+
+        if ds_type == "train":
+            h5f.require_group("/targets")
+        else:
+            h5f.require_group("/coords")
+
+        # First-time initialization.
+        meta.attrs["n"] = int(num_genotype_matrices)
+        meta.attrs["N"] = int(N)
+        meta.attrs["L"] = int(L)
+        meta.attrs["Chromosome"] = str(chromosome)
+        meta.attrs["n_written"] = 0
+
+        str_dt = h5py.string_dtype(encoding="utf-8")
+        h5f.create_dataset(
+            "/meta/ref_sample_table",
+            data=np.asarray(ref_table, dtype=object),
+            dtype=str_dt,
+        )
+        h5f.create_dataset(
+            "/meta/tgt_sample_table",
+            data=np.asarray(tgt_table, dtype=object),
+            dtype=str_dt,
+        )
+
+        h5f.create_dataset(
+            "/data/Ref_genotype",
+            shape=(num_genotype_matrices, N, L),
+            dtype=np.uint32,
+            chunks=(1, N, L),
+            compression=compression,
+        )
+        h5f.create_dataset(
+            "/data/Tgt_genotype",
+            shape=(num_genotype_matrices, N, L),
+            dtype=np.uint32,
+            chunks=(1, N, L),
+            compression=compression,
+        )
+        h5f.create_dataset(
+            "/data/Gap_to_prev",
+            shape=(num_genotype_matrices, N, L),
+            dtype=np.int64,
+            chunks=(1, N, L),
+            compression=compression,
+        )
+        h5f.create_dataset(
+            "/data/Gap_to_next",
+            shape=(num_genotype_matrices, N, L),
+            dtype=np.int64,
+            chunks=(1, N, L),
+            compression=compression,
+        )
+
+        h5f.create_dataset(
+            "/index/ref_ids",
+            shape=(num_genotype_matrices, N),
+            dtype=np.uint32,
+            chunks=(min(64, num_genotype_matrices), N),
+            compression=compression,
+        )
+        h5f.create_dataset(
+            "/index/tgt_ids",
+            shape=(num_genotype_matrices, N),
+            dtype=np.uint32,
+            chunks=(min(64, num_genotype_matrices), N),
+            compression=compression,
+        )
+
+        if ds_type == "train":
+            h5f.create_dataset(
+                "/targets/Label",
+                shape=(num_genotype_matrices, N, L),
+                dtype=np.uint8,
+                chunks=(1, N, L),
+                compression=compression,
+            )
+            h5f.create_dataset(
+                "/index/Seed",
+                shape=(num_genotype_matrices,),
+                dtype=np.int64,
+                chunks=(min(1024, num_genotype_matrices),),
+                compression=compression,
+            )
+            h5f.create_dataset(
+                "/index/Replicate",
+                shape=(num_genotype_matrices,),
+                dtype=np.int64,
+                chunks=(min(1024, num_genotype_matrices),),
+                compression=compression,
+            )
+        else:
+            h5f.create_dataset(
+                "/coords/Position",
+                shape=(num_genotype_matrices, L),
+                dtype=np.int64,
+                chunks=(1, L),
+                compression=compression,
+            )

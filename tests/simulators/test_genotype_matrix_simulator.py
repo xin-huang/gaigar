@@ -50,6 +50,7 @@ def init_params(tmp_path):
         "keep_sim_data": False,
         "num_polymorphisms": 128,
         "num_upsamples": 56,
+        "num_genotype_matrices": 10,
     }
 
 
@@ -75,10 +76,7 @@ def init_params_h5(tmp_path):
         "keep_sim_data": False,
         "num_polymorphisms": 128,
         "num_upsamples": 56,
-        # If the class exposes H5 knobs, they can be passed here (optional):
-        # "h5_chunk_size": 1,
-        # "h5_neighbor_gaps": True,
-        # "h5_set_attributes": True,
+        "num_genotype_matrices": 10,
     }
 
 
@@ -89,7 +87,6 @@ def test_GenotypeMatrixSimulator(init_params):
         job=simulator,
         data_generator=generator,
         nprocess=2,
-        nfeature=10,
         force_balanced=False,
         nintro=Value("i", 0),
         nnonintro=Value("i", 0),
@@ -119,12 +116,10 @@ def test_GenotypeMatrixSimulator_h5(init_params_h5):
     simulator = GenotypeMatrixSimulator(**init_params_h5)
     generator = RandomNumberGenerator(nrep=10, seed=12345)
 
-    nfeature = 10
-    res = mp_manager(
+    _ = mp_manager(
         job=simulator,
         data_generator=generator,
         nprocess=2,
-        nfeature=nfeature,
         force_balanced=False,
         nintro=Value("i", 0),
         nnonintro=Value("i", 0),
@@ -133,58 +128,59 @@ def test_GenotypeMatrixSimulator_h5(init_params_h5):
         lock=Lock(),
     )
 
-    # This test asserts the on-disk contract, which is the stable source of truth.
     h5_path = f'{init_params_h5["output_dir"]}/{init_params_h5["output_prefix"]}.h5'
 
     with h5py.File(h5_path, "r") as h5f:
-        # last_index should equal number of written groups (append-style writer)
-        assert "last_index" in h5f.attrs
-        last_index = int(h5f.attrs["last_index"])
-        assert last_index == nfeature
+        # Required datasets for inputs
+        assert "/data/Ref_genotype" in h5f
+        assert "/data/Tgt_genotype" in h5f
 
-        # groups are numeric strings: "0", "1", ...
-        keys = sorted(h5f.keys(), key=lambda x: int(x))
-        assert len(keys) == nfeature
-        assert keys[0] == "0"
-        assert keys[-1] == str(nfeature - 1)
+        ref = h5f["/data/Ref_genotype"]
+        tgt = h5f["/data/Tgt_genotype"]
+        n = h5f["/meta"].attrs["n"]
 
-        # validate structure + basic shape constraints
-        for gid in keys:
-            g = h5f[gid]
-            assert {"x_0", "y", "indices", "pos", "ix"} <= set(g.keys())
+        assert ref.ndim == 3  # (R, N, L)
+        assert tgt.ndim == 3  # (R, N, L)
+        assert ref.shape == tgt.shape
+        assert n == 10
+        assert ref.shape[0] == 10
 
-            x = g["x_0"][()]
-            y = g["y"][()]
-            ind = g["indices"][()]
-            pos = g["pos"][()]
-            ix = g["ix"][()]
+        # dtype sanity (genotypes are typically integer-coded)
+        assert np.issubdtype(ref.dtype, np.integer)
+        assert np.issubdtype(tgt.dtype, np.integer)
 
-            # batch dimension
-            assert x.shape[0] == 1
-            assert y.shape[0] == 1
-            assert ind.shape[0] == 1
-            assert pos.shape[0] == 1
-            assert ix.shape == (1, 1, 1)
+        # Optional gap channels (present when writing 4-channel data)
+        has_gp = "/data/Gap_to_prev" in h5f
+        has_gn = "/data/Gap_to_next" in h5f
+        assert has_gp == has_gn  # either both exist or neither
 
-            # channel counts: x has >=2 channels (ref/tgt); if fwbw is enabled it should be 4
-            assert x.ndim == 4
-            assert x.shape[1] in (2, 4)
+        if has_gp:
+            gp = h5f["/data/Gap_to_prev"]
+            gn = h5f["/data/Gap_to_next"]
+            assert gp.ndim == 3 and gn.ndim == 3
+            assert gp.shape == ref.shape
+            assert gn.shape == ref.shape
+            assert np.issubdtype(gp.dtype, np.integer) or np.issubdtype(
+                gp.dtype, np.floating
+            )
+            assert np.issubdtype(gn.dtype, np.integer) or np.issubdtype(
+                gn.dtype, np.floating
+            )
 
-            # y is (1, 1, n_samples, n_sites)
-            assert y.ndim == 4
-            assert y.shape[1] == 1
+        # Labels: expect (R, N, L) under /targets/Label
+        assert "/targets/Label" in h5f
+        lab = h5f["/targets/Label"]
+        assert lab.ndim == 3
+        assert lab.shape == ref.shape
 
-            # indices is (1, 2, n_samples, 2)
-            assert ind.ndim == 4
-            assert ind.shape[1] == 2
-            assert ind.shape[-1] == 2
+        # label value sanity: in [0, 1]
+        lab0 = np.asarray(lab[0])
+        assert np.nanmin(lab0) >= 0.0
+        assert np.nanmax(lab0) <= 1.0
 
-            # pos is (1, 1, 1, 2)  (StartEnd)
-            assert pos.shape == (1, 1, 1, 2)
-
-            # ix stores replicate id as integer
-            assert np.issubdtype(ix.dtype, np.integer)
-
-        # optional: check that ix values are not all identical (sanity)
-        ix_vals = [int(h5f[k]["ix"][0, 0, 0]) for k in keys]
-        assert len(set(ix_vals)) >= 1
+        # Basic non-empty / finite sanity on the first replicate
+        ref0 = np.asarray(ref[0])
+        tgt0 = np.asarray(tgt[0])
+        assert ref0.size > 0 and tgt0.size > 0
+        assert np.isfinite(ref0).all()
+        assert np.isfinite(tgt0).all()
