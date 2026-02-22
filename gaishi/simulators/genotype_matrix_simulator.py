@@ -29,6 +29,7 @@ from gaishi.generators import PolymorphismDataGenerator
 from gaishi.labelers import BinaryAlleleLabeler
 from gaishi.preprocessors import GenotypeMatrixPreprocessor
 from gaishi.utils import initialize_h5, write_h5, write_tsv
+from gaishi.utils import create_sample_name_list
 
 
 class GenotypeMatrixSimulator(GenericSimulator):
@@ -152,11 +153,15 @@ class GenotypeMatrixSimulator(GenericSimulator):
                 file_name=self.output,
                 ds_type="train",
                 num_genotype_matrices=self.num_genotype_matrices,
-                N=nref * self.ploidy,
+                N=self.num_upsamples * self.ploidy,
                 L=self.num_polymorphisms,
                 chromosome="1",
-                ref_table=[f"tsk_{i}" for i in range(nref)],
-                tgt_table=[f"tsk_{i}" for i in range(nref, nref + ntgt)],
+                ref_table=create_sample_name_list(
+                    [f"tsk_{i}" for i in range(nref)], ploidy, is_phased
+                ),
+                tgt_table=create_sample_name_list(
+                    [f"tsk_{i}" for i in range(nref, nref + ntgt)], ploidy, is_phased
+                ),
             )
         else:
             self.output = os.path.join(output_dir, f"{output_prefix}.tsv")

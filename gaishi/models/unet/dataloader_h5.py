@@ -269,7 +269,7 @@ def build_dataloaders_from_h5(
         Number of DataLoader worker processes.
     pin_memory : bool, default=True
         Whether to enable pinned memory in the DataLoaders.
-    seed : int, default=0
+    seed : Optional[int], default=None
         Seed for the deterministic split (PyTorch generator). Also used to seed
         NumPy RNGs for label smoothing (`seed` for train, `seed + 1` for val).
     train_label_smooth : bool, default=True
@@ -314,11 +314,16 @@ def build_dataloaders_from_h5(
 
     # Deterministic split
     g = torch.Generator()
-    g.manual_seed(int(seed))
-    train_ds, val_ds = random_split(base_ds, [n_train, n_val], generator=g)
 
-    train_rng = np.random.default_rng(seed)
-    val_rng = np.random.default_rng(seed + 1)
+    if seed is not None:
+        g.manual_seed(int(seed))
+        train_rng = np.random.default_rng(seed)
+        val_rng = np.random.default_rng(seed + 1)
+    else:
+        train_rng = None
+        val_rng = None
+
+    train_ds, val_ds = random_split(base_ds, [n_train, n_val], generator=g)
 
     train_loader = DataLoader(
         train_ds,

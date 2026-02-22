@@ -144,6 +144,8 @@ def test_GenotypeMatrixSimulator_h5(init_params_h5):
         assert ref.shape == tgt.shape
         assert n == 10
         assert ref.shape[0] == 10
+        assert ref.shape[1] == 112
+        assert ref.shape[2] == 128
 
         # dtype sanity (genotypes are typically integer-coded)
         assert np.issubdtype(ref.dtype, np.integer)

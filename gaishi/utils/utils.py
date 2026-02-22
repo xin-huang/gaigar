@@ -372,3 +372,39 @@ def split_genome(
                 )
 
     return window_positions
+
+
+def create_sample_name_list(
+    samples: list,
+    ploidy: int,
+    is_phased: bool,
+) -> list[str]:
+    """
+    Create a list of sample names, including phased information if applicable.
+
+    Parameters
+    ----------
+    samples : list of str
+        List of original sample identifiers.
+    ploidy : int
+        The ploidy level of the samples (e.g., 2 for diploid).
+    is_phased : bool
+        Indicates if the sample names should include phased information.
+
+    Returns
+    -------
+    list of str
+        A list of sample names, with phased information if applicable.
+    """
+
+    if is_phased:
+        num_samples = len(samples) * ploidy
+    else:
+        num_samples = len(samples)
+
+    samples = [
+        f"{samples[int(i/ploidy)]}_{i%ploidy+1}" if is_phased else samples[i]
+        for i in range(num_samples)
+    ]
+
+    return samples

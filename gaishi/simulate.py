@@ -247,7 +247,7 @@ def simulate_genotype_matrices(
     rec_rate: float,
     num_polymorphisms: int,
     num_upsamples: int,
-    nfeature: int,
+    num_genotype_matrices: int,
     nprocess: int,
     output_prefix: str,
     output_dir: str,
@@ -272,6 +272,7 @@ def simulate_genotype_matrices(
         rec_rate=rec_rate,
         num_polymorphisms=num_polymorphisms,
         num_upsamples=num_upsamples,
+        num_genotype_matrices=num_genotype_matrices,
         output_prefix=output_prefix,
         output_dir=output_dir,
         output_h5=output_h5,
@@ -282,7 +283,6 @@ def simulate_genotype_matrices(
 
     start_rep = 0
     nrep = nrep
-    nfeature = nfeature
     num_intro = Value("i", 0)
     num_nonintro = Value("i", 0)
     lock = Lock()
@@ -298,7 +298,6 @@ def simulate_genotype_matrices(
             job=simulator,
             data_generator=generator,
             nprocess=nprocess,
-            nfeature=nfeature,
             force_balanced=force_balanced,
             nintro=num_intro,
             nnonintro=num_nonintro,
@@ -307,6 +306,6 @@ def simulate_genotype_matrices(
             lock=lock,
         )
 
-        if num_intro.value + num_nonintro.value >= nfeature:
+        if num_intro.value + num_nonintro.value >= num_genotype_matrices:
             break
         start_rep += nrep
