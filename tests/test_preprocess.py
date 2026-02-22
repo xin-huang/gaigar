@@ -95,37 +95,59 @@ def test_preprocess_genotype_matrices(genotype_matrix_init_params):
     preprocess_genotype_matrices(**genotype_matrix_init_params)
 
     with h5py.File(genotype_matrix_init_params["output_file"], "r") as f:
-        assert "last_index" in f.attrs
-        last_index = int(f.attrs["last_index"])
-        assert last_index >= 1
+        # Meta
+        assert "/meta" in f
+        meta = f["/meta"]
+        assert "n" in meta.attrs
+        assert "N" in meta.attrs
+        assert "L" in meta.attrs
+        assert "Chromosome" in meta.attrs
+        assert "n_written" in meta.attrs
+        assert int(meta.attrs["n_written"]) >= 1
 
-        # Check first group only (schema + dummy fields)
-        g = f["0"]
-        for name in ("x_0", "y", "indices", "pos", "ix"):
-            assert name in g
+        # Required sample tables
+        assert "/meta/ref_sample_table" in f
+        assert "/meta/tgt_sample_table" in f
 
-        x = g["x_0"][()]
-        y = g["y"][()]
-        ind = g["indices"][()]
-        pos = g["pos"][()]
-        ix = g["ix"][()]
+        # Required input datasets
+        for name, dt in [
+            ("/data/Ref_genotype", np.uint32),
+            ("/data/Tgt_genotype", np.uint32),
+            ("/data/Gap_to_prev", np.int64),
+            ("/data/Gap_to_next", np.int64),
+        ]:
+            assert name in f
+            ds = f[name]
+            assert ds.dtype == np.dtype(dt)
+            # replicate-indexed
+            assert ds.ndim == 3
+            assert ds.shape[0] >= 1
 
-        assert x.dtype == np.uint32
-        assert y.dtype == np.uint8
-        assert ind.dtype == np.uint32
-        assert pos.dtype == np.uint32
-        assert ix.dtype == np.uint32
+        # Indices
+        assert "/index/ref_ids" in f
+        assert "/index/tgt_ids" in f
+        assert f["/index/ref_ids"].dtype == np.uint32
+        assert f["/index/tgt_ids"].dtype == np.uint32
+        assert f["/index/ref_ids"].ndim == 2
+        assert f["/index/tgt_ids"].ndim == 2
+        assert f["/index/ref_ids"].shape[0] >= 1
+        assert f["/index/tgt_ids"].shape[0] >= 1
 
-        # neighbor_gaps=True by default in write_h5 -> 4 channels
-        assert x.shape[0] == 1
-        assert x.shape[1] == 4
+        # Infer schema
+        assert "/coords/Position" in f
+        pos = f["/coords/Position"]
+        assert pos.dtype == np.int64
+        assert pos.ndim == 2
+        assert pos.shape[0] >= 1
 
-        # Consistency checks implied by current writer
-        assert y.shape == (1, 1, x.shape[2], x.shape[3])
-        assert ind.shape == (1, 2, x.shape[2], 2)
-        assert pos.shape == (1, 1, 1, 2)
-        assert ix.shape == (1, 1, 1)
+        # Cross-dataset consistency on the first row
+        ref0 = f["/data/Ref_genotype"][0]
+        tgt0 = f["/data/Tgt_genotype"][0]
+        gp0 = f["/data/Gap_to_prev"][0]
+        gn0 = f["/data/Gap_to_next"][0]
+        assert ref0.shape == tgt0.shape == gp0.shape == gn0.shape  # (N, L)
 
-        # For real data: dummy label should be all zeros; dummy replicate should be 0
-        assert np.all(y == 0)
-        assert int(f["0/ix"][0, 0, 0]) == 0
+        ref_ids0 = f["/index/ref_ids"][0]
+        tgt_ids0 = f["/index/tgt_ids"][0]
+        assert ref_ids0.shape[0] == ref0.shape[0]  # N
+        assert tgt_ids0.shape[0] == tgt0.shape[0]  # N

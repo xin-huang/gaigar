@@ -20,7 +20,8 @@
 
 import os, multiprocessing, yaml
 import pandas as pd
-from gaishi.utils import parse_ind_file, write_h5
+from gaishi.utils import parse_ind_file, initialize_h5, write_h5
+from gaishi.utils import create_sample_name_list
 from gaishi.multiprocessing import mp_manager
 from gaishi.generators import WindowDataGenerator
 from gaishi.generators import PolymorphismDataGenerator
@@ -206,10 +207,24 @@ def preprocess_genotype_matrices(
 
     res = mp_manager(job=preprocessor, data_generator=generator, nprocess=nprocess)
 
+    initialize_h5(
+        file_name=output_file,
+        ds_type="infer",
+        num_genotype_matrices=generator.num_genotype_matrices,
+        N=num_upsamples * ploidy,
+        L=num_polymorphisms,
+        chromosome=chr_name,
+        ref_table=create_sample_name_list(
+            parse_ind_file(ref_ind_file), ploidy, is_phased
+        ),
+        tgt_table=create_sample_name_list(
+            parse_ind_file(tgt_ind_file), ploidy, is_phased
+        ),
+    )
+
     write_h5(
         file_name=output_file,
         entries=res,
+        ds_type="infer",
         lock=multiprocessing.Lock(),
-        stepsize=num_polymorphisms,
-        is_phased=is_phased,
     )

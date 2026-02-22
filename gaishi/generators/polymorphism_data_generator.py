@@ -131,6 +131,7 @@ class PolymorphismDataGenerator(GenericGenerator):
         tgt_gts, self.tgt_rdm_spl_idx = self._upsample(tgt_gts, num_tgts, num_upsamples)
 
         self.data = []
+        self.num_genotype_matrices = len(polymorphisms)
 
         for p in range(len(polymorphisms)):
             chr_name, idx = polymorphisms[p]
