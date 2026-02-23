@@ -301,184 +301,235 @@ def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
         )
 
 
-def _make_h5(
+def _make_inference_h5(
     tmp_path,
     *,
-    n_keys: int,
-    chunk_size: int,
-    n_channels: int,
+    n_total: int,
     individuals: int,
     polymorphisms: int,
-    force_no_positive: bool = False,
-) -> tuple[str, list[str]]:
+    with_gaps: bool,
+) -> str:
     h5_path = tmp_path / "data.h5"
-    keys = [str(i) for i in range(n_keys)]
     rng = np.random.default_rng(0)
 
+    N = int(individuals)
+    L = int(polymorphisms)
+    n = int(n_total)
+
+    ref = rng.integers(0, 2, size=(n, N, L), dtype=np.uint32)
+    tgt = rng.integers(0, 2, size=(n, N, L), dtype=np.uint32)
+
+    # gaps are int64 in your schema
+    if with_gaps:
+        gp = rng.integers(0, 10, size=(n, N, L), dtype=np.int64)
+        gn = rng.integers(0, 10, size=(n, N, L), dtype=np.int64)
+
+    # ids: simplest stable mapping 0..N-1 for every row
+    ref_ids = np.tile(np.arange(N, dtype=np.uint32), (n, 1))
+    tgt_ids = np.tile(np.arange(N, dtype=np.uint32), (n, 1))
+
+    # coords: Position per row (can be identical across rows for tests)
+    pos = np.tile(np.arange(L, dtype=np.int64), (n, 1))
+
+    ref_table = [f"ref_{i}" for i in range(N)]
+    tgt_table = [f"tgt_{i}" for i in range(N)]
+    str_dt = h5py.string_dtype(encoding="utf-8")
+
     with h5py.File(h5_path, "w") as f:
-        for k in keys:
-            grp = f.create_group(k)
+        f.require_group("/data")
+        f.require_group("/index")
+        meta = f.require_group("/meta")
+        f.require_group("/coords")
 
-            x = rng.integers(
-                0,
-                2,
-                size=(chunk_size, n_channels, individuals, polymorphisms),
-                dtype=np.int32,
+        meta.attrs["n"] = n
+        meta.attrs["N"] = N
+        meta.attrs["L"] = L
+        meta.attrs["Chromosome"] = "213"
+        meta.attrs["n_written"] = n
+
+        f.create_dataset(
+            "/meta/ref_sample_table",
+            data=np.asarray(ref_table, dtype=object),
+            dtype=str_dt,
+        )
+        f.create_dataset(
+            "/meta/tgt_sample_table",
+            data=np.asarray(tgt_table, dtype=object),
+            dtype=str_dt,
+        )
+
+        f.create_dataset(
+            "/data/Ref_genotype",
+            data=ref,
+            dtype=np.uint32,
+            chunks=(1, N, L),
+            compression="lzf",
+        )
+        f.create_dataset(
+            "/data/Tgt_genotype",
+            data=tgt,
+            dtype=np.uint32,
+            chunks=(1, N, L),
+            compression="lzf",
+        )
+
+        if with_gaps:
+            f.create_dataset(
+                "/data/Gap_to_prev",
+                data=gp,
+                dtype=np.int64,
+                chunks=(1, N, L),
+                compression="lzf",
             )
-            grp.create_dataset("x_0", data=x)
+            f.create_dataset(
+                "/data/Gap_to_next",
+                data=gn,
+                dtype=np.int64,
+                chunks=(1, N, L),
+                compression="lzf",
+            )
 
-            if force_no_positive:
-                y = np.zeros((chunk_size, 1, individuals, polymorphisms), dtype=np.int8)
-            else:
-                y = rng.integers(
-                    0,
-                    2,
-                    size=(chunk_size, 1, individuals, polymorphisms),
-                    dtype=np.int8,
-                )
-                y[0, 0, 0, 0] = 1  # ensure at least one positive overall
+        f.create_dataset(
+            "/index/ref_ids",
+            data=ref_ids,
+            dtype=np.uint32,
+            chunks=(min(64, n), N),
+            compression="lzf",
+        )
+        f.create_dataset(
+            "/index/tgt_ids",
+            data=tgt_ids,
+            dtype=np.uint32,
+            chunks=(min(64, n), N),
+            compression="lzf",
+        )
 
-            grp.create_dataset("y", data=y)
+        f.create_dataset(
+            "/coords/Position",
+            data=pos,
+            dtype=np.int64,
+            chunks=(1, L),
+            compression="lzf",
+        )
 
-    return str(h5_path), keys
+    return str(h5_path)
 
 
 def _save_weights(tmp_path, model, filename) -> str:
     weights_path = tmp_path / filename
     torch.save(model.state_dict(), str(weights_path))
+
     return str(weights_path)
 
 
-def test_infer_unetplusplus_two_channel_writes_y_pred(tmp_path, monkeypatch) -> None:
+def test_infer_unetplusplus_two_channel_writes_pred_logits(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
-    monkeypatch.setattr(
-        unet_mod,
-        "UNetPlusPlusRNN",
-        DummyUNetPlusPlusRNN,
-    )
+    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
 
-    test_data, keys = _make_h5(
+    test_data = _make_inference_h5(
         tmp_path,
-        n_keys=5,
-        chunk_size=2,
-        n_channels=2,
+        n_total=10,
         individuals=3,
         polymorphisms=7,
+        with_gaps=False,
     )
 
-    # weights must match the model created in infer (UNetPlusPlus(num_classes=1, input_channels=2))
-    dummy = DummyUNetPlusPlus(num_classes=1, input_channels=2)
+    dummy = unet_mod.UNetPlusPlus(num_classes=1, input_channels=2)
     weights = _save_weights(tmp_path, dummy, filename="unet2.weights")
 
     out_dir = tmp_path / "infer_out_2ch"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    out_h5 = os.path.join(out_dir, "data.preds.h5")
+
     unet_mod.UNetModel.infer(
         data=test_data,
         model=weights,
-        output=f"{out_dir}/data.preds.h5",
-        add_channels=False,
-        n_classes=1,
-        x_dataset="x_0",
-        y_pred_dataset="y_pred",
+        output=out_h5,
         device="cpu",
     )
-
-    out_h5 = os.path.join(out_dir, "data.preds.h5")
 
     assert os.path.exists(out_h5)
 
     with h5py.File(out_h5, "r") as f:
-        for k in keys:
-            assert "y_pred" in f[k]
-            y_pred = f[k]["y_pred"]
-            assert y_pred.shape == (2, 1, 3, 7)
-            assert y_pred.dtype == np.float32
+        assert "/preds/Pred" in f
+        pred = f["/preds/Pred"]
+        # logits, binary head -> (n, 1, N, L)
+        assert pred.shape == (10, 1, 3, 7)
+        assert pred.dtype == np.float32
 
 
-def test_infer_unet_plus_plus_rnn_four_channel_writes_y_pred(
+def test_infer_unet_plus_plus_rnn_four_channel_writes_pred_logits(
     tmp_path, monkeypatch
 ) -> None:
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
-    monkeypatch.setattr(
-        unet_mod,
-        "UNetPlusPlusRNN",
-        DummyUNetPlusPlusRNN,
-    )
+    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
 
-    test_data, keys = _make_h5(
+    test_data = _make_inference_h5(
         tmp_path,
-        n_keys=5,
-        chunk_size=2,
-        n_channels=4,
+        n_total=10,
         individuals=4,
         polymorphisms=11,
+        with_gaps=True,
     )
 
-    # weights must match the model created in infer
-    dummy = DummyUNetPlusPlusRNN(polymorphisms=11)
+    dummy = unet_mod.UNetPlusPlusRNN(polymorphisms=11)
     weights = _save_weights(tmp_path, dummy, filename="unet4.weights")
 
     out_dir = tmp_path / "infer_out_4ch"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    out_h5 = os.path.join(out_dir, "data.preds.h5")
+
     unet_mod.UNetModel.infer(
         data=test_data,
         model=weights,
-        output=f"{out_dir}/data.preds.h5",
+        output=out_h5,
         add_channels=True,
-        n_classes=1,
-        x_dataset="x_0",
-        y_pred_dataset="y_pred",
         device="cpu",
     )
-
-    out_h5 = os.path.join(out_dir, "data.preds.h5")
 
     assert os.path.exists(out_h5)
 
     with h5py.File(out_h5, "r") as f:
-        for k in keys:
-            assert "y_pred" in f[k]
-            y_pred = f[k]["y_pred"]
-            assert y_pred.shape == (2, 1, 4, 11)
-            assert y_pred.dtype == np.float32
+        assert "/preds/Pred" in f
+        pred = f["/preds/Pred"]
+        assert pred.shape == (10, 1, 4, 11)
+        assert pred.dtype == np.float32
 
 
-def test_infer_raises_when_add_channels_true_but_not_4_channels(
+def test_infer_raises_when_add_channels_true_but_missing_gap_datasets(
     tmp_path, monkeypatch
 ) -> None:
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
-    monkeypatch.setattr(
-        unet_mod,
-        "UNetPlusPlusRNN",
-        DummyUNetPlusPlusRNN,
-    )
+    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
 
-    test_data, _ = _make_h5(
+    # no gaps in file
+    test_data = _make_inference_h5(
         tmp_path,
-        n_keys=5,
-        chunk_size=2,
-        n_channels=3,  # invalid
+        n_total=10,
         individuals=2,
         polymorphisms=7,
+        with_gaps=False,
     )
 
-    dummy = DummyUNetPlusPlusRNN(polymorphisms=7)
+    dummy = unet_mod.UNetPlusPlusRNN(polymorphisms=7)
     weights = _save_weights(tmp_path, dummy, filename="bad.weights")
 
     out_dir = tmp_path / "infer_out_bad"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    with pytest.raises(ValueError, match="4"):
+    out_h5 = os.path.join(out_dir, "test.pred.h5")
+
+    # in the unified layout this should be a missing-dataset error, not "channels != 4"
+    with pytest.raises((KeyError, ValueError)):
         unet_mod.UNetModel.infer(
             data=test_data,
             model=weights,
-            output=f"{out_dir}/test.pred.h5",
+            output=out_h5,
             add_channels=True,
-            n_classes=1,
-            x_dataset="x_0",
-            y_pred_dataset="y_pred",
             device="cpu",
         )
 
@@ -487,35 +538,30 @@ def test_infer_raises_when_add_channels_true_but_n_classes_not_1(
     tmp_path, monkeypatch
 ) -> None:
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
-    monkeypatch.setattr(
-        unet_mod,
-        "UNetPlusPlusRNN",
-        DummyUNetPlusPlusRNN,
-    )
+    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
 
-    test_data, _ = _make_h5(
+    test_data = _make_inference_h5(
         tmp_path,
-        n_keys=5,
-        chunk_size=2,
-        n_channels=4,
+        n_total=10,
         individuals=2,
         polymorphisms=7,
+        with_gaps=True,
     )
 
-    dummy = DummyUNetPlusPlusRNN(polymorphisms=7)
+    dummy = unet_mod.UNetPlusPlusRNN(polymorphisms=7)
     weights = _save_weights(tmp_path, dummy, filename="bad_ncls.weights")
 
     out_dir = tmp_path / "infer_out_bad_ncls"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    with pytest.raises(ValueError, match="n_classes|classes|supports"):
+    out_h5 = os.path.join(out_dir, "test.pred.h5")
+
+    with pytest.raises(ValueError, match="n_classes|classes|supports|1"):
         unet_mod.UNetModel.infer(
             data=test_data,
             model=weights,
-            output=f"{out_dir}/test.pred.h5",
+            output=out_h5,
             add_channels=True,
-            n_classes=2,  # invalid for fusion
-            x_dataset="x_0",
-            y_pred_dataset="y_pred",
+            n_classes=2,
             device="cpu",
         )

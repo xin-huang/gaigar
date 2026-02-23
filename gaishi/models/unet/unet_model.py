@@ -77,11 +77,11 @@ class UNetModel(MlModel):
         seed: int = None,
     ) -> None:
         """
-        Train a UNet model on a replicate-indexed HDF5 dataset and save the best weights.
+        Train a UNet model on an HDF5 dataset and save the best weights.
 
-        This training routine assumes the unified (replicate-first) HDF5 schema produced by
-        ``write_h5(..., ds_type="train")``. The HDF5 file stores all replicates/windows as
-        dense datasets under fixed paths. Each replicate is one training sample.
+        This training routine assumes the unified HDF5 schema produced by
+        ``write_h5(..., ds_type="train")``. The HDF5 file stores all genotype matrices
+        as dense datasets under fixed paths. Each genotype matrix is one training sample.
 
         HDF5 schema (training)
         ----------------------
@@ -353,45 +353,73 @@ class UNetModel(MlModel):
         **model_params,
     ) -> None:
         """
-        Run inference on a key-chunked HDF5 file and write predictions into a new HDF5 file.
+        Run inference on an HDF5 file and write predictions into a prediction dataset.
 
-        This function copies ``test_data`` to an output file and adds a dataset
-        ``{key}/{y_pred_dataset}`` for every top-level key.
+        This function copies the input HDF5 file to ``output`` (it does not modify the input
+        in-place) and writes model predictions into a single dataset (by default ``/preds/Pred``)
+        using the unified, replicate-indexed layout. Predictions are written row-wise, where the
+        first dimension indexes genotype matrices/windows, matching ``/data/*`` datasets.
+
+        Inputs are read from ``/data/Ref_genotype`` and ``/data/Tgt_genotype``. If ``add_channels``
+        is True, the additional channels are read from ``/data/Gap_to_prev`` and
+        ``/data/Gap_to_next``. The number of polymorphisms/sites is inferred from the last
+        dimension ``L`` of the input datasets.
 
         Parameters
         ----------
-        test_data : str
-            Path to the input HDF5 file. Each top-level key must contain ``x_dataset``.
-        trained_model_weights : str
-            Path to a PyTorch ``state_dict`` file (e.g. ``best.pth``).
-        output_path : str
-            Output directory where the prediction HDF5 will be written.
+        data : str
+            Path to the input HDF5 file in the unified schema.
+        model : str
+            Path to a PyTorch ``state_dict`` checkpoint (e.g. ``best.pth``).
+        output : str
+            Path to the output HDF5 file. The input file is copied to this path and then
+            predictions are added.
         add_channels : bool, optional
-            If False, use only the first two channels and ``UNetPlusPlus``.
-            If True, require 4 channels and use ``UNetPlusPlusRNN``.
-            Default: False.
+            If False, use only ``Ref_genotype`` and ``Tgt_genotype`` (2 channels) and
+            instantiate ``UNetPlusPlus`` with ``input_channels=2``.
+            If True, require ``Gap_to_prev`` and ``Gap_to_next`` (4 channels total) and use
+            ``UNetPlusPlusRNN``. Default: False.
         n_classes : int, optional
             Number of output classes for ``UNetPlusPlus``. Default: 1.
+            When ``n_classes==1``, probabilities are computed with ``sigmoid`` and written as
+            a single channel ``(n, 1, N, L)``. When ``n_classes>1``, probabilities are computed
+            with ``softmax`` and written as ``(n, n_classes, N, L)``.
             Must be 1 when ``add_channels`` is True.
-        x_dataset : str, optional
-            Dataset name under each key for inputs. Default: "x_0".
-        y_pred_dataset : str, optional
-            Dataset name under each key where predictions will be stored. Default: "y_pred".
-        output_h5_name : Optional[str], optional
-            Output HDF5 filename. If None, use ``<input_basename>.preds.h5``. Default: None.
+        pred_dataset : str, optional
+            HDF5 path where predictions will be stored. Default: ``"/preds/Pred"``.
         device : Optional[str], optional
-            Force device string like "cuda:0" or "cpu". Default: auto-detect.
+            Force device string like ``"cuda:0"`` or ``"cpu"``. Default: auto-detect.
+        batch_size : int, optional
+            Number of genotype matrices/windows processed per forward pass. Default: 8.
 
         Raises
         ------
         KeyError
-            If required datasets are missing under the first key.
+            If required unified-schema datasets are missing (e.g. ``/data/Ref_genotype``),
+            or if ``add_channels`` is True but gap datasets are missing.
+        ValueError
+            If model output has an unexpected shape, or if configuration constraints are violated
+            (e.g. ``add_channels=True`` with ``n_classes!=1``).
+
+        Notes
+        -----
+        Expected input schema (subset)
+        - ``/data/Ref_genotype`` : uint32, shape (n, N, L)
+        - ``/data/Tgt_genotype`` : uint32, shape (n, N, L)
+        - ``/data/Gap_to_prev``  : int64,  shape (n, N, L)  (optional)
+        - ``/data/Gap_to_next``  : int64,  shape (n, N, L)  (optional)
+
+        Output schema (added to copied file)
+        - ``/preds/Pred`` : float32, shape (n, C, N, L), where C=1 for binary and
+          C=n_classes for multiclass.
         """
-        add_channels = False
-        n_classes = 1
-        x_dataset = "x_0"
-        y_pred_dataset = "y_pred"
-        device = None
+        add_channels = bool(model_params.get("add_channels", False))
+        n_classes = int(model_params.get("n_classes", 1))
+        y_pred_dataset = str(model_params.get("y_pred_dataset", "/preds/Pred"))
+        device = model_params.get("device", None)
+        batch_size = int(
+            model_params.get("batch_size", 8)
+        )  # avoid loading all n at once
 
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -403,79 +431,107 @@ class UNetModel(MlModel):
         shutil.copyfile(data, output)
 
         with h5py.File(output, "r+") as f:
-            keys = list(f.keys())
-            if len(keys) == 0:
-                raise ValueError(f"No keys found in HDF5 file: {out_h5}")
+            # Required unified inputs
+            ref_ds = f["/data/Ref_genotype"]
+            tgt_ds = f["/data/Tgt_genotype"]
 
-            k0 = keys[0]
-            if x_dataset not in f[k0]:
-                raise KeyError(f"Missing '{k0}/{x_dataset}' in {out_h5}")
+            n = f["/meta"].attrs["n"]
+            N = f["/meta"].attrs["N"]
+            L = f["/meta"].attrs["L"]
 
-            x0 = f[k0][x_dataset]
-            channel_size = int(x0.shape[1])
-            polymorphisms = int(x0.shape[3])
+            # Optional gap channels
+            has_gaps = ("/data/Gap_to_prev" in f) and ("/data/Gap_to_next" in f)
+            if add_channels and not has_gaps:
+                raise KeyError(
+                    "add_channels=True requires /data/Gap_to_prev and /data/Gap_to_next"
+                )
 
-            # Build model
+            gp_ds = f["/data/Gap_to_prev"] if has_gaps else None
+            gn_ds = f["/data/Gap_to_next"] if has_gaps else None
+
+            # Build model (polymorphisms == L in the new layout)
+            polymorphisms = L
             if add_channels:
-                if channel_size != 4:
-                    raise ValueError(
-                        f"add_channels=True expects 4 input channels, got {channel_size}."
-                    )
-                if int(n_classes) != 1:
+                if n_classes != 1:
                     raise ValueError(
                         "UNetPlusPlusRNN currently supports n_classes == 1 only."
                     )
-                model = UNetPlusPlusRNN(polymorphisms=polymorphisms)
+                net = UNetPlusPlusRNN(polymorphisms=polymorphisms)
                 input_channels = 4
             else:
-                if channel_size < 2:
-                    raise ValueError(
-                        f"Expected at least 2 input channels, got {channel_size}."
-                    )
-                model = UNetPlusPlus(num_classes=int(n_classes), input_channels=2)
+                net = UNetPlusPlus(num_classes=n_classes, input_channels=2)
                 input_channels = 2
 
             ckpt = torch.load(trained_model_weights, map_location=dev)
-            model.load_state_dict(ckpt)
-            model.to(dev)
-            model.eval()
+            net.load_state_dict(ckpt)
+            net.to(dev)
+            net.eval()
 
-            for key in keys:
-                x_np = np.asarray(f[key][x_dataset])[:, :input_channels].astype(
-                    np.float32, copy=False
-                )
+            # Create /preds group and Pred dataset
+            preds_group = f.require_group("/preds")
+            pred_name = (
+                y_pred_dataset.split("/")[-1]
+                if y_pred_dataset.startswith("/preds/")
+                else y_pred_dataset
+            )
+            pred_path = (
+                y_pred_dataset
+                if y_pred_dataset.startswith("/")
+                else f"/preds/{pred_name}"
+            )
+
+            # Standardize output to (n, 1, N, L) for binary, (n, C, N, L) for multiclass
+            out_ch = 1 if n_classes == 1 else n_classes
+            pred_shape = (n, out_ch, N, L)
+
+            if pred_path in f:
+                del f[pred_path]
+            f.create_dataset(
+                pred_path,
+                shape=pred_shape,
+                dtype=np.float32,
+                chunks=(1, out_ch, N, L),
+                compression="lzf",
+            )
+
+            pred_ds = f[pred_path]
+
+            # Batched inference over rows [0..n)
+            for start in range(0, n, batch_size):
+                end = min(n, start + batch_size)
+
+                ref = np.asarray(ref_ds[start:end], dtype=np.float32)
+                tgt = np.asarray(tgt_ds[start:end], dtype=np.float32)
+
+                if input_channels == 2:
+                    x_np = np.stack([ref, tgt], axis=1)  # (B,2,N,L)
+                else:
+                    gp = np.asarray(gp_ds[start:end], dtype=np.float32)
+                    gn = np.asarray(gn_ds[start:end], dtype=np.float32)
+                    x_np = np.stack([ref, tgt, gp, gn], axis=1)  # (B,4,N,L)
+
                 x = torch.from_numpy(x_np).to(dev)
 
                 with torch.no_grad():
-                    logits = model(x)
+                    logits = net(x)
 
-                # Convert logits -> probabilities
-                if int(n_classes) == 1:
-                    pred = torch.sigmoid(logits)  # binary prob in [0, 1]
-                else:
-                    pred = torch.softmax(logits, dim=1)  # multiclass prob
-
-                # Standardize to (chunk, 1, H, W) when binary output returns (chunk, H, W)
-                if pred.ndim == 3:
-                    pred_np = (
-                        pred.detach()
+                # Ensure (B, out_ch, N, L)
+                if logits.ndim == 3:
+                    logits_np = (
+                        logits.detach()
                         .cpu()
                         .numpy()[:, None, :, :]
                         .astype(np.float32, copy=False)
                     )
-                elif pred.ndim == 4:
-                    pred_np = pred.detach().cpu().numpy().astype(np.float32, copy=False)
+                elif logits.ndim == 4:
+                    logits_np = (
+                        logits.detach().cpu().numpy().astype(np.float32, copy=False)
+                    )
                 else:
                     raise ValueError(
                         f"Unexpected model output shape: {tuple(pred.shape)}"
                     )
 
-                if y_pred_dataset in f[key]:
-                    f[key][y_pred_dataset][...] = pred_np
-                else:
-                    f[key].create_dataset(
-                        y_pred_dataset,
-                        data=pred_np,
-                        dtype=np.float32,
-                        compression="lzf",
-                    )
+                pred_ds[start:end, ...] = logits_np
+
+            f.flush()
