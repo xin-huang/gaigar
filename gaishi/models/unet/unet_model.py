@@ -18,8 +18,8 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import h5py, os, pickle
-import shutil, time
+import h5py, os
+import time
 from typing import Optional
 
 import numpy as np
@@ -188,7 +188,6 @@ class UNetModel(MlModel):
         # Read shapes from unified schema
         with h5py.File(data, "r") as f:
             n_reps = f["/meta"].attrs["n"]
-            N = f["/meta"].attrs["N"]
             L = f["/meta"].attrs["L"]
 
         if n_reps == 0:
@@ -353,17 +352,26 @@ class UNetModel(MlModel):
         **model_params,
     ) -> None:
         """
-        Run inference on an HDF5 file and write predictions into a prediction dataset.
+        Run inference on an HDF5 file and write an aggregated prediction table.
 
-        This function copies the input HDF5 file to ``output`` (it does not modify the input
-        in-place) and writes model predictions into a single dataset (by default ``/preds/Pred``)
-        using the unified, replicate-indexed layout. Predictions are written row-wise, where the
-        first dimension indexes genotype matrices/windows, matching ``/data/*`` datasets.
+        This function reads model inputs from the unified, genotype-matrix-indexed layout in ``data`` and
+        runs batched PyTorch inference. It aggregates window-level logits across overlapping windows (and across
+        upsampled/repeated rows that map back to the same original target sample) using
+        ``/index/tgt_ids`` and ``/coords/Position``. For each target sample and each global position,
+        logits are accumulated (sum and count), converted to mean logits, and then transformed into
+        probabilities (sigmoid for binary, softmax for multiclass). Results are written as a TSV table
+        to ``output``.
 
-        Inputs are read from ``/data/Ref_genotype`` and ``/data/Tgt_genotype``. If ``add_channels``
-        is True, the additional channels are read from ``/data/Gap_to_prev`` and
-        ``/data/Gap_to_next``. The number of polymorphisms/sites is inferred from the last
-        dimension ``L`` of the input datasets.
+        Inputs are read from ``/data/Ref_genotype`` and ``/data/Tgt_genotype``. If ``add_channels`` is
+        True, the additional channels are read from ``/data/Gap_to_prev`` and ``/data/Gap_to_next``.
+        The window length ``L`` is taken from ``/meta`` (and must match the last dimension of the
+        input datasets). The set of global positions is computed as the unique union of
+        ``/coords/Position`` values over the written windows.
+
+        The output table is long-form and contains one row per (target sample, position). For binary
+        classification the columns are: ``sample``, ``position``, ``prob``, ``count``. For multiclass
+        classification the columns are: ``sample``, ``position``, ``count``, and ``prob_0..prob_{C-1}``,
+        where probabilities sum to 1 across classes for each (sample, position).
 
         Parameters
         ----------
@@ -372,8 +380,7 @@ class UNetModel(MlModel):
         model : str
             Path to a PyTorch ``state_dict`` checkpoint (e.g. ``best.pth``).
         output : str
-            Path to the output HDF5 file. The input file is copied to this path and then
-            predictions are added.
+            Path to the output file.
         add_channels : bool, optional
             If False, use only ``Ref_genotype`` and ``Tgt_genotype`` (2 channels) and
             instantiate ``UNetPlusPlus`` with ``input_channels=2``.
@@ -391,6 +398,16 @@ class UNetModel(MlModel):
             Force device string like ``"cuda:0"`` or ``"cpu"``. Default: auto-detect.
         batch_size : int, optional
             Number of genotype matrices/windows processed per forward pass. Default: 8.
+        site_weighting : bool, optional
+            Whether to apply within-window site weighting when aggregating overlapping windows into
+            global per-site predictions. If True, each site at relative offset ``t`` within a window
+            contributes with weight ``g[t]`` (a 1D Gaussian window; peak-normalized to 1), so that
+            central sites receive higher weight than edge sites. If False, all sites are weighted
+            equally (equivalent to ``g[t]=1`` for all ``t``). Default: False.
+        sigma : float, optional
+            Standard deviation of the Gaussian window used when ``site_weighting`` is True.
+            Larger values produce flatter weights (less down-weighting at window edges); smaller
+            values concentrate weight near the window center. Default: 30.0.
 
         Raises
         ------
@@ -400,46 +417,51 @@ class UNetModel(MlModel):
         ValueError
             If model output has an unexpected shape, or if configuration constraints are violated
             (e.g. ``add_channels=True`` with ``n_classes!=1``).
-
-        Notes
-        -----
-        Expected input schema (subset)
-        - ``/data/Ref_genotype`` : uint32, shape (n, N, L)
-        - ``/data/Tgt_genotype`` : uint32, shape (n, N, L)
-        - ``/data/Gap_to_prev``  : int64,  shape (n, N, L)  (optional)
-        - ``/data/Gap_to_next``  : int64,  shape (n, N, L)  (optional)
-
-        Output schema (added to copied file)
-        - ``/preds/Pred`` : float32, shape (n, C, N, L), where C=1 for binary and
-          C=n_classes for multiclass.
         """
         add_channels = bool(model_params.get("add_channels", False))
         n_classes = int(model_params.get("n_classes", 1))
-        y_pred_dataset = str(model_params.get("y_pred_dataset", "/preds/Pred"))
         device = model_params.get("device", None)
-        batch_size = int(
-            model_params.get("batch_size", 8)
-        )  # avoid loading all n at once
+        batch_size = int(model_params.get("batch_size", 8))
+        site_weighting = bool(model_params.get("site_weighting", False))
+        sigma = float(model_params.get("sigma", 30.0))
 
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         dev = torch.device(device)
 
-        trained_model_weights = model
+        with h5py.File(data, "r") as f:
+            meta = f["/meta"]
+            n = meta.attrs["n"]  # number of genotype matrices
+            L = meta.attrs["L"]
 
-        # Copy input -> output (do not modify input in-place)
-        shutil.copyfile(data, output)
+            # required for table
+            pos_ds = f["/coords/Position"]  # (n, L)
+            ids_ds = f["/index/tgt_ids"]  # (n, N)
+            tgt_names = _read_str_table_1d(f["/meta/tgt_sample_table"])
+            H = len(tgt_names)
 
-        with h5py.File(output, "r+") as f:
-            # Required unified inputs
-            ref_ds = f["/data/Ref_genotype"]
-            tgt_ds = f["/data/Tgt_genotype"]
+            # global positions (columns)
+            all_pos = np.asarray(pos_ds[:n, :], dtype=np.int64).ravel()
+            uniq_pos = np.unique(all_pos)  # sorted
+            P = int(uniq_pos.shape[0])
 
-            n = f["/meta"].attrs["n"]
-            N = f["/meta"].attrs["N"]
-            L = f["/meta"].attrs["L"]
+            C = int(n_classes)
 
-            # Optional gap channels
+            # accumulators: weighted sum logits + weighted denom + plain count
+            sum_logits = np.zeros((H, P, C), dtype=np.float32)
+            den = np.zeros((H, P), dtype=np.float32)
+
+            # weights along sites within a window
+            if site_weighting:
+                g = _gaussian_weights(L, sigma=sigma)  # (L,)
+            else:
+                g = np.ones(L, dtype=np.float32)  # (L,)
+            gw = g[None, :]  # (1, L) broadcast to (N, L)
+
+            # inputs
+            ref_ds = f["/data/Ref_genotype"]  # (n, N, L)
+            tgt_ds = f["/data/Tgt_genotype"]  # (n, N, L)
+
             has_gaps = ("/data/Gap_to_prev" in f) and ("/data/Gap_to_next" in f)
             if add_channels and not has_gaps:
                 raise KeyError(
@@ -449,89 +471,157 @@ class UNetModel(MlModel):
             gp_ds = f["/data/Gap_to_prev"] if has_gaps else None
             gn_ds = f["/data/Gap_to_next"] if has_gaps else None
 
-            # Build model (polymorphisms == L in the new layout)
-            polymorphisms = L
+            # build model
             if add_channels:
                 if n_classes != 1:
                     raise ValueError(
                         "UNetPlusPlusRNN currently supports n_classes == 1 only."
                     )
-                net = UNetPlusPlusRNN(polymorphisms=polymorphisms)
+                net = UNetPlusPlusRNN(polymorphisms=L)
                 input_channels = 4
             else:
                 net = UNetPlusPlus(num_classes=n_classes, input_channels=2)
                 input_channels = 2
 
-            ckpt = torch.load(trained_model_weights, map_location=dev)
+            ckpt = torch.load(model, map_location=dev)
             net.load_state_dict(ckpt)
             net.to(dev)
             net.eval()
 
-            # Create /preds group and Pred dataset
-            preds_group = f.require_group("/preds")
-            pred_name = (
-                y_pred_dataset.split("/")[-1]
-                if y_pred_dataset.startswith("/preds/")
-                else y_pred_dataset
-            )
-            pred_path = (
-                y_pred_dataset
-                if y_pred_dataset.startswith("/")
-                else f"/preds/{pred_name}"
-            )
-
-            # Standardize output to (n, 1, N, L) for binary, (n, C, N, L) for multiclass
-            out_ch = 1 if n_classes == 1 else n_classes
-            pred_shape = (n, out_ch, N, L)
-
-            if pred_path in f:
-                del f[pred_path]
-            f.create_dataset(
-                pred_path,
-                shape=pred_shape,
-                dtype=np.float32,
-                chunks=(1, out_ch, N, L),
-                compression="lzf",
-            )
-
-            pred_ds = f[pred_path]
-
-            # Batched inference over rows [0..n)
             for start in range(0, n, batch_size):
                 end = min(n, start + batch_size)
+                B = end - start
 
-                ref = np.asarray(ref_ds[start:end], dtype=np.float32)
-                tgt = np.asarray(tgt_ds[start:end], dtype=np.float32)
+                pos_batch = np.asarray(pos_ds[start:end], dtype=np.int64)  # (B, L)
+                cols_batch = np.searchsorted(uniq_pos, pos_batch)  # (B, L)
+                sids_batch = np.asarray(ids_ds[start:end], dtype=np.int64)  # (B, N)
+
+                ref = np.asarray(ref_ds[start:end], dtype=np.float32)  # (B, N, L)
+                tgt = np.asarray(tgt_ds[start:end], dtype=np.float32)  # (B, N, L)
 
                 if input_channels == 2:
-                    x_np = np.stack([ref, tgt], axis=1)  # (B,2,N,L)
+                    x_np = np.stack([ref, tgt], axis=1)  # (B, 2, N, L)
                 else:
                     gp = np.asarray(gp_ds[start:end], dtype=np.float32)
                     gn = np.asarray(gn_ds[start:end], dtype=np.float32)
-                    x_np = np.stack([ref, tgt, gp, gn], axis=1)  # (B,4,N,L)
+                    x_np = np.stack([ref, tgt, gp, gn], axis=1)  # (B, 4, N, L)
 
                 x = torch.from_numpy(x_np).to(dev)
 
                 with torch.no_grad():
-                    logits = net(x)
+                    logits_t = net(x)
 
-                # Ensure (B, out_ch, N, L)
-                if logits.ndim == 3:
-                    logits_np = (
-                        logits.detach()
+                # logits -> (B, C, N, L)
+                if logits_t.ndim == 3:
+                    # (B, N, L) only valid for binary
+                    if n_classes != 1:
+                        raise ValueError(
+                            "Model returned (B,N,L) but n_classes>1 requested."
+                        )
+                    logits_batch = (
+                        logits_t.detach()
                         .cpu()
                         .numpy()[:, None, :, :]
                         .astype(np.float32, copy=False)
+                    )  # (B,1,N,L)
+                elif logits_t.ndim == 4:
+                    logits_batch = (
+                        logits_t.detach().cpu().numpy().astype(np.float32, copy=False)
                     )
-                elif logits.ndim == 4:
-                    logits_np = (
-                        logits.detach().cpu().numpy().astype(np.float32, copy=False)
-                    )
+                    if logits_batch.shape[1] != n_classes:
+                        raise ValueError(
+                            f"Model output channels {logits_batch.shape[1]} != n_classes {n_classes}"
+                        )
                 else:
                     raise ValueError(
-                        f"Unexpected model output shape: {tuple(pred.shape)}"
+                        f"Unexpected model output shape: {tuple(logits_t.shape)}"
                     )
 
-                pred_ds[start:end, ...] = logits_np
+                for b in range(B):
+                    cols = cols_batch[b]  # (L,)
+                    sids = sids_batch[
+                        b
+                    ]  # (N,) (may contain duplicates from upsampling)
+                    rr = sids[:, None]  # (N,1)
+                    cc = cols[None, :]  # (1,L)
 
-            f.flush()
+                    # denominator (weighted): add g[t] for each occurrence
+                    np.add.at(den, (rr, cc), gw)
+
+                    # numerator (weighted): add logit * g[t]
+                    logit_cube = logits_batch[b]  # (C, N, L)
+                    for c in range(C):
+                        np.add.at(sum_logits[:, :, c], (rr, cc), logit_cube[c] * gw)
+
+        # finalize: mean logits
+        mask = den > 0
+        mean_logits = np.full_like(sum_logits, np.nan, dtype=np.float32)  # (H,P,C)
+        mean_logits[mask] = (sum_logits[mask] / den[mask, None]).astype(
+            np.float32, copy=False
+        )
+
+        # logits -> probabilities + write table
+        if n_classes == 1:
+            prob = np.full((H, P), np.nan, dtype=np.float32)
+            prob[mask] = _sigmoid(mean_logits[mask, 0]).astype(np.float32, copy=False)
+
+            with open(output, "w", newline="") as out:
+                out.write("sample\tposition\tprob\n")
+                for sid, name in enumerate(tgt_names):
+                    for j in range(P):
+                        out.write(f"{name}\t{int(uniq_pos[j])}\t{prob[sid, j]}\n")
+        else:
+            prob = np.full((H, P, n_classes), np.nan, dtype=np.float32)
+            # mean_logits[mask] has shape (K, C); class axis is 1
+            prob[mask] = _softmax(mean_logits[mask], axis=1).astype(
+                np.float32, copy=False
+            )
+
+            with open(output, "w", newline="") as out:
+                out.write(
+                    "sample\tposition\t"
+                    + "\t".join([f"prob_{c}" for c in range(n_classes)])
+                    + "\n"
+                )
+                for sid, name in enumerate(tgt_names):
+                    for j in range(P):
+                        probs = "\t".join(
+                            str(float(prob[sid, j, c])) for c in range(n_classes)
+                        )
+                        out.write(f"{name}\t{int(uniq_pos[j])}\t{probs}\n")
+
+
+def _read_str_table_1d(ds) -> list[str]:
+    out = []
+    for x in ds[...]:
+        if isinstance(x, (bytes, np.bytes_)):
+            out.append(x.decode("utf-8"))
+        else:
+            out.append(str(x))
+    return out
+
+
+def _sigmoid(x: np.ndarray) -> np.ndarray:
+    x = np.clip(x, -60.0, 60.0)
+    return 1.0 / (1.0 + np.exp(-x))
+
+
+def _softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
+    # stable softmax
+    x = x - np.max(x, axis=axis, keepdims=True)
+    e = np.exp(x)
+    return e / np.sum(e, axis=axis, keepdims=True)
+
+
+def _gaussian_weights(window_size: int, sigma: float) -> np.ndarray:
+    """
+    1D Gaussian weights, peak-normalized to 1 (NOT sum-normalized), shape (L,).
+    """
+    L = int(window_size)
+    mu = L // 2
+    x = np.arange(L, dtype=np.float32)
+    g = np.exp(-((x - float(mu)) ** 2) / (2.0 * float(sigma) ** 2)).astype(
+        np.float32, copy=False
+    )
+    m = float(g.max())
+    return g / m if m > 0 else g
