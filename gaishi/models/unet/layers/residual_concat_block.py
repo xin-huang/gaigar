@@ -38,10 +38,8 @@ class ResidualConcatBlock(nn.Module):
         Number of input channels of the first convolution.
     out_channels : int
         Number of output channels of each convolutional layer inside the block.
-    k : int, default=3
-        Convolution kernel size (square kernel ``k x k``).
-    n_layers : int, default=2
-        Number of convolutional layers inside the block.
+    k : int
+        Convolution kernel size (square kernel ``k x k``). Default: 3.
 
     Returns
     -------
@@ -50,8 +48,6 @@ class ResidualConcatBlock(nn.Module):
 
     Raises
     ------
-    ValueError
-        If ``n_layers < 1``.
     ValueError
         If ``k < 1``.
     ValueError
@@ -74,13 +70,9 @@ class ResidualConcatBlock(nn.Module):
         Activation function applied after concatenation (ELU).
     """
 
-    def __init__(
-        self, in_channels: int, out_channels: int, k: int = 3, n_layers: int = 2
-    ):
+    def __init__(self, in_channels: int, out_channels: int, k: int = 3):
         super().__init__()
 
-        if n_layers < 1:
-            raise ValueError(f"n_layers must be >= 1, got {n_layers}.")
         if k < 1:
             raise ValueError(f"k must be >= 1, got {k}.")
         if k % 2 == 0:
@@ -89,6 +81,7 @@ class ResidualConcatBlock(nn.Module):
             )
 
         pad = (k + 1) // 2 - 1
+        n_layers = 2
 
         self.conv_layers = nn.ModuleList()
         self.post_layers = nn.ModuleList()
@@ -102,11 +95,12 @@ class ResidualConcatBlock(nn.Module):
                     kernel_size=(k, k),
                     stride=(1, 1),
                     padding=(pad, pad),
+                    bias=False,
                 )
             )
             self.post_layers.append(
                 nn.Sequential(
-                    nn.InstanceNorm2d(out_channels),
+                    nn.InstanceNorm2d(out_channels, affine=True),
                     nn.Dropout2d(0.1),
                 )
             )

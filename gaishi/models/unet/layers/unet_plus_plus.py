@@ -39,16 +39,14 @@ class UNetPlusPlus(nn.Module):
     Parameters
     ----------
     num_classes : int
-        Number of output classes. If ``num_classes == 1``, the forward pass returns a tensor
-        of shape ``(B, H, W)``. Otherwise it returns a tensor of shape ``(B, C, H, W)``.
-    input_channels : int, default=3
+        Number of output classes.
+    input_channels : int,
         Number of input channels.
 
     Returns
     -------
     torch.Tensor
-        Model output logits. Shape is ``(B, H, W)`` if ``num_classes == 1``, otherwise
-        ``(B, num_classes, H, W)``.
+        Model output logits ``(B, num_classes, H, W)``.
 
     Notes
     -----
@@ -69,7 +67,7 @@ class UNetPlusPlus(nn.Module):
         Final ``1x1`` convolution mapping features to logits.
     """
 
-    def __init__(self, num_classes: int, input_channels: int = 3):
+    def __init__(self, num_classes: int, input_channels: int):
         super().__init__()
 
         channel_dims = [32, 64, 128, 256, 512]
@@ -120,7 +118,6 @@ class UNetPlusPlus(nn.Module):
         )
 
         self.output_head = nn.Conv2d(channel_dims[0], num_classes, kernel_size=1)
-        self.num_classes = num_classes
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -134,8 +131,7 @@ class UNetPlusPlus(nn.Module):
         Returns
         -------
         torch.Tensor
-            Output logits. Shape is ``(B, H, W)`` if ``num_classes == 1``, otherwise
-            ``(B, num_classes, H, W)``.
+            Output logits ``(B, num_classes, H, W)``.
         """
         feat00 = self.node00(x)
         feat10 = self.node10(self.downsample(feat00))
@@ -164,6 +160,4 @@ class UNetPlusPlus(nn.Module):
 
         logits = self.output_head(feat04)
 
-        if self.num_classes == 1:
-            return logits[:, 0]
         return logits

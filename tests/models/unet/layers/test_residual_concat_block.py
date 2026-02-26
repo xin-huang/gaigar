@@ -25,28 +25,30 @@ from gaishi.models.unet.layers import ResidualConcatBlock
 
 
 @pytest.mark.parametrize(
-    "batch,in_ch,out_ch,k,n_layers,h,w",
+    "batch,in_ch,out_ch,k,h,w",
     [
-        (2, 3, 8, 3, 2, 32, 32),
-        (1, 2, 16, 5, 3, 17, 19),
-        (4, 1, 4, 3, 1, 8, 13),
+        (2, 3, 8, 3, 32, 32),
+        (1, 2, 16, 5, 17, 19),
+        (4, 1, 4, 3, 8, 13),
     ],
 )
-def test_residual_concat_block_output_shape(batch, in_ch, out_ch, k, n_layers, h, w):
+def test_residual_concat_block_output_shape(batch, in_ch, out_ch, k, h, w):
     block = ResidualConcatBlock(
-        in_channels=in_ch, out_channels=out_ch, k=k, n_layers=n_layers
+        in_channels=in_ch,
+        out_channels=out_ch,
+        k=k,
     )
     x = torch.randn(batch, in_ch, h, w)
 
     y = block(x)
 
-    assert y.shape == (batch, out_ch * n_layers, h, w)
+    assert y.shape == (batch, out_ch * 2, h, w)
 
 
 def test_residual_concat_block_backward_pass():
     torch.manual_seed(0)
 
-    block = ResidualConcatBlock(in_channels=3, out_channels=8, k=3, n_layers=2)
+    block = ResidualConcatBlock(in_channels=3, out_channels=8, k=3)
     x = torch.randn(2, 3, 16, 16, requires_grad=True)
 
     y = block(x)
@@ -64,7 +66,7 @@ def test_residual_concat_block_backward_pass():
 def test_residual_concat_block_is_deterministic_in_eval_mode():
     torch.manual_seed(0)
 
-    block = ResidualConcatBlock(in_channels=3, out_channels=8, k=3, n_layers=2).eval()
+    block = ResidualConcatBlock(in_channels=3, out_channels=8, k=3).eval()
     x = torch.randn(2, 3, 16, 16)
 
     y1 = block(x)
@@ -73,20 +75,12 @@ def test_residual_concat_block_is_deterministic_in_eval_mode():
     assert torch.allclose(y1, y2)
 
 
-@pytest.mark.parametrize("bad_n_layers", [0, -1])
-def test_residual_concat_block_rejects_invalid_n_layers(bad_n_layers):
-    with pytest.raises(ValueError):
-        _ = ResidualConcatBlock(
-            in_channels=3, out_channels=8, k=3, n_layers=bad_n_layers
-        )
-
-
 @pytest.mark.parametrize("bad_k", [0, -3])
 def test_residual_concat_block_rejects_invalid_kernel_size(bad_k):
     with pytest.raises(ValueError):
-        _ = ResidualConcatBlock(in_channels=3, out_channels=8, k=bad_k, n_layers=2)
+        _ = ResidualConcatBlock(in_channels=3, out_channels=8, k=bad_k)
 
 
 def test_residual_concat_block_rejects_even_kernel_size():
     with pytest.raises(ValueError):
-        _ = ResidualConcatBlock(in_channels=3, out_channels=8, k=4, n_layers=2)
+        _ = ResidualConcatBlock(in_channels=3, out_channels=8, k=4)
