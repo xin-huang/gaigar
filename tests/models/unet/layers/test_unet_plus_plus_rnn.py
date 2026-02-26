@@ -24,15 +24,16 @@ from gaishi.models.unet.layers import UNetPlusPlusRNN
 
 
 @pytest.mark.parametrize(
-    "batch,h,w,polymorphisms",
+    "batch,h,w,polymorphisms,num_classes",
     [
-        (2, 32, 128, 128),
-        (1, 64, 128, 128),
-        (3, 16, 256, 256),
+        (2, 32, 128, 128, 3),
+        (1, 64, 128, 128, 2),
+        (3, 16, 256, 256, 5),
     ],
 )
-def test_unetplusplus_rnn_output_shape(batch, h, w, polymorphisms):
+def test_unetplusplus_rnn_output_shape(batch, h, w, polymorphisms, num_classes):
     model = UNetPlusPlusRNN(
+        num_classes=num_classes,
         polymorphisms=polymorphisms,
         hidden_dim=4,
         gru_layers=1,
@@ -42,13 +43,14 @@ def test_unetplusplus_rnn_output_shape(batch, h, w, polymorphisms):
 
     y = model(x)
 
-    assert y.shape == (batch, h, w)
+    assert y.shape == (batch, num_classes, h, w)
 
 
 def test_unetplusplus_rnn_backward_pass():
     torch.manual_seed(0)
 
     model = UNetPlusPlusRNN(
+        num_classes=4,
         polymorphisms=128,
         hidden_dim=4,
         gru_layers=1,
@@ -69,10 +71,9 @@ def test_unetplusplus_rnn_backward_pass():
 
 
 @pytest.mark.parametrize("bidirectional", [True, False])
-def test_unetplusplus_rnn_runs_with_bidirectional_toggle(
-    bidirectional,
-):
+def test_unetplusplus_rnn_runs_with_bidirectional_toggle(bidirectional):
     model = UNetPlusPlusRNN(
+        num_classes=3,
         polymorphisms=128,
         hidden_dim=4,
         gru_layers=2,
@@ -82,14 +83,12 @@ def test_unetplusplus_rnn_runs_with_bidirectional_toggle(
 
     y = model(x)
 
-    assert y.shape == (1, 32, 128)
+    assert y.shape == (1, 3, 32, 128)
 
 
 @pytest.mark.parametrize("bad_channels", [1, 2, 3, 5])
-def test_unetplusplus_rnn_rejects_invalid_channel_count(
-    bad_channels,
-):
-    model = UNetPlusPlusRNN(polymorphisms=128)
+def test_unetplusplus_rnn_rejects_invalid_channel_count(bad_channels):
+    model = UNetPlusPlusRNN(num_classes=3, polymorphisms=128)
     x = torch.randn(1, bad_channels, 32, 128)
 
     with pytest.raises(ValueError):
@@ -97,7 +96,7 @@ def test_unetplusplus_rnn_rejects_invalid_channel_count(
 
 
 def test_unetplusplus_rnn_rejects_mismatched_width():
-    model = UNetPlusPlusRNN(polymorphisms=128)
+    model = UNetPlusPlusRNN(num_classes=3, polymorphisms=128)
     x = torch.randn(1, 4, 32, 127)
 
     with pytest.raises(ValueError):
@@ -107,7 +106,7 @@ def test_unetplusplus_rnn_rejects_mismatched_width():
 def test_unetplusplus_rnn_is_deterministic_in_eval_mode():
     torch.manual_seed(0)
 
-    model = UNetPlusPlusRNN(polymorphisms=128).eval()
+    model = UNetPlusPlusRNN(num_classes=3, polymorphisms=128).eval()
     x = torch.randn(1, 4, 32, 128)
 
     y1 = model(x)

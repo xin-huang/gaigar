@@ -39,14 +39,17 @@ class UNetPlusPlusRNN(nn.Module):
 
     Parameters
     ----------
-    polymorphisms : int, default=128
+    num_classes : int
+        Number of classes.
+    polymorphisms : int
         Expected width ``W`` of the input. The final MLP maps a length-``W`` vector to length-``W``.
-    hidden_dim : int, default=4
-        Hidden size of the GRU.
-    gru_layers : int, default=1
-        Number of stacked GRU layers.
-    bidirectional : bool, default=True
-        If True, uses a bidirectional GRU.
+        Default: 128.
+    hidden_dim : int
+        Hidden size of the GRU. Default: 4.
+    gru_layers : int
+        Number of stacked GRU layers. Default: 1.
+    bidirectional : bool
+        If True, uses a bidirectional GRU. Default: True.
 
     Raises
     ------
@@ -54,17 +57,11 @@ class UNetPlusPlusRNN(nn.Module):
         If the input does not have 4 channels.
     ValueError
         If the input width does not match ``polymorphisms``.
-
-    Notes
-    -----
-    The GRU input features per position are:
-    - 1 value from UNet++ (logit)
-    - 2 values from neighbor-gap channels (gap_to_prev, gap_to_next)
-    resulting in ``input_size = 3``.
     """
 
     def __init__(
         self,
+        num_classes: int,
         polymorphisms: int = 128,
         hidden_dim: int = 4,
         gru_layers: int = 1,
@@ -77,16 +74,19 @@ class UNetPlusPlusRNN(nn.Module):
         self.gru_layers = gru_layers
         self.bidirectional = bidirectional
 
-        # UNet++ produces a single logit per position: (B, H, W)
-        self.backbone = UNetPlusPlus(num_classes=1, input_channels=2)
+        self.backbone = UNetPlusPlus(num_classes, input_channels=2)
 
         self.gru = nn.GRU(
-            input_size=3,  # 1 (UNet++ logit) + 2 (neighbor gaps)
+            input_size=num_classes + 2,
             hidden_size=self.hidden_dim,
             num_layers=self.gru_layers,
             batch_first=True,
             bidirectional=self.bidirectional,
         )
+
+        directions = 2 if bidirectional else 1
+
+        self.out_proj = nn.Linear(hidden_dim * directions, num_classes)
 
         self.mlp = nn.Sequential(
             nn.Linear(self.polymorphisms, 256),
@@ -120,23 +120,26 @@ class UNetPlusPlusRNN(nn.Module):
         conv_input = x[:, 0:2]  # (B, 2, H, W)
         neighbor_gaps = x[:, 2:4]  # (B, 2, H, W)
 
-        unet_logits = self.backbone(conv_input)  # (B, H, W)
-        b, h, w = unet_logits.shape
+        unet_logits = self.backbone(conv_input)  # (B, C, H, W)
+        b, c, h, w = unet_logits.shape
 
-        unet_feat = unet_logits.unsqueeze(-1)  # (B, H, W, 1)
-        gap_feat = neighbor_gaps.permute(0, 2, 3, 1)  # (B, H, W, 2)
+        # (B, H, W, C)
+        unet_feat = unet_logits.permute(0, 2, 3, 1)
+        # (B, H, W, 2)
+        gap_feat = neighbor_gaps.permute(0, 2, 3, 1)
 
-        unet_rows = unet_feat.reshape(b * h, w, 1)  # (B*H, W, 1)
-        gap_rows = gap_feat.reshape(b * h, w, 2)  # (B*H, W, 2)
-        gru_input = torch.cat([unet_rows, gap_rows], dim=-1)  # (B*H, W, 3)
+        # sequence view: (B*H, W, C+2)
+        gru_input = torch.cat([unet_feat, gap_feat], dim=-1).reshape(b * h, w, c + 2)
 
-        gru_output = self.gru(gru_input)[0]  # (B*H, W, hidden_dim * directions)
+        gru_output, _ = self.gru(gru_input)  # (B*H, W, hidden*dir)
 
-        directions = 2 if self.bidirectional else 1
-        gru_output = gru_output.view(b * h, w, directions, self.hidden_dim)
+        # per-position class logits: (B*H, W, C)
+        fused = self.out_proj(gru_output)
 
-        # Keep the last hidden unit per direction; average directions -> (B*H, W)
-        gru_scalar = gru_output[..., -1].mean(dim=2)
+        # (B*H, C, W) -> (B*H*C, W) -> MLP -> (B*H*C, W) -> (B*H, C, W) -> (B*H, W, C)
+        tmp = fused.permute(0, 2, 1).reshape(b * h * c, w)
+        tmp = self.mlp(tmp)
+        fused = tmp.view(b * h, c, w).permute(0, 2, 1)
 
-        fused = self.mlp(gru_scalar)  # (B*H, W)
-        return fused.view(b, h, w)
+        # back to (B, C, H, W)
+        return fused.view(b, h, w, c).permute(0, 3, 1, 2)
