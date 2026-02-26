@@ -37,7 +37,7 @@ def test_unetplusplus_output_shape_binary(batch, input_channels, h, w):
 
     y = model(x)
 
-    assert y.shape == (batch, h, w)
+    assert y.shape == (batch, 1, h, w)
 
 
 @pytest.mark.parametrize(
