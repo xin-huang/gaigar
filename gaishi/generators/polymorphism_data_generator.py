@@ -45,7 +45,6 @@ class PolymorphismDataGenerator(GenericGenerator):
         is_phased: bool = True,
         random_polymorphisms: bool = False,
         seed: int = None,
-        num_upsamples: int = None,
     ):
         """
         Initializes the PolymorphismDataGenerator with the given parameters.
@@ -74,8 +73,6 @@ class PolymorphismDataGenerator(GenericGenerator):
             Indicates whether polymorphisms should be randomly selected. Default: False.
         seed : int, optional
             Seed for random number generation. Default: None.
-        num_upsamples : int, optional
-            Number of samples after upsampling. Default: None.
 
         Raises
         ------
@@ -114,8 +111,8 @@ class PolymorphismDataGenerator(GenericGenerator):
         if is_phased:
             num_refs *= ploidy
             num_tgts *= ploidy
-            if num_upsamples is not None:
-                num_upsamples *= ploidy
+
+        num_upsamples = ((num_tgts + 15) // 16) * 16
 
         polymorphisms = split_genome(
             pos=pos,
@@ -196,7 +193,7 @@ class PolymorphismDataGenerator(GenericGenerator):
             and the list of indices of randomly sampled data.
         """
 
-        if num_upsamples is None:
+        if int(num_upsamples) == int(num_samples):
             return gts, []
         else:
             num_samples_added = max(num_upsamples - num_samples, 0)
