@@ -176,7 +176,7 @@ def mp_manager(
                 items = out_queue.get()
                 if items is None:
                     continue
-                if "error" in items:
+                if isinstance(items, tuple) and "error" in items:
                     res = "error"
                     break
                 res.extend(items)
@@ -240,7 +240,7 @@ def mp_worker(
         try:
             try:
                 job, params = in_queue.get(timeout=5)
-                items = job.run(**params)
+                items = job.run(**params, **kwargs)
             except queue.Empty:
                 shared_dict[process_name] = "Completed"
                 return  # Exit the loop and end the worker process

@@ -19,8 +19,8 @@
 
 import os, pytest
 import numpy as np
-from gaishi.utils import read_data, create_windows
-from gaishi.generators import GenomicDataGenerator
+from gaishi.utils import read_data, split_genome
+from gaishi.generators import WindowDataGenerator
 
 
 @pytest.fixture
@@ -52,10 +52,12 @@ def expected_params(file_paths):
     win_len = 50000
     win_step = 50000
     ref_data, ref_samples, tgt_data, tgt_samples = read_data(**file_paths)
-    windows = create_windows(tgt_data[chr_name]["POS"], chr_name, win_step, win_len)
+    windows = split_genome(tgt_data[chr_name]["POS"], chr_name, win_step, win_len)
 
     for w in range(len(windows)):
-        chr_name, start, end = windows[w]
+        chr_name = windows[w][0]
+        start = windows[w][1][0]
+        end = windows[w][1][1]
         ref_gts = ref_data[chr_name]["GT"]
         tgt_gts = tgt_data[chr_name]["GT"]
         pos = tgt_data[chr_name]["POS"]
@@ -79,8 +81,8 @@ def expected_params(file_paths):
     return expected_data
 
 
-def test_GenomicDataGenerator(init_params, expected_params):
-    generator = GenomicDataGenerator(**init_params)
+def test_WindowDataGenerator(init_params, expected_params):
+    generator = WindowDataGenerator(**init_params)
     generated_params_list = list(generator.get())
 
     assert len(generated_params_list) == len(

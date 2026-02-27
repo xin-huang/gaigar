@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,12 +18,15 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-import os, yaml
+import os, multiprocessing, yaml
 import pandas as pd
-from gaishi.utils import parse_ind_file
+from gaishi.utils import parse_ind_file, initialize_h5, write_h5
+from gaishi.utils import create_sample_name_list
 from gaishi.multiprocessing import mp_manager
-from gaishi.generators import GenomicDataGenerator
+from gaishi.generators import WindowDataGenerator
+from gaishi.generators import PolymorphismDataGenerator
 from gaishi.preprocessors import FeatureVectorPreprocessor
+from gaishi.preprocessors import GenotypeMatrixPreprocessor
 
 
 def preprocess_feature_vectors(
@@ -80,12 +84,11 @@ def preprocess_feature_vectors(
     ------
     ValueError
         If any of the provided parameters are invalid, such as negative window lengths or step sizes.
-
     """
     if nprocess <= 0:
         raise ValueError("Number of processes must be greater than 0.")
 
-    generator = GenomicDataGenerator(
+    generator = WindowDataGenerator(
         vcf_file=vcf_file,
         ref_ind_file=ref_ind_file,
         tgt_ind_file=tgt_ind_file,
@@ -112,3 +115,112 @@ def preprocess_feature_vectors(
     os.makedirs(output_dir, exist_ok=True)
     output_file = os.path.join(output_dir, f"{output_prefix}.features")
     pd.DataFrame(res).to_csv(output_file, sep="\t", index=False)
+
+
+def preprocess_genotype_matrices(
+    vcf_file: str,
+    chr_name: str,
+    ref_ind_file: str,
+    tgt_ind_file: str,
+    anc_allele_file: str,
+    num_polymorphisms: int,
+    step_size: int,
+    output_file: str = None,
+    output_prefix: str = None,
+    output_dir: str = None,
+    ploidy: int = 2,
+    is_phased: bool = True,
+    is_sorted: bool = True,
+    nprocess: int = 1,
+) -> None:
+    """
+    Preprocess a VCF into fixed-size genotype matrices and write them to an HDF5 file.
+
+    This function iterates over polymorphism windows generated from `vcf_file`, builds
+    per-window genotype matrices for reference and target samples, optionally produces
+    additional upsampled copies, runs preprocessing in parallel via `mp_manager`, and
+    writes the resulting entries to `output_file` using `write_h5`.
+
+    Parameters
+    ----------
+    vcf_file : str
+        Path to the input VCF (optionally compressed) containing variants for `chr_name`.
+    chr_name : str
+        Chromosome name to process (must match the contig naming in the VCF).
+    ref_ind_file : str
+        Path to a file listing reference individual identifiers to extract from the VCF.
+    tgt_ind_file : str
+        Path to a file listing target individual identifiers to extract from the VCF.
+    anc_allele_file : str
+        Path to an ancestral-allele file used by the generator for allele polarization.
+    output_file : str
+        Path to the output HDF5 file to write.
+    num_polymorphisms : int
+        Number of polymorphic sites per window (matrix width).
+    step_size : int
+        Step size between consecutive windows along the chromosome.
+    ploidy : int, optional
+        Ploidy of the samples (for example, 2 for diploid). Default: 2
+    is_phased : bool, optional
+        Whether genotypes and sample identifiers should be treated as phased haplotypes.
+        Default: True.
+    is_sorted : bool, optional
+        Indicates whether the genotype matrices should be sorted. Default: True.
+    nprocess : int, optional
+        Number of worker processes to use for parallel processing. Default: 1.
+
+    Raises
+    ------
+    ValueError
+        If `nprocess` is not a positive integer.
+    """
+    if nprocess <= 0:
+        raise ValueError("Number of processes must be greater than 0.")
+
+    if output_dir is not None and output_prefix is not None:
+        output_file = os.path.join(output_dir, f"{output_prefix}.h5")
+
+    generator = PolymorphismDataGenerator(
+        vcf_file=vcf_file,
+        chr_name=chr_name,
+        ref_ind_file=ref_ind_file,
+        tgt_ind_file=tgt_ind_file,
+        num_polymorphisms=num_polymorphisms,
+        step_size=step_size,
+        anc_allele_file=anc_allele_file,
+        ploidy=ploidy,
+        is_phased=is_phased,
+        random_polymorphisms=False,
+    )
+
+    preprocessor = GenotypeMatrixPreprocessor(
+        ref_ind_file=ref_ind_file,
+        tgt_ind_file=tgt_ind_file,
+        ref_rdm_spl_idx=generator.ref_rdm_spl_idx,
+        tgt_rdm_spl_idx=generator.tgt_rdm_spl_idx,
+        is_sorted=is_sorted,
+    )
+
+    res = mp_manager(job=preprocessor, data_generator=generator, nprocess=nprocess)
+
+    initialize_h5(
+        file_name=output_file,
+        ds_type="infer",
+        num_genotype_matrices=generator.num_genotype_matrices,
+        N=generator.num_samples_padded,
+        L=num_polymorphisms,
+        chromosome=chr_name,
+        ref_table=create_sample_name_list(
+            parse_ind_file(ref_ind_file), ploidy, is_phased
+        ),
+        tgt_table=create_sample_name_list(
+            parse_ind_file(tgt_ind_file), ploidy, is_phased
+        ),
+    )
+
+    write_h5(
+        file_name=output_file,
+        entries=res,
+        ds_type="infer",
+        lock=multiprocessing.Lock(),
+    )

@@ -46,12 +46,11 @@ def test_BinaryWindowLabeler(labeler_params):
         "tests/expected_results/labelers/0/test.0.labels", sep="\t"
     )
 
-    for column in df.columns:
-        if df[column].dtype.kind in "ifc":  # Float, int, complex numbers
-            assert np.isclose(
-                df[column], expected_df[column], atol=1e-5, rtol=1e-5
-            ).all(), f"Mismatch in column {column}"
-        else:
-            assert (
-                df[column] == expected_df[column]
-            ).all(), f"Mismatch in column {column}"
+    pd.testing.assert_frame_equal(
+        df,
+        expected_df,
+        check_dtype=False,
+        check_like=False,
+        rtol=1e-5,
+        atol=1e-5,
+    )

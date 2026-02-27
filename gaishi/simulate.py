@@ -19,9 +19,11 @@
 
 import os, random, shutil
 import pandas as pd
+from multiprocessing import Lock, Value
 from gaishi.multiprocessing import mp_manager
 from gaishi.generators import RandomNumberGenerator
 from gaishi.simulators import FeatureVectorSimulator
+from gaishi.simulators import GenotypeMatrixSimulator
 
 
 def simulate_feature_vectors(
@@ -229,3 +231,81 @@ def simulate_feature_vectors(
         )
 
     pd.DataFrame(total_features).to_csv(output_file, sep="\t", index=False)
+
+
+def simulate_genotype_matrices(
+    demo_model_file: str,
+    nrep: int,
+    nref: int,
+    ntgt: int,
+    ref_id: str,
+    tgt_id: str,
+    src_id: str,
+    ploidy: int,
+    seq_len: int,
+    mut_rate: float,
+    rec_rate: float,
+    num_polymorphisms: int,
+    num_upsamples: int,
+    num_genotype_matrices: int,
+    nprocess: int,
+    output_prefix: str,
+    output_dir: str,
+    output_h5: bool = True,
+    is_phased: bool = True,
+    is_sorted: bool = True,
+    force_balanced: bool = False,
+    keep_sim_data: bool = False,
+    seed: int = None,
+):
+    """ """
+    simulator = GenotypeMatrixSimulator(
+        demo_model_file=demo_model_file,
+        nref=nref,
+        ntgt=ntgt,
+        ref_id=ref_id,
+        tgt_id=tgt_id,
+        src_id=src_id,
+        ploidy=ploidy,
+        seq_len=seq_len,
+        mut_rate=mut_rate,
+        rec_rate=rec_rate,
+        num_polymorphisms=num_polymorphisms,
+        num_upsamples=num_upsamples,
+        num_genotype_matrices=num_genotype_matrices,
+        output_prefix=output_prefix,
+        output_dir=output_dir,
+        output_h5=output_h5,
+        is_phased=is_phased,
+        is_sorted=is_sorted,
+        keep_sim_data=keep_sim_data,
+    )
+
+    start_rep = 0
+    nrep = nrep
+    num_intro = Value("i", 0)
+    num_nonintro = Value("i", 0)
+    lock = Lock()
+
+    while True:
+        generator = RandomNumberGenerator(
+            start_rep=start_rep,
+            nrep=nrep,
+            seed=seed,
+        )
+
+        mp_manager(
+            job=simulator,
+            data_generator=generator,
+            nprocess=nprocess,
+            force_balanced=force_balanced,
+            nintro=num_intro,
+            nnonintro=num_nonintro,
+            only_intro=False,
+            only_non_intro=False,
+            lock=lock,
+        )
+
+        if num_intro.value + num_nonintro.value >= num_genotype_matrices:
+            break
+        start_rep += nrep

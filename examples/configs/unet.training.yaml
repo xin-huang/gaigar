@@ -1,0 +1,32 @@
+simulation:
+  nrep: 100
+  nref: 50
+  ntgt: 50
+  ref_id: "Reference"
+  tgt_id: "Target"
+  src_id: "Source"
+  ploidy: 2
+  is_phased: True
+  seq_len: 50000
+  mut_rate: 1.2e-8
+  rec_rate: 1e-8
+  num_polymorphisms: 192
+  num_upsamples: 56
+  nprocess: 2
+  output_prefix: "example.unet"
+  output_dir: "examples/results/data/training"
+  seed: 12345
+  nfeature: 100
+
+model:
+  name: "unet"
+  params:
+    add_channels: False,
+    n_classes: 1,
+    learning_rate: 0.001,
+    batch_size: 32,
+    label_noise: 0.01,
+    n_early: 10,
+    n_epochs: 20,
+    min_delta: 1e-4,
+    label_smooth: True,

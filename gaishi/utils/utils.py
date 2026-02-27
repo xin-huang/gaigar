@@ -277,29 +277,134 @@ def check_anc_allele(data, anc_allele, c):
     return data
 
 
-def create_windows(pos, chr_name, win_step, win_len):
+def split_genome(
+    pos: np.ndarray,
+    chr_name: str,
+    polymorphism_size: int,
+    step_size: int = None,
+    window_based: bool = True,
+    random_polymorphisms: bool = False,
+    seed: int = None,
+) -> list[tuple]:
     """
-    Description:
-        Creates sliding windows along the genome.
+    Create sliding windows along the genome.
 
-    Arguments:
-        pos numpy.ndarray: Positions for the variants.
-        chr_name str: Name of the chromosome.
-        win_step int: Step size of sliding windows.
-        win_len int: Length of sliding windows.
+    Parameters
+    ----------
+    pos : np.ndarray
+        Positions for the variants.
+    chr_name : str
+        Name of the chromosome.
+    polymorphism_size : int
+        Length of sliding windows or number of random positions.
+    step_size : int, optional
+        Step size of sliding windows. Default: None.
+    window_based : bool, optional
+        Whether to create sliding windows containing the start and end positions (True)
+        or positions of each polymorphism within the window (False). Default: True.
+    random_polymorphisms : bool, optional
+        Whether to randomly select polymorphism positions (only used if window_based is False). Default: False.
+    seed : int, optional
+        Seed for the random number generator (only used if random_polymorphisms is True). Default: None.
 
-    Returns:
-        windows list: List of sliding windows along the genome.
+    Returns
+    -------
+    list of tuple
+        List of sliding windows along the genome if window_based is True,
+        or list of position arrays if window_based is False. Each entry is either
+        a tuple of (chr_name, start_position, end_position) for window_based, or
+        (chr_name, numpy.ndarray of positions) for non-window_based.
+
+    Raises
+    ------
+    ValueError
+        If `step_size` or `polymorphism_size` are non-positive, or if the `pos` array is empty,
+        or if no windows could be created with the given parameters.
     """
-    win_start = (pos[0] + win_step) // win_step * win_step - win_len
-    if win_start < 0:
-        win_start = 0
-    last_pos = pos[-1]
+    if (step_size is not None and step_size <= 0) or polymorphism_size <= 0:
+        raise ValueError(
+            "`step_size` and `polymorphism_size` must be positive integers."
+        )
+    if len(pos) == 0:
+        raise ValueError("`pos` array must not be empty.")
 
-    windows = []
-    while last_pos > win_start:
-        win_end = win_start + win_len
-        windows.append((chr_name, win_start, win_end))
-        win_start += win_step
+    window_positions = []
 
-    return windows
+    if window_based:
+        win_start = max(
+            0, (pos[0] + step_size) // step_size * step_size - polymorphism_size
+        )
+        last_pos = pos[-1]
+
+        while last_pos > win_start:
+            win_end = win_start + polymorphism_size
+            window_positions.append((chr_name, [win_start, win_end]))
+            win_start += step_size
+    else:
+        if random_polymorphisms:
+            if seed is not None:
+                np.random.seed(seed)
+            if len(pos) < polymorphism_size:
+                raise ValueError(
+                    "No windows could be created with the given number of polymorphisms."
+                )
+            polymorphism_indexes = np.random.choice(
+                len(pos), size=polymorphism_size, replace=False
+            )
+            polymorphism_indexes = np.sort(polymorphism_indexes).tolist()
+            window_positions.append((chr_name, polymorphism_indexes))
+        else:
+            i = 0
+            while i + polymorphism_size <= len(pos):
+                window_positions.append(
+                    (chr_name, list(range(i, i + polymorphism_size)))
+                )
+                i += step_size
+
+            if len(window_positions) == 0:
+                raise ValueError(
+                    "No windows could be created with the given number of polymorphisms and step size."
+                )
+
+            if window_positions[-1][1][1] != len(pos) - 1:
+                window_positions.append(
+                    (chr_name, list(range(len(pos) - polymorphism_size, len(pos))))
+                )
+
+    return window_positions
+
+
+def create_sample_name_list(
+    samples: list,
+    ploidy: int,
+    is_phased: bool,
+) -> list[str]:
+    """
+    Create a list of sample names, including phased information if applicable.
+
+    Parameters
+    ----------
+    samples : list of str
+        List of original sample identifiers.
+    ploidy : int
+        The ploidy level of the samples (e.g., 2 for diploid).
+    is_phased : bool
+        Indicates if the sample names should include phased information.
+
+    Returns
+    -------
+    list of str
+        A list of sample names, with phased information if applicable.
+    """
+
+    if is_phased:
+        num_samples = len(samples) * ploidy
+    else:
+        num_samples = len(samples)
+
+    samples = [
+        f"{samples[int(i/ploidy)]}_{i%ploidy+1}" if is_phased else samples[i]
+        for i in range(num_samples)
+    ]
+
+    return samples

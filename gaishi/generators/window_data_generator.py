@@ -18,14 +18,13 @@
 
 
 import numpy as np
-from gaishi.utils import read_data, create_windows
+from gaishi.utils import read_data, split_genome
 from gaishi.generators import GenericGenerator
 
 
-class GenomicDataGenerator(GenericGenerator):
+class WindowDataGenerator(GenericGenerator):
     """
     Generates genomic data for each specified window from VCF and other related files.
-
     """
 
     def __init__(
@@ -41,7 +40,7 @@ class GenomicDataGenerator(GenericGenerator):
         is_phased: bool = True,
     ):
         """
-        Initializes a new instance of GenomicDataGenerator.
+        Initializes a new instance of WindowDataGenerator.
 
         Parameters
         ----------
@@ -70,7 +69,6 @@ class GenomicDataGenerator(GenericGenerator):
         ValueError
             If `win_len` is less than or equal to 0, if `win_step` is negative,
             if `ploidy` is less than or equal to 0, or if `chr_name` is not in the VCF file.
-
         """
         if win_len <= 0:
             raise ValueError("win_len must be greater than 0.")
@@ -91,14 +89,22 @@ class GenomicDataGenerator(GenericGenerator):
         if chr_name not in tgt_data:
             raise ValueError(f"{chr_name} is not present in the VCF file.")
 
-        windows = create_windows(tgt_data[chr_name]["POS"], chr_name, win_step, win_len)
+        pos = tgt_data[chr_name]["POS"]
+
+        windows = split_genome(
+            pos=pos,
+            chr_name=chr_name,
+            polymorphism_size=win_len,
+            step_size=win_step,
+        )
 
         self.data = []
         for w in range(len(windows)):
-            chr_name, start, end = windows[w]
+            chr_name = windows[w][0]
+            start = windows[w][1][0]
+            end = windows[w][1][1]
             ref_gts = ref_data[chr_name]["GT"]
             tgt_gts = tgt_data[chr_name]["GT"]
-            pos = tgt_data[chr_name]["POS"]
             idx = (pos > start) * (pos <= end)
             sub_ref_gts = ref_gts[idx]
             sub_tgt_gts = tgt_gts[idx]
@@ -127,7 +133,6 @@ class GenomicDataGenerator(GenericGenerator):
             A dictionary containing chromosome name, start and end positions,
             ploidy and phase information, reference and target genotypes,
             and positions for each window.
-
         """
         for d in self.data:
             yield d

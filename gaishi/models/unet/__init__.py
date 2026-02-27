@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +18,4 @@
 #    https://www.gnu.org/licenses/gpl-3.0.en.html
 
 
-from .generic_simulator import GenericSimulator  # noqa: F401
-from .msprime_simulator import MsprimeSimulator  # noqa: F401
-from .feature_vector_simulator import FeatureVectorSimulator  # noqa: F401
-from .genotype_matrix_simulator import GenotypeMatrixSimulator  # noqa: F401
+from .unet_model import UNetModel

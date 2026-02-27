@@ -20,3 +20,4 @@
 from .ml_model import MlModel  # noqa: F401
 from .lr_model import LrModel  # noqa: F401
 from .etc_model import EtcModel  # noqa: F401
+from .unet.unet_model import UNetModel
