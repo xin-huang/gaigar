@@ -124,7 +124,6 @@ def preprocess_genotype_matrices(
     tgt_ind_file: str,
     anc_allele_file: str,
     num_polymorphisms: int,
-    num_upsamples: int,
     step_size: int,
     output_file: str = None,
     output_prefix: str = None,
@@ -158,8 +157,6 @@ def preprocess_genotype_matrices(
         Path to the output HDF5 file to write.
     num_polymorphisms : int
         Number of polymorphic sites per window (matrix width).
-    num_upsamples : int
-        Number of additional stochastic upsampled copies generated per window.
     step_size : int
         Step size between consecutive windows along the chromosome.
     ploidy : int, optional
@@ -194,7 +191,6 @@ def preprocess_genotype_matrices(
         ploidy=ploidy,
         is_phased=is_phased,
         random_polymorphisms=False,
-        num_upsamples=num_upsamples,
     )
 
     preprocessor = GenotypeMatrixPreprocessor(
@@ -211,7 +207,7 @@ def preprocess_genotype_matrices(
         file_name=output_file,
         ds_type="infer",
         num_genotype_matrices=generator.num_genotype_matrices,
-        N=num_upsamples * ploidy,
+        N=generator.num_samples_padded,
         L=num_polymorphisms,
         chromosome=chr_name,
         ref_table=create_sample_name_list(

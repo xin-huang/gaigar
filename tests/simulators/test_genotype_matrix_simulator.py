@@ -49,7 +49,6 @@ def init_params(tmp_path):
         "is_sorted": True,
         "keep_sim_data": False,
         "num_polymorphisms": 128,
-        "num_upsamples": 56,
         "num_genotype_matrices": 10,
     }
 
@@ -75,7 +74,6 @@ def init_params_h5(tmp_path):
         "is_sorted": True,
         "keep_sim_data": False,
         "num_polymorphisms": 128,
-        "num_upsamples": 56,
         "num_genotype_matrices": 10,
     }
 

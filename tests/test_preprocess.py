@@ -62,7 +62,6 @@ def genotype_matrix_init_params(tmp_path):
         "step_size": 5,
         "ploidy": 2,
         "is_phased": True,
-        "num_upsamples": 56,
     }
 
 

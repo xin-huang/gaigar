@@ -37,7 +37,6 @@ def generator_params():
         "is_phased": True,
         "random_polymorphisms": True,
         "seed": 12345,
-        "num_upsamples": 112,
     }
 
 
@@ -65,5 +64,5 @@ def test_GenotypeMatricesPreprocessor(generator_params, preprocessor_params):
     assert sample_dicts[0]["Start"] == "Random"
     assert sample_dicts[0]["End"] == "Random"
     assert len(sample_dicts[0]["Position"]) == 10
-    assert len(sample_dicts[0]["Ref_sample"]) == 112 * 2
-    assert len(sample_dicts[0]["Tgt_sample"]) == 112 * 2
+    assert len(sample_dicts[0]["Ref_sample"]) == 112
+    assert len(sample_dicts[0]["Tgt_sample"]) == 112

@@ -112,7 +112,7 @@ class PolymorphismDataGenerator(GenericGenerator):
             num_refs *= ploidy
             num_tgts *= ploidy
 
-        num_upsamples = ((num_tgts + 15) // 16) * 16
+        self.num_samples_padded = ((max(num_refs, num_tgts) + 15) // 16) * 16
 
         polymorphisms = split_genome(
             pos=pos,
@@ -124,8 +124,8 @@ class PolymorphismDataGenerator(GenericGenerator):
             seed=seed,
         )
 
-        ref_gts, self.ref_rdm_spl_idx = self._upsample(ref_gts, num_refs, num_upsamples)
-        tgt_gts, self.tgt_rdm_spl_idx = self._upsample(tgt_gts, num_tgts, num_upsamples)
+        ref_gts, self.ref_rdm_spl_idx = self._upsample(ref_gts, num_refs)
+        tgt_gts, self.tgt_rdm_spl_idx = self._upsample(tgt_gts, num_tgts)
 
         self.data = []
         self.num_genotype_matrices = len(polymorphisms)
@@ -171,9 +171,7 @@ class PolymorphismDataGenerator(GenericGenerator):
         for d in self.data:
             yield d
 
-    def _upsample(
-        self, gts: np.ndarray, num_samples: int, num_upsamples: int = None
-    ) -> tuple[np.ndarray, list]:
+    def _upsample(self, gts: np.ndarray, num_samples: int) -> tuple[np.ndarray, list]:
         """
         Upsamples the genotype data.
 
@@ -183,8 +181,6 @@ class PolymorphismDataGenerator(GenericGenerator):
             Genotype data array.
         num_samples : int
             Number of samples in the genotype data.
-        num_upsamples : int, optional
-            Number of samples after upsampling. Default is None.
 
         Returns
         -------
@@ -193,10 +189,10 @@ class PolymorphismDataGenerator(GenericGenerator):
             and the list of indices of randomly sampled data.
         """
 
-        if int(num_upsamples) == int(num_samples):
+        if int(self.num_samples_padded) == int(num_samples):
             return gts, []
         else:
-            num_samples_added = max(num_upsamples - num_samples, 0)
+            num_samples_added = max(self.num_samples_padded - num_samples, 0)
             random_samples = np.random.randint(num_samples, size=int(num_samples_added))
             gts = np.transpose(gts).tolist()
             gts_upsampled = gts

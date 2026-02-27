@@ -67,7 +67,6 @@ class GenotypeMatrixSimulator(GenericSimulator):
         is_sorted: bool,
         keep_sim_data: bool,
         num_polymorphisms: int,
-        num_upsamples: int,
         num_genotype_matrices: int,
     ):
         """
@@ -109,8 +108,6 @@ class GenotypeMatrixSimulator(GenericSimulator):
             If True, intermediate simulation data will be retained for further analysis.
         num_polymorphisms : int
             Number of polymorphic sites to simulate.
-        num_upsamples : int
-            Number of samples after upsampling to generate.
         num_genotype_matrices: int
             Number of genotype matrices for training.
         """
@@ -142,9 +139,13 @@ class GenotypeMatrixSimulator(GenericSimulator):
         self.is_sorted = is_sorted
         self.keep_sim_data = keep_sim_data
         self.num_polymorphisms = num_polymorphisms
-        self.num_upsamples = num_upsamples
         self.num_genotype_matrices = num_genotype_matrices
         self.output_h5 = output_h5
+
+        if is_phased:
+            nref *= ploidy
+            ntgt *= ploidy
+        num_samples_padded = ((max(nref, ntgt) + 15) // 16) * 16
 
         os.makedirs(output_dir, exist_ok=True)
         if self.output_h5:
@@ -153,7 +154,7 @@ class GenotypeMatrixSimulator(GenericSimulator):
                 file_name=self.output,
                 ds_type="train",
                 num_genotype_matrices=self.num_genotype_matrices,
-                N=self.num_upsamples * self.ploidy,
+                N=num_samples_padded,
                 L=self.num_polymorphisms,
                 chromosome="1",
                 ref_table=create_sample_name_list(
@@ -211,7 +212,6 @@ class GenotypeMatrixSimulator(GenericSimulator):
             chr_name="1",
             random_polymorphisms=True,
             num_polymorphisms=self.num_polymorphisms,
-            num_upsamples=self.num_upsamples,
             ploidy=self.ploidy,
             is_phased=self.is_phased,
             seed=seed,
