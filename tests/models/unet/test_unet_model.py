@@ -41,8 +41,6 @@ class DummyUNetPlusPlus(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         logits = self.head(x)
-        if self.num_classes == 1:
-            return logits[:, 0]
         return logits
 
 
@@ -73,7 +71,7 @@ class DummyUNetPlusPlusRNN(nn.Module):
             raise ValueError(f"Expected 4 input channels, got {x.shape[1]}.")
         if x.shape[-1] != self.polymorphisms:
             raise ValueError(f"Expected width {self.polymorphisms}, got {x.shape[-1]}.")
-        return self.scale * x[:, 0, :, :]  # (B, H, W)
+        return self.scale * x[:, 0:1, :, :]  # (B, 1, H, W)
 
 
 def _make_training_h5(
@@ -168,8 +166,7 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
     unet_mod.UNetModel.train(
         data=training_data,
         output=str(model_path),
-        add_channels=False,  # -> UNetPlusPlus
-        n_classes=1,
+        add_rnn=False,  # -> UNetPlusPlus
         learning_rate=0.001,
         batch_size=2,
         label_noise=0.01,
@@ -206,8 +203,7 @@ def test_train_branch_neighbor_gap_fusion_four_channel(tmp_path, monkeypatch) ->
     unet_mod.UNetModel.train(
         data=training_data,
         output=str(model_path),
-        add_channels=True,  # -> UNetPlusPlusRNN
-        n_classes=1,
+        add_rnn=True,  # -> UNetPlusPlusRNN
         batch_size=2,
         n_epochs=1,
         n_early=0,
@@ -238,8 +234,7 @@ def test_train_raises_when_add_channels_true_but_missing_gap_datasets(
         unet_mod.UNetModel.train(
             data=training_data,
             output=str(model_path),
-            add_channels=True,
-            n_classes=1,
+            add_rnn=True,
             batch_size=2,
             n_epochs=1,
             n_early=0,
@@ -249,30 +244,30 @@ def test_train_raises_when_add_channels_true_but_missing_gap_datasets(
         )
 
 
-def test_train_raises_when_add_channels_true_but_n_classes_not_1(
-    tmp_path, monkeypatch
-) -> None:
-    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
-    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
-
-    training_data = _make_training_h5(tmp_path, n_reps=40, N=2, L=7, with_gaps=True)
-
-    model_dir = tmp_path / "model_out4"
-    model_path = model_dir / "best.pth"
-
-    with pytest.raises(ValueError, match="supports n_classes == 1"):
-        unet_mod.UNetModel.train(
-            data=training_data,
-            output=str(model_path),
-            add_channels=True,
-            n_classes=2,
-            batch_size=2,
-            n_epochs=1,
-            n_early=0,
-            label_smooth=False,
-            val_prop=0.2,
-            seed=0,
-        )
+# def test_train_raises_when_add_channels_true_but_n_classes_not_1(
+#    tmp_path, monkeypatch
+# ) -> None:
+#    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
+#    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
+#
+#    training_data = _make_training_h5(tmp_path, n_reps=40, N=2, L=7, with_gaps=True)
+#
+#    model_dir = tmp_path / "model_out4"
+#    model_path = model_dir / "best.pth"
+#
+#    with pytest.raises(ValueError, match="supports n_classes == 1"):
+#        unet_mod.UNetModel.train(
+#            data=training_data,
+#            output=str(model_path),
+#            add_rnn=True,
+#            n_classes=2,
+#            batch_size=2,
+#            n_epochs=1,
+#            n_early=0,
+#            label_smooth=False,
+#            val_prop=0.2,
+#            seed=0,
+#        )
 
 
 def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
@@ -290,8 +285,7 @@ def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
         unet_mod.UNetModel.train(
             data=training_data,
             output=str(model_path),
-            add_channels=False,
-            n_classes=1,
+            add_rnn=False,
             batch_size=2,
             n_epochs=1,
             n_early=0,

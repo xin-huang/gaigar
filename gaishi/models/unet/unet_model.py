@@ -64,8 +64,8 @@ class UNetModel(MlModel):
         data: str,
         output: str,
         trained_model_file: Optional[str] = None,
-        add_channels: bool = False,
-        n_classes: int = 1,
+        add_rnn: bool = False,
+        # n_classes: int = 1,
         learning_rate: float = 0.001,
         batch_size: int = 32,
         label_noise: float = 0.01,
@@ -137,7 +137,7 @@ class UNetModel(MlModel):
             Path to the best weight file.
         trained_model_file : Optional[str], optional
             If provided, initialize model weights from this file before training.
-        add_channels : bool, optional
+        add_rnn : bool, optional
             If False, use 2-channel inputs (ref, tgt). If True, use 4-channel inputs
             (ref, tgt, gap_to_prev, gap_to_next).
         n_classes : int, optional
@@ -173,6 +173,7 @@ class UNetModel(MlModel):
         KeyError
             If required datasets are missing from the HDF5 file.
         """
+        n_classes = 1
         start_time = time.time()
         output_dir = os.path.dirname(output)
         os.makedirs(output_dir, exist_ok=True)
@@ -193,7 +194,7 @@ class UNetModel(MlModel):
         if n_reps == 0:
             raise ValueError(f"No replicates found in HDF5 file: {data}")
 
-        input_channels = 4 if add_channels else 2
+        input_channels = 4 if add_rnn else 2
 
         train_loader, val_loader, train_indices, val_indices = (
             build_dataloaders_from_h5(
@@ -227,11 +228,7 @@ class UNetModel(MlModel):
 
         ratio = all_counts0 / all_counts1
 
-        if add_channels:
-            if int(n_classes) != 1:
-                raise ValueError(
-                    "UNetPlusPlusRNN currently supports n_classes == 1 only."
-                )
+        if add_rnn:
             model = UNetPlusPlusRNN(polymorphisms=L)
         else:
             model = UNetPlusPlus(num_classes=int(n_classes), input_channels=2)
@@ -257,9 +254,8 @@ class UNetModel(MlModel):
             for batch_idx, (x, y) in enumerate(train_loader, start=1):
                 optimizer.zero_grad()
 
-                y = y.squeeze(1)
                 x = x.to(device)
-                y = y.to(device)
+                y = y.to(device).float()
 
                 y_pred = model(x)
 
@@ -289,10 +285,8 @@ class UNetModel(MlModel):
 
             for _, (x, y) in enumerate(val_loader):
                 with torch.no_grad():
-                    y = torch.squeeze(y)
-
                     x = x.to(device)
-                    y = y.to(device)
+                    y = y.to(device).float()
 
                     y_pred = model(x)
                     loss = criterion(y_pred, y)
