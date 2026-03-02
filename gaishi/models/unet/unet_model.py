@@ -188,11 +188,11 @@ class UNetModel(MlModel):
 
         # Read shapes from unified schema
         with h5py.File(data, "r") as f:
-            n_reps = f["/meta"].attrs["n"]
+            num_genotype_matrices = f["/meta"].attrs["n"]
             L = f["/meta"].attrs["L"]
 
-        if n_reps == 0:
-            raise ValueError(f"No replicates found in HDF5 file: {data}")
+        if num_genotype_matrices == 0:
+            raise ValueError(f"No genotype matrices found in HDF5 file: {data}")
 
         input_channels = 4 if add_rnn else 2
 
@@ -304,31 +304,23 @@ class UNetModel(MlModel):
             val_loss = np.mean(val_losses)
             val_acc = np.mean(val_accs)
 
-            validation_log_file.write(
-                f"Epoch {epoch_idx}: validation loss = {val_loss}, validation accuracy = {val_acc}.\n"
-            )
-            validation_log_file.flush()
-
+            log_msg = f"Epoch {epoch_idx}: validation loss = {val_loss}, validation accuracy = {val_acc}."
+            
             improved = (min_val_loss - val_loss) > float(min_delta)
-
             if improved:
                 min_val_loss = val_loss
                 best_epoch = epoch_idx
-                validation_log_file.write(
-                    f"Best weights saved at epoch {best_epoch}.\n"
-                )
-                validation_log_file.flush()
+                log_msg += f" Best weights saved at epoch {best_epoch}.\n"
                 torch.save(model.state_dict(), output)
                 early_count = 0
             else:
                 early_count += 1
                 if early_count >= int(n_early):
-                    validation_log_file.write(
-                        f"Early stopping; best weights at epoch {best_epoch} reloaded.\n"
-                    )
-                    validation_log_file.flush()
+                    log_msg += f" Early stopping; best weights at epoch {best_epoch} reloaded.\n"
                     model.load_state_dict(torch.load(output, map_location="cpu"))
                     break
+
+            validation_log_file.flush()
 
         total = time.time() - start_time
         training_log_file.write(
