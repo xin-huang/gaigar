@@ -25,8 +25,8 @@ from gaishi.train import train
 
 
 @pytest.fixture
-def file_paths():
-    output_dir = "tests/test_train"
+def file_paths(tmp_path):
+    output_dir = tmp_path / "test_train"
     return {
         "demes": "tests/data/ArchIE_3D19.yaml",
         "config": "tests/data/test.config.yaml",
@@ -35,15 +35,7 @@ def file_paths():
     }
 
 
-@pytest.fixture
-def cleanup_output_dir(request, file_paths):
-    # Setup (nothing to do before the test)
-    yield  # Hand over control to the test
-    # Teardown
-    shutil.rmtree(file_paths["output_dir"], ignore_errors=True)
-
-
-def test_train(file_paths, cleanup_output_dir):
+def test_train(file_paths):
     os.makedirs(file_paths["output_dir"], exist_ok=True)
 
     train(

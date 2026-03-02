@@ -243,7 +243,7 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
         gts: np.ndarray,
         samples: list,
         rdm_spl_idx: list,
-        metric: str = "cosine",
+        metric: str = "cityblock",  # cosine?
     ) -> tuple[np.ndarray, list]:
         """
         Sort target genotypes using seriation based on a specified distance metric.
@@ -257,7 +257,7 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
         rdm_spl_idx: list
             List of random sample indices for target individuals.
         metric : str, optional
-            Distance metric to use. Default: 'cosine'.
+            Distance metric to use. Default: 'cityblock'.
 
         Returns
         -------

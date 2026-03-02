@@ -58,7 +58,7 @@ def train(
             **global_config.simulation.model_dump(),
         )
 
-        data = f"{global_config.simulation.output_dir}/{global_config.simulation.output_prefix}.features"
+        data = f"{global_config.simulation.output_dir}/{global_config.simulation.output_prefix}.tsv"
     elif global_config.simulation.sim_type == "genotype_matrix":
         simulate_genotype_matrices(
             demo_model_file=demes,
