@@ -25,6 +25,6 @@ dependencies:
   - pyyaml=6.0.1
   - pip:
       - ortools==8.2.8710
-      - git+https://github.com/src-d/seriate.git@refs/pull/8/head
+      - git+https://github.com/xin-huang/seriate.git@dev
       - torch==2.2.0
       - -e .

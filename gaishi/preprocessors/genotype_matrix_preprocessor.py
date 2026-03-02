@@ -243,7 +243,7 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
         gts: np.ndarray,
         samples: list,
         rdm_spl_idx: list,
-        metric: str = "euclidean",
+        metric: str = "cosine",
     ) -> tuple[np.ndarray, list]:
         """
         Sort target genotypes using seriation based on a specified distance metric.
@@ -257,7 +257,7 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
         rdm_spl_idx: list
             List of random sample indices for target individuals.
         metric : str, optional
-            Distance metric to use. Default: 'euclidean'.
+            Distance metric to use. Default: 'cosine'.
 
         Returns
         -------
@@ -268,7 +268,11 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
             samples.append(samples[i])
 
         D = pdist(gts, metric=metric)
-        D[np.where(np.isnan(D))] = 0
+        if np.isnan(D).any():
+            finite = D[~np.isnan(D)]
+            fill = (finite.max() if finite.size else 0.0) + 1.0
+            D = np.where(np.isnan(D), fill, D)
+        # D[np.where(np.isnan(D))] = 0
         idx = seriate(D, timeout=0)
 
         sorted_gts = gts[idx]

@@ -130,7 +130,7 @@ def simulate_feature_vectors(
         raise ValueError("nfeature must be positive.")
 
     os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f"{output_prefix}.features")
+    output_file = os.path.join(output_dir, f"{output_prefix}.tsv")
 
     simulator = FeatureVectorSimulator(
         demo_model_file=demo_model_file,
