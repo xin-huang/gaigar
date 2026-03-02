@@ -169,11 +169,9 @@ def test_train_branch_unetplusplus_two_channel(tmp_path, monkeypatch) -> None:
         add_rnn=False,  # -> UNetPlusPlus
         learning_rate=0.001,
         batch_size=2,
-        label_noise=0.01,
         n_early=0,
         n_epochs=1,
         min_delta=0.0,
-        label_smooth=False,
         val_prop=0.2,
         seed=0,
     )
@@ -208,7 +206,6 @@ def test_train_branch_neighbor_gap_fusion_four_channel(tmp_path, monkeypatch) ->
         n_epochs=1,
         n_early=0,
         min_delta=0.0,
-        label_smooth=False,
         val_prop=0.2,
         seed=0,
     )
@@ -238,7 +235,6 @@ def test_train_raises_when_add_rnn_true_but_missing_gap_datasets(
             batch_size=2,
             n_epochs=1,
             n_early=0,
-            label_smooth=False,
             val_prop=0.2,
             seed=0,
         )
@@ -263,7 +259,6 @@ def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
             batch_size=2,
             n_epochs=1,
             n_early=0,
-            label_smooth=False,
             val_prop=0.2,
             seed=0,
         )

@@ -55,18 +55,18 @@ class UNetModel(MlModel):
     def train(
         data: str,
         output: str,
+        *,
         trained_model_file: Optional[str] = None,
         add_rnn: bool = False,
-        # n_classes: int = 1,
-        learning_rate: float = 0.001,
         batch_size: int = 32,
-        label_noise: float = 0.01,
         n_early: int = 10,
         n_epochs: int = 100,
+        learning_rate: float = 0.001,
         min_delta: float = 1e-4,
-        label_smooth: bool = True,
         val_prop: float = 0.05,
         seed: int = None,
+        device: str = None,
+        **kwargs,
     ) -> None:
         """
         Train a UNet model on an HDF5 dataset and save the best weights.
@@ -129,30 +129,28 @@ class UNetModel(MlModel):
             Path to the best weight file.
         trained_model_file : Optional[str], optional
             If provided, initialize model weights from this file before training.
+            Default: None.
         add_rnn : bool, optional
             If False, use 2-channel inputs (ref, tgt). If True, use 4-channel inputs
-            (ref, tgt, gap_to_prev, gap_to_next).
-        n_classes : int, optional
-            Number of output classes. For binary classification this is typically 1.
-            ``UNetPlusPlusRNN`` currently requires ``n_classes == 1``.
-        learning_rate : float, optional
-            Learning rate for Adam.
+            (ref, tgt, gap_to_prev, gap_to_next). Default: False.
         batch_size : int, optional
-            Number of replicates per optimization step.
-        label_noise : float, optional
-            Noise magnitude used for label smoothing during training.
+            Number of replicates per optimization step. Default: 32.
         n_early : int, optional
-            Early stopping patience in epochs.
+            Early stopping patience in epochs. Default: 10.
         n_epochs : int, optional
-            Maximum number of epochs.
+            Maximum number of epochs. Default: 100.
+        learning_rate : float, optional
+            Learning rate for Adam. Default: 0.001
         min_delta : float, optional
             Minimum decrease in validation loss to be considered an improvement.
-        label_smooth : bool, optional
-            Whether to apply label smoothing to training labels.
+            Default: 1e-4.
         val_prop : float, optional
-            Fraction of replicates assigned to validation.
+            Fraction of replicates assigned to validation. Default: 0.05.
         seed : int, optional
             Seed used for deterministic train/validation split and for label smoothing.
+            Default: None.
+        device : Optional[str].
+            Force device string like ``"cuda:0"`` or ``"cpu"``. Default: None.
 
         Raises
         ------
@@ -168,10 +166,9 @@ class UNetModel(MlModel):
         output_dir = os.path.dirname(output)
         os.makedirs(output_dir, exist_ok=True)
 
-        if torch.cuda.is_available():
-            device = torch.device("cuda:0")
-        else:
-            device = torch.device("cpu")
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        dev = torch.device(device)
 
         training_log_file = open(os.path.join(output_dir, "training.log"), "w")
         validation_log_file = open(os.path.join(output_dir, "validation.log"), "w")
@@ -195,8 +192,8 @@ class UNetModel(MlModel):
                 num_workers=0,
                 pin_memory=torch.cuda.is_available(),
                 seed=seed,
-                train_label_smooth=label_smooth,
-                train_label_noise=float(label_noise),
+                train_label_smooth=True,
+                train_label_noise=0.01,
             )
         )
 
@@ -219,25 +216,25 @@ class UNetModel(MlModel):
         ratio = all_counts0 / all_counts1
 
         if add_rnn:
-            model = UNetPlusPlusRNN(polymorphisms=L)
+            net = UNetPlusPlusRNN(polymorphisms=L)
         else:
-            model = UNetPlusPlus(num_classes=int(n_classes), input_channels=2)
+            net = UNetPlusPlus(num_classes=int(n_classes), input_channels=2)
 
-        model = model.to(device)
+        net = net.to(device)
 
         if trained_model_file is not None:
             checkpoint = torch.load(trained_model_file, map_location=device)
-            model.load_state_dict(checkpoint)
+            net.load_state_dict(checkpoint)
 
         criterion = BCEWithLogitsLoss(pos_weight=torch.FloatTensor([ratio]).to(device))
-        optimizer = optim.Adam(model.parameters(), lr=float(learning_rate))
+        optimizer = optim.Adam(net.parameters(), lr=float(learning_rate))
 
         min_val_loss = np.inf
         early_count = 0
         best_epoch = 0
 
         for epoch_idx in range(1, int(n_epochs) + 1):
-            model.train()
+            net.train()
             losses = []
             accuracies = []
 
@@ -247,7 +244,7 @@ class UNetModel(MlModel):
                 x = x.to(device)
                 y = y.to(device).float()
 
-                y_pred = model(x)
+                y_pred = net(x)
 
                 loss = criterion(y_pred, y)
                 loss.backward()
@@ -269,7 +266,7 @@ class UNetModel(MlModel):
                     )
                     training_log_file.flush()
 
-            model.eval()
+            net.eval()
             val_losses = []
             val_accs = []
 
@@ -278,7 +275,7 @@ class UNetModel(MlModel):
                     x = x.to(device)
                     y = y.to(device).float()
 
-                    y_pred = model(x)
+                    y_pred = net(x)
                     loss = criterion(y_pred, y)
 
                     y_pred_bin = np.round(
@@ -301,13 +298,13 @@ class UNetModel(MlModel):
                 min_val_loss = val_loss
                 best_epoch = epoch_idx
                 log_msg += f" Best weights saved.\n"
-                torch.save(model.state_dict(), output)
+                torch.save(net.state_dict(), output)
                 early_count = 0
             else:
                 early_count += 1
                 if early_count >= int(n_early):
                     log_msg += f" Early stopping; best weights at epoch {best_epoch} reloaded.\n"
-                    model.load_state_dict(torch.load(output, map_location="cpu"))
+                    net.load_state_dict(torch.load(output, map_location="cpu"))
                     break
             validation_log_file.write(log_msg)
             validation_log_file.flush()
@@ -325,7 +322,12 @@ class UNetModel(MlModel):
         data: str,
         model: str,
         output: str,
-        **model_params,
+        *,
+        batch_size: int = 8,
+        add_rnn: bool = False,
+        site_weighting: bool = False,
+        device: str = None,
+        **kwargs,
     ) -> None:
         """
         Run inference on an HDF5 file and write an aggregated prediction table.
@@ -362,16 +364,6 @@ class UNetModel(MlModel):
             instantiate ``UNetPlusPlus`` with ``input_channels=2``.
             If True, require ``Gap_to_prev`` and ``Gap_to_next`` (4 channels total) and use
             ``UNetPlusPlusRNN``. Default: False.
-        n_classes : int, optional
-            Number of output classes for ``UNetPlusPlus``. Default: 1.
-            When ``n_classes==1``, probabilities are computed with ``sigmoid`` and written as
-            a single channel ``(n, 1, N, L)``. When ``n_classes>1``, probabilities are computed
-            with ``softmax`` and written as ``(n, n_classes, N, L)``.
-            Must be 1 when ``add_rnn`` is True.
-        pred_dataset : str, optional
-            HDF5 path where predictions will be stored. Default: ``"/preds/Pred"``.
-        device : Optional[str], optional
-            Force device string like ``"cuda:0"`` or ``"cpu"``. Default: auto-detect.
         batch_size : int, optional
             Number of genotype matrices/windows processed per forward pass. Default: 8.
         site_weighting : bool, optional
@@ -380,10 +372,8 @@ class UNetModel(MlModel):
             contributes with weight ``g[t]`` (a 1D Gaussian window; peak-normalized to 1), so that
             central sites receive higher weight than edge sites. If False, all sites are weighted
             equally (equivalent to ``g[t]=1`` for all ``t``). Default: False.
-        sigma : float, optional
-            Standard deviation of the Gaussian window used when ``site_weighting`` is True.
-            Larger values produce flatter weights (less down-weighting at window edges); smaller
-            values concentrate weight near the window center. Default: 30.0.
+        device : Optional[str].
+            Force device string like ``"cuda:0"`` or ``"cpu"``. Default: None.
 
         Raises
         ------
@@ -394,11 +384,7 @@ class UNetModel(MlModel):
             If model output has an unexpected shape, or if configuration constraints are violated
             (e.g. ``add_rnn=True`` with ``n_classes!=1``).
         """
-        add_rnn = bool(model_params.get("add_rnn", False))
-        n_classes = int(model_params.get("n_classes", 1))
-        device = model_params.get("device", None)
-        batch_size = int(model_params.get("batch_size", 8))
-        site_weighting = bool(model_params.get("site_weighting", False))
+        n_classes = 1
 
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
