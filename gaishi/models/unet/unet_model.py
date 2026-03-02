@@ -39,24 +39,16 @@ from gaishi.models.unet.dataloader_h5 import build_dataloaders_from_h5
 @MODEL_REGISTRY.register("unet")
 class UNetModel(MlModel):
     """
-    UNet based model wrapper for training and inference on key chunked HDF5 datasets.
+    UNet-based model wrapper for training and inference on HDF5 datasets.
 
     This class provides a minimal public API with static methods. The implementation
-    assumes the training and evaluation data are stored in an HDF5 file where each
-    top level key corresponds to one chunk of samples and contains at least an input
-    dataset ``x_0`` and, for labeled data, a label dataset ``y``.
+    assumes the training and evaluation data are stored in an HDF5 file.
 
     Notes
     -----
-    - Training uses a key level train validation split and constructs PyTorch
-      DataLoaders that build batches by concatenating multiple key chunks.
-    - Class imbalance is handled via ``pos_weight`` in ``BCEWithLogitsLoss``.
-    - The best model weights are selected by minimum validation loss and written
-      to ``{model_dir}/best.weights``.
-    - Validation keys are saved to ``{model_dir}/val_keys.pkl`` for reproducibility.
     - Model selection:
-        * add_channels == False -> UNetPlusPlus(num_classes=n_classes, input_channels=2)
-        * add_channels == True  -> UNetPlusPlusRNN(polymorphisms=W) with 4-channel input
+        * add_rnn == False -> UNetPlusPlus(num_classes=n_classes, input_channels=2)
+        * add_rnn == True  -> UNetPlusPlusRNN(polymorphisms=W) with 4-channel input
     """
 
     @staticmethod
@@ -100,11 +92,11 @@ class UNetModel(MlModel):
         Batch semantics
         --------------
         The DataLoader draws individual replicates and stacks them into batches. With
-        ``batch_size=B`` and ``add_channels``:
+        ``batch_size=B`` and ``add_rnn``:
 
-        - If ``add_channels=False``: model inputs are constructed as 2 channels
+        - If ``add_rnn=False``: model inputs are constructed as 2 channels
           ``[Ref_genotype, Tgt_genotype]`` and the batch tensor has shape ``(B, 2, N, L)``.
-        - If ``add_channels=True``: model inputs are constructed as 4 channels
+        - If ``add_rnn=True``: model inputs are constructed as 4 channels
           ``[Ref_genotype, Tgt_genotype, Gap_to_prev, Gap_to_next]`` and the batch tensor
           has shape ``(B, 4, N, L)``.
 
@@ -168,8 +160,6 @@ class UNetModel(MlModel):
             If the HDF5 file contains no replicates.
         ValueError
             If training labels contain no positive class.
-        ValueError
-            If ``add_channels`` is True but ``n_classes`` is not 1.
         KeyError
             If required datasets are missing from the HDF5 file.
         """
@@ -305,12 +295,12 @@ class UNetModel(MlModel):
             val_acc = np.mean(val_accs)
 
             log_msg = f"Epoch {epoch_idx}: validation loss = {val_loss}, validation accuracy = {val_acc}."
-            
+
             improved = (min_val_loss - val_loss) > float(min_delta)
             if improved:
                 min_val_loss = val_loss
                 best_epoch = epoch_idx
-                log_msg += f" Best weights saved at epoch {best_epoch}.\n"
+                log_msg += f" Best weights saved.\n"
                 torch.save(model.state_dict(), output)
                 early_count = 0
             else:
@@ -319,7 +309,7 @@ class UNetModel(MlModel):
                     log_msg += f" Early stopping; best weights at epoch {best_epoch} reloaded.\n"
                     model.load_state_dict(torch.load(output, map_location="cpu"))
                     break
-
+            validation_log_file.write(log_msg)
             validation_log_file.flush()
 
         total = time.time() - start_time
@@ -348,7 +338,7 @@ class UNetModel(MlModel):
         probabilities (sigmoid for binary, softmax for multiclass). Results are written as a TSV table
         to ``output``.
 
-        Inputs are read from ``/data/Ref_genotype`` and ``/data/Tgt_genotype``. If ``add_channels`` is
+        Inputs are read from ``/data/Ref_genotype`` and ``/data/Tgt_genotype``. If ``add_rnn`` is
         True, the additional channels are read from ``/data/Gap_to_prev`` and ``/data/Gap_to_next``.
         The window length ``L`` is taken from ``/meta`` (and must match the last dimension of the
         input datasets). The set of global positions is computed as the unique union of
@@ -367,7 +357,7 @@ class UNetModel(MlModel):
             Path to a PyTorch ``state_dict`` checkpoint (e.g. ``best.pth``).
         output : str
             Path to the output file.
-        add_channels : bool, optional
+        add_rnn : bool, optional
             If False, use only ``Ref_genotype`` and ``Tgt_genotype`` (2 channels) and
             instantiate ``UNetPlusPlus`` with ``input_channels=2``.
             If True, require ``Gap_to_prev`` and ``Gap_to_next`` (4 channels total) and use
@@ -377,7 +367,7 @@ class UNetModel(MlModel):
             When ``n_classes==1``, probabilities are computed with ``sigmoid`` and written as
             a single channel ``(n, 1, N, L)``. When ``n_classes>1``, probabilities are computed
             with ``softmax`` and written as ``(n, n_classes, N, L)``.
-            Must be 1 when ``add_channels`` is True.
+            Must be 1 when ``add_rnn`` is True.
         pred_dataset : str, optional
             HDF5 path where predictions will be stored. Default: ``"/preds/Pred"``.
         device : Optional[str], optional
@@ -399,17 +389,16 @@ class UNetModel(MlModel):
         ------
         KeyError
             If required unified-schema datasets are missing (e.g. ``/data/Ref_genotype``),
-            or if ``add_channels`` is True but gap datasets are missing.
+            or if ``add_rnn`` is True but gap datasets are missing.
         ValueError
             If model output has an unexpected shape, or if configuration constraints are violated
-            (e.g. ``add_channels=True`` with ``n_classes!=1``).
+            (e.g. ``add_rnn=True`` with ``n_classes!=1``).
         """
-        add_channels = bool(model_params.get("add_channels", False))
+        add_rnn = bool(model_params.get("add_rnn", False))
         n_classes = int(model_params.get("n_classes", 1))
         device = model_params.get("device", None)
         batch_size = int(model_params.get("batch_size", 8))
         site_weighting = bool(model_params.get("site_weighting", False))
-        sigma = float(model_params.get("sigma", 30.0))
 
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -439,7 +428,7 @@ class UNetModel(MlModel):
 
             # weights along sites within a window
             if site_weighting:
-                g = _gaussian_weights(L, sigma=sigma)  # (L,)
+                g = _gaussian_weights(L)  # (L,)
             else:
                 g = np.ones(L, dtype=np.float32)  # (L,)
             gw = g[None, :]  # (1, L) broadcast to (N, L)
@@ -449,20 +438,16 @@ class UNetModel(MlModel):
             tgt_ds = f["/data/Tgt_genotype"]  # (n, N, L)
 
             has_gaps = ("/data/Gap_to_prev" in f) and ("/data/Gap_to_next" in f)
-            if add_channels and not has_gaps:
+            if add_rnn and not has_gaps:
                 raise KeyError(
-                    "add_channels=True requires /data/Gap_to_prev and /data/Gap_to_next"
+                    "add_rnn=True requires /data/Gap_to_prev and /data/Gap_to_next"
                 )
 
             gp_ds = f["/data/Gap_to_prev"] if has_gaps else None
             gn_ds = f["/data/Gap_to_next"] if has_gaps else None
 
             # build model
-            if add_channels:
-                if n_classes != 1:
-                    raise ValueError(
-                        "UNetPlusPlusRNN currently supports n_classes == 1 only."
-                    )
+            if add_rnn:
                 net = UNetPlusPlusRNN(polymorphisms=L)
                 input_channels = 4
             else:
@@ -498,30 +483,9 @@ class UNetModel(MlModel):
                     logits_t = net(x)
 
                 # logits -> (B, C, N, L)
-                if logits_t.ndim == 3:
-                    # (B, N, L) only valid for binary
-                    if n_classes != 1:
-                        raise ValueError(
-                            "Model returned (B,N,L) but n_classes>1 requested."
-                        )
-                    logits_batch = (
-                        logits_t.detach()
-                        .cpu()
-                        .numpy()[:, None, :, :]
-                        .astype(np.float32, copy=False)
-                    )  # (B,1,N,L)
-                elif logits_t.ndim == 4:
-                    logits_batch = (
-                        logits_t.detach().cpu().numpy().astype(np.float32, copy=False)
-                    )
-                    if logits_batch.shape[1] != n_classes:
-                        raise ValueError(
-                            f"Model output channels {logits_batch.shape[1]} != n_classes {n_classes}"
-                        )
-                else:
-                    raise ValueError(
-                        f"Unexpected model output shape: {tuple(logits_t.shape)}"
-                    )
+                logits_batch = (
+                    logits_t.detach().cpu().numpy().astype(np.float32, copy=False)
+                )
 
                 for b in range(B):
                     cols = cols_batch[b]  # (L,)
@@ -599,7 +563,7 @@ def _softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
     return e / np.sum(e, axis=axis, keepdims=True)
 
 
-def _gaussian_weights(window_size: int, sigma: float) -> np.ndarray:
+def _gaussian_weights(window_size: int, sigma: float = 30.0) -> np.ndarray:
     """
     1D Gaussian weights, peak-normalized to 1 (NOT sum-normalized), shape (L,).
     """

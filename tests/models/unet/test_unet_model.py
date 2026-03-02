@@ -218,7 +218,7 @@ def test_train_branch_neighbor_gap_fusion_four_channel(tmp_path, monkeypatch) ->
     assert DummyUNetPlusPlusRNN.last_init["polymorphisms"] == 11
 
 
-def test_train_raises_when_add_channels_true_but_missing_gap_datasets(
+def test_train_raises_when_add_rnn_true_but_missing_gap_datasets(
     tmp_path, monkeypatch
 ) -> None:
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
@@ -242,32 +242,6 @@ def test_train_raises_when_add_channels_true_but_missing_gap_datasets(
             val_prop=0.2,
             seed=0,
         )
-
-
-# def test_train_raises_when_add_channels_true_but_n_classes_not_1(
-#    tmp_path, monkeypatch
-# ) -> None:
-#    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus)
-#    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN)
-#
-#    training_data = _make_training_h5(tmp_path, n_reps=40, N=2, L=7, with_gaps=True)
-#
-#    model_dir = tmp_path / "model_out4"
-#    model_path = model_dir / "best.pth"
-#
-#    with pytest.raises(ValueError, match="supports n_classes == 1"):
-#        unet_mod.UNetModel.train(
-#            data=training_data,
-#            output=str(model_path),
-#            add_rnn=True,
-#            n_classes=2,
-#            batch_size=2,
-#            n_epochs=1,
-#            n_early=0,
-#            label_smooth=False,
-#            val_prop=0.2,
-#            seed=0,
-#        )
 
 
 def test_train_raises_when_no_positive_class(tmp_path, monkeypatch) -> None:
@@ -305,7 +279,7 @@ class DummyUNetPlusPlus2(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, Cin, N, L), we use tgt channel = 1
-        tgt = x[:, 1, :, :]  # (B, N, L)
+        tgt = x[:, 1:2, :, :]  # (B, 1, N, L)
         if self.num_classes == 1:
             return tgt
         out = torch.zeros(
@@ -326,12 +300,12 @@ class DummyUNetPlusPlusRNN2(nn.Module):
         self.polymorphisms = int(polymorphisms)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # expect 4 channels when add_channels=True
+        # expect 4 channels when add_rnn=True
         if x.shape[1] != 4:
             raise ValueError(f"Expected 4 input channels, got {x.shape[1]}.")
         if x.shape[-1] != self.polymorphisms:
             raise ValueError(f"Expected width {self.polymorphisms}, got {x.shape[-1]}.")
-        return x[:, 1, :, :]  # (B, N, L)
+        return x[:, 1:2, :, :]  # ref channel = 0, tgt channel = 1, (B, 1, N, L)
 
 
 def _save_weights(tmp_path, model, filename) -> str:
@@ -506,7 +480,7 @@ def test_infer_unet_rnn_four_channel_outputs_table_binary(
 
     out = os.path.join(tmp_path, "pred.tsv")
     unet_mod.UNetModel.infer(
-        data=h5, model=weights, output=out, add_channels=True, device="cpu"
+        data=h5, model=weights, output=out, add_rnn=True, device="cpu"
     )
 
     tab = _read_prob_table(out)
@@ -517,7 +491,7 @@ def test_infer_unet_rnn_four_channel_outputs_table_binary(
     )
 
 
-def test_infer_raises_when_add_channels_true_but_missing_gap_datasets(
+def test_infer_raises_when_add_rnn_true_but_missing_gap_datasets(
     tmp_path, monkeypatch
 ) -> None:
     monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus2)
@@ -532,31 +506,7 @@ def test_infer_raises_when_add_channels_true_but_missing_gap_datasets(
 
     with pytest.raises(KeyError):
         unet_mod.UNetModel.infer(
-            data=h5, model=weights, output=out, add_channels=True, device="cpu"
-        )
-
-
-def test_infer_raises_when_add_channels_true_but_n_classes_not_1(
-    tmp_path, monkeypatch
-) -> None:
-    monkeypatch.setattr(unet_mod, "UNetPlusPlus", DummyUNetPlusPlus2)
-    monkeypatch.setattr(unet_mod, "UNetPlusPlusRNN", DummyUNetPlusPlusRNN2)
-
-    h5 = _make_inference_h5(tmp_path, with_gaps=True, L=5)
-
-    dummy = unet_mod.UNetPlusPlusRNN(polymorphisms=5)
-    weights = _save_weights(tmp_path, dummy, filename="bad_ncls.weights")
-
-    out = os.path.join(tmp_path, "pred.tsv")
-
-    with pytest.raises(ValueError, match="n_classes|supports|1"):
-        unet_mod.UNetModel.infer(
-            data=h5,
-            model=weights,
-            output=out,
-            add_channels=True,
-            n_classes=2,
-            device="cpu",
+            data=h5, model=weights, output=out, add_rnn=True, device="cpu"
         )
 
 
@@ -576,14 +526,13 @@ def test_infer_site_weighting_changes_overlap_result(tmp_path, monkeypatch) -> N
         data=h5, model=weights, output=out0, device="cpu", site_weighting=False
     )
     # gaussian weighting
-    sigma = 1.0
+    sigma = 30.0
     unet_mod.UNetModel.infer(
         data=h5,
         model=weights,
         output=out1,
         device="cpu",
         site_weighting=True,
-        sigma=sigma,
     )
 
     t0 = _read_prob_table(out0)
