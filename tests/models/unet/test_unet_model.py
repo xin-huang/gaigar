@@ -51,6 +51,7 @@ class DummyUNetPlusPlusRNN(nn.Module):
 
     def __init__(
         self,
+        num_classes: int = 1,
         polymorphisms: int = 128,
         hidden_dim: int = 4,
         gru_layers: int = 1,
@@ -290,7 +291,7 @@ class DummyUNetPlusPlus2(nn.Module):
 class DummyUNetPlusPlusRNN2(nn.Module):
     """4-channel dummy; return logits=tgt channel."""
 
-    def __init__(self, polymorphisms: int = 128, **kwargs):
+    def __init__(self, num_classes: int = 1, polymorphisms: int = 128, **kwargs):
         super().__init__()
         self.polymorphisms = int(polymorphisms)
 
