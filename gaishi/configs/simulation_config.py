@@ -53,8 +53,6 @@ class SimulationConfig(BaseModel):
     # Parallelization
     nprocess: int = Field(1, gt=0, description="Number of processes for simulation")
 
-    # Features
-    nfeature: int = Field(..., gt=0, description="Number of features to sample/output")
     force_balanced: bool = Field(
         False,
         description="Whether to enforce class balance between intro/non-intro",
@@ -97,6 +95,9 @@ class FeatureVectorSimulationConfig(SimulationConfig):
         description="Whether to shuffle feature rows (e.g. before saving/training)",
     )
 
+    # Features
+    nfeature: int = Field(..., gt=0, description="Number of features to sample/output")
+
     # @field_validator("intro_prop", "non_intro_prop")
     # @classmethod
     # def _check_props_range(cls, v: float) -> float:
@@ -109,3 +110,7 @@ class GenotypeMatrixSimulationConfig(SimulationConfig):
     sim_type: Literal["genotype_matrix"] = Field("genotype_matrix", exclude=True)
 
     num_polymorphisms: int = Field(..., gt=0, description="")
+
+    num_genotype_matrices: int = Field(
+        ..., gt=0, description="Number of genotype matrices"
+    )
