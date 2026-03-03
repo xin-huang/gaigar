@@ -216,9 +216,9 @@ class UNetModel(MlModel):
         ratio = all_counts0 / all_counts1
 
         if add_rnn:
-            net = UNetPlusPlusRNN(polymorphisms=L)
+            net = UNetPlusPlusRNN(num_classes=n_classes, polymorphisms=L)
         else:
-            net = UNetPlusPlus(num_classes=int(n_classes), input_channels=2)
+            net = UNetPlusPlus(num_classes=n_classes, input_channels=2)
 
         net = net.to(device)
 
@@ -434,7 +434,7 @@ class UNetModel(MlModel):
 
             # build model
             if add_rnn:
-                net = UNetPlusPlusRNN(polymorphisms=L)
+                net = UNetPlusPlusRNN(num_classes=n_classes, polymorphisms=L)
                 input_channels = 4
             else:
                 net = UNetPlusPlus(num_classes=n_classes, input_channels=2)

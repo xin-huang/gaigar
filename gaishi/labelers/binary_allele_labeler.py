@@ -51,7 +51,7 @@ class BinaryAlleleLabeler(GenericLabeler):
 
     def run(
         self, tgt_ind_file: str, vcf_file: str, true_tract_file: str, rep: int = None
-    ) -> pd.DataFrame:
+    ) -> dict:
         """
         Runs the allele labeling process.
 
@@ -68,8 +68,8 @@ class BinaryAlleleLabeler(GenericLabeler):
 
         Returns
         -------
-        pd.DataFrame
-            A DataFrame with sample names and their corresponding allele labels.
+        dict
+            A dictionary with sample names and their corresponding allele labels.
 
         Raises
         ------
