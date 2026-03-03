@@ -84,6 +84,4 @@ class GenotypeMatrixPreprocessConfig(PreprocessConfig):
 
     num_polymorphisms: int = Field(..., gt=0, description="")
 
-    num_upsamples: int = Field(..., gt=0, description="")
-
     step_size: int = Field(..., gt=0, description="")
