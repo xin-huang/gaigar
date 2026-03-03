@@ -24,6 +24,7 @@ from seriate import seriate
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import pdist, cdist
 from gaishi.utils import parse_ind_file
+from gaishi.utils import create_sample_name_list
 from gaishi.preprocessors import GenericPreprocessor
 
 
@@ -112,12 +113,12 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
         list[dict[str, Any]]
             A list of dictionaries with the formatted data for the genomic window.
         """
-        ref_samples = self._create_sample_name_list(
+        ref_samples = create_sample_name_list(
             samples=self.samples["Ref"],
             ploidy=ploidy,
             is_phased=is_phased,
         )
-        tgt_samples = self._create_sample_name_list(
+        tgt_samples = create_sample_name_list(
             samples=self.samples["Tgt"],
             ploidy=ploidy,
             is_phased=is_phased,
@@ -160,42 +161,6 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
         }
 
         return [data_dict]
-
-    def _create_sample_name_list(
-        self,
-        samples: list,
-        ploidy: int,
-        is_phased: bool,
-    ) -> list[str]:
-        """
-        Create a list of sample names, including phased information if applicable.
-
-        Parameters
-        ----------
-        samples : list of str
-            List of original sample identifiers.
-        ploidy : int
-            The ploidy level of the samples (e.g., 2 for diploid).
-        is_phased : bool
-            Indicates if the sample names should include phased information.
-
-        Returns
-        -------
-        list of str
-            A list of sample names, with phased information if applicable.
-        """
-
-        if is_phased:
-            num_samples = len(samples) * ploidy
-        else:
-            num_samples = len(samples)
-
-        samples = [
-            f"{samples[int(i/ploidy)]}_{i%ploidy+1}" if is_phased else samples[i]
-            for i in range(num_samples)
-        ]
-
-        return samples
 
     def _sort_ref_genotypes(
         self,

@@ -21,6 +21,7 @@
 import pytest
 import numpy as np
 from gaishi.utils import split_genome
+from gaishi.utils import create_sample_name_list
 
 
 @pytest.fixture
@@ -144,3 +145,24 @@ def test_split_genome_no_windows_created_random_polymorphisms(pos):
         str(exc_info.value)
         == "No windows could be created with the given number of polymorphisms."
     )
+
+
+@pytest.mark.parametrize(
+    "samples, ploidy, is_phased, expected",
+    [
+        (["A", "B"], 2, False, ["A", "B"]),
+        (["A", "B"], 2, True, ["A_1", "A_2", "B_1", "B_2"]),
+        (["S"], 3, True, ["S_1", "S_2", "S_3"]),
+        ([], 2, False, []),
+        ([], 2, True, []),
+    ],
+)
+def test_create_sample_name_list(samples, ploidy, is_phased, expected):
+    original = list(samples)
+
+    out = create_sample_name_list(samples=samples, ploidy=ploidy, is_phased=is_phased)
+
+    assert out == expected
+    assert samples == original
+    assert isinstance(out, list)
+    assert all(isinstance(x, str) for x in out)
