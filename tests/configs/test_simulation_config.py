@@ -65,7 +65,6 @@ def _valid_genotype_matrix_kwargs():
         "rec_rate": 1e-8,
         "nfeature": 128,
         "num_polymorphisms": 5000,
-        "num_upsamples": 2,
         "output_prefix": "train_sim",
         "output_dir": Path("results/train"),
         "seed": 42,
@@ -113,7 +112,6 @@ def test_genotype_matrix_simulation_config_valid():
 
     # Genotype-matrix specific
     assert cfg.num_polymorphisms == 5000
-    assert cfg.num_upsamples == 2
 
     # Path fields
     assert isinstance(cfg.output_dir, Path)

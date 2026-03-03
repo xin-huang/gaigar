@@ -228,7 +228,6 @@ def test_global_config_simulation_discriminates_genotype_matrix():
             "rec_rate": 1e-8,
             "nfeature": 128,
             "num_polymorphisms": 5000,
-            "num_upsamples": 2,
             "output_prefix": "train_sim",
             "output_dir": Path("results/train"),
             "seed": 42,
@@ -239,4 +238,3 @@ def test_global_config_simulation_discriminates_genotype_matrix():
 
     assert cfg.simulation.sim_type == "genotype_matrix"
     assert cfg.simulation.num_polymorphisms == 5000
-    assert cfg.simulation.num_upsamples == 2

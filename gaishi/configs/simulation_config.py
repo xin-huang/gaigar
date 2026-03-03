@@ -109,5 +109,3 @@ class GenotypeMatrixSimulationConfig(SimulationConfig):
     sim_type: Literal["genotype_matrix"] = Field("genotype_matrix", exclude=True)
 
     num_polymorphisms: int = Field(..., gt=0, description="")
-
-    num_upsamples: int = Field(..., gt=0, description="")
