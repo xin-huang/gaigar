@@ -168,7 +168,7 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
         tgt_gts: np.ndarray,
         samples: list,
         rdm_spl_idx: list,
-        metric: str = "euclidean",
+        metric: str = "cityblock",
     ) -> tuple[np.ndarray, list]:
         """
         Sort reference genotypes to best match target genotypes using linear sum assignment.
@@ -195,7 +195,6 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
             samples.append(samples[i])
 
         D = cdist(tgt_gts, ref_gts, metric=metric)
-        D[np.where(np.isnan(D))] = 0
         _, idx = linear_sum_assignment(D)
 
         sorted_ref_gts = ref_gts[idx]
@@ -208,7 +207,7 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
         gts: np.ndarray,
         samples: list,
         rdm_spl_idx: list,
-        metric: str = "cityblock",  # cosine?
+        metric: str = "cityblock",
     ) -> tuple[np.ndarray, list]:
         """
         Sort target genotypes using seriation based on a specified distance metric.
@@ -233,11 +232,6 @@ class GenotypeMatrixPreprocessor(GenericPreprocessor):
             samples.append(samples[i])
 
         D = pdist(gts, metric=metric)
-        if np.isnan(D).any():
-            finite = D[~np.isnan(D)]
-            fill = (finite.max() if finite.size else 0.0) + 1.0
-            D = np.where(np.isnan(D), fill, D)
-        # D[np.where(np.isnan(D))] = 0
         idx = seriate(D, timeout=0)
 
         sorted_gts = gts[idx]
