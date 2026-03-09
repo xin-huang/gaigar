@@ -19,7 +19,6 @@
 
 
 import h5py, os
-import time
 from typing import Optional
 
 import numpy as np
@@ -162,7 +161,6 @@ class UNetModel(MlModel):
             If required datasets are missing from the HDF5 file.
         """
         n_classes = 1
-        start_time = time.time()
         output_dir = os.path.dirname(output)
         os.makedirs(output_dir, exist_ok=True)
 
@@ -309,10 +307,6 @@ class UNetModel(MlModel):
             validation_log_file.write(log_msg)
             validation_log_file.flush()
 
-        total = time.time() - start_time
-        training_log_file.write(
-            f"Training finished. Total time: {total:.2f} seconds.\n"
-        )
         training_log_file.flush()
         training_log_file.close()
         validation_log_file.close()
