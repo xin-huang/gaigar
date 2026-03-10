@@ -20,18 +20,19 @@
 import joblib, os, pytest, shutil
 import gaishi.models
 import gaishi.stats
-from pathlib import Path
 from gaishi.train import train
 
 
 @pytest.fixture
 def file_paths():
     output_dir = "tests/test_train"
+    os.makedirs(output_dir, exist_ok=True)
+
     return {
         "demes": "tests/data/ArchIE_3D19.yaml",
         "config": "tests/data/test.config.yaml",
         "output": os.path.join(output_dir, "test.lr.model"),
-        "output_dir": str(output_dir),
+        "output_dir": output_dir,
     }
 
 
@@ -44,8 +45,6 @@ def cleanup_output_dir(request, file_paths):
 
 
 def test_train(file_paths, cleanup_output_dir):
-    os.makedirs(file_paths["output_dir"], exist_ok=True)
-
     train(
         demes=file_paths["demes"],
         config=file_paths["config"],

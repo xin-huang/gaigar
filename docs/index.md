@@ -66,9 +66,3 @@ This will display information for three commands:
 | eval | Evaluate model performance |
 
 If you need further help, such as reporting a bug or suggesting a feature, please open an [issue](https://github.com/xin-huang/gaishi/issues).
-
-## Important Notes
-
-The **OFFICIAL** repository: https://github.com/xin-huang/gaishi
-
-Contributions, bug reports, and feature requests should be directed to [the official repository](https://github.com/xin-huang/gaishi). If you are viewing a fork, please note that it may diverge from **the official repository** and is not maintained by the official maintainers. Please refer to **the official repository** for current releases, documentation, and contribution guidelines. When citing this software, cite **the official repository**, and use **official releases** for production or reproducible analyses.
