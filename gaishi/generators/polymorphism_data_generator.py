@@ -47,7 +47,7 @@ class PolymorphismDataGenerator(GenericGenerator):
         seed: int = None,
     ):
         """
-        Initializes the PolymorphismDataGenerator with the given parameters.
+        Initialize the PolymorphismDataGenerator with the given parameters.
 
         Parameters
         ----------
@@ -124,8 +124,8 @@ class PolymorphismDataGenerator(GenericGenerator):
             seed=seed,
         )
 
-        ref_gts, self.ref_rdm_spl_idx = self._upsample(ref_gts, num_refs)
-        tgt_gts, self.tgt_rdm_spl_idx = self._upsample(tgt_gts, num_tgts)
+        ref_gts, self.ref_rdm_spl_idx = self._upsample(ref_gts, num_refs, seed)
+        tgt_gts, self.tgt_rdm_spl_idx = self._upsample(tgt_gts, num_tgts, seed)
 
         self.data = []
         self.num_genotype_matrices = len(polymorphisms)
@@ -171,7 +171,7 @@ class PolymorphismDataGenerator(GenericGenerator):
         for d in self.data:
             yield d
 
-    def _upsample(self, gts: np.ndarray, num_samples: int) -> tuple[np.ndarray, list]:
+    def _upsample(self, gts: np.ndarray, num_samples: int, seed: int = None) -> tuple[np.ndarray, list]:
         """
         Upsamples the genotype data.
 
@@ -181,6 +181,8 @@ class PolymorphismDataGenerator(GenericGenerator):
             Genotype data array.
         num_samples : int
             Number of samples in the genotype data.
+        seed : int, optional
+            Seed for random number generation. Default: None.
 
         Returns
         -------
@@ -193,6 +195,8 @@ class PolymorphismDataGenerator(GenericGenerator):
             return gts, []
         else:
             num_samples_added = max(self.num_samples_padded - num_samples, 0)
+            if seed is not None:
+                np.random.seed(seed)
             random_samples = np.random.randint(num_samples, size=int(num_samples_added))
             gts = np.transpose(gts).tolist()
             gts_upsampled = gts

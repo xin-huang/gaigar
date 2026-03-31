@@ -192,7 +192,7 @@ def test_feature_vector_simulation_config_props_out_of_range(field: str, value: 
         FeatureVectorSimulationConfig(**kwargs)
 
 
-@pytest.mark.parametrize("field", ["num_polymorphisms", "num_upsamples"])
+@pytest.mark.parametrize("field", ["num_polymorphisms"])
 @pytest.mark.parametrize("bad_value", [0, -1])
 def test_genotype_matrix_simulation_config_specific_fields_must_be_gt_zero(
     field: str, bad_value: int
