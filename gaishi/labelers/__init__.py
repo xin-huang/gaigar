@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,4 +19,5 @@
 
 
 from .generic_labeler import GenericLabeler  # noqa: F401
+from .binary_allele_labeler import BinaryAlleleLabeler  # noqa: F401
 from .binary_window_labeler import BinaryWindowLabeler  # noqa: F401

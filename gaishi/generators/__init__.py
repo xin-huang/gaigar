@@ -1,5 +1,6 @@
+# Copyright 2025 Xin Huang
+#
 # GNU General Public License v3.0
-# Copyright 2024 Xin Huang
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,4 +20,5 @@
 
 from .generic_generator import GenericGenerator  # noqa: F401
 from .random_number_generator import RandomNumberGenerator  # noqa: F401
-from .genomic_data_generator import GenomicDataGenerator  # noqa: F401
+from .polymorphism_data_generator import PolymorphismDataGenerator  # noqa: F401
+from .window_data_generator import WindowDataGenerator  # noqa: F401
